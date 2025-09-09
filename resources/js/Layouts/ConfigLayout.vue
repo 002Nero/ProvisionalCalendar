@@ -8,7 +8,7 @@ import AddYearPopup from "@/Components/Popup/AddYearPopup.vue";
 import IconButton from "@/Components/IconButton.vue";
 import Filter from "@/Components/Filter.vue";
 import axios from "axios";
-import { useLabelsStore } from "@/Stores/labelsStore";
+import { useLabelsStore } from "@/stores/labelsStore";
 
 const contentHeight = ref<number>(0);
 const mainLayout = ref<HTMLElement | null>(null);
