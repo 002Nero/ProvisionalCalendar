@@ -65,7 +65,8 @@ sail npm run dev
 
 - **Lancer les tests**
 ```bash
-sail artisan test
+ ./vendor/bin/sail test tests #même ça c'est mal fait
+sail artisan test # nul nul nul
 ```
 
 - **Accéder à la base de données**

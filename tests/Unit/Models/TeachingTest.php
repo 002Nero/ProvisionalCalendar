@@ -25,6 +25,7 @@ class TeachingTest extends TestCase
         $teaching = Teaching::first();
 
         $this->assertInstanceOf(Teaching::class, $teaching);
+        echo($teaching->title);
         $this->assertEquals('R1.01 - Initiation à la programmation', $teaching->title);
         $this->assertEquals('PROG_R1.01', $teaching->apogee_code);
         $this->assertEquals(20.00, $teaching->tp_hours_initial);

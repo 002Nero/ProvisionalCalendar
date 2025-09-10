@@ -12,7 +12,7 @@ const props = defineProps<{
 console.log(props.role);
 console.log(props.message);
 
-const slot = ref<ProvisionnalCalendarSlotType>({ items: [
+const slot = ref<ProvisionnalCalendarSlotType>({ items: [g
     { teacher: { name: 'John Doe', firstname: 'John', lastname: 'Doe', code: '123456', id: 1 }, substitute: null, time: 1 },
     { teacher: { name: 'Jane Doe', firstname: 'Jane', lastname: 'Doe', code: '123457', id: 2 }, substitute: null, time: 1 },
     { teacher: { name: 'John Doe', firstname: 'John', lastname: 'Doe', code: '123456', id: 1 }, substitute: null, time: 2 },

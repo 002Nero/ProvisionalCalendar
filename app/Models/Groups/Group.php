@@ -14,7 +14,7 @@ class Group extends Model
 
     public function academicPromotion()
     {
-        return $this->belongsTo(Promotion::class);
+        return $this->belongsTo(Promotion::class, "promotion_id");
     }
 
     public function academicSubgroups()
