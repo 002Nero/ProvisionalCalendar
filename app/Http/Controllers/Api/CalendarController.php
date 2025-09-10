@@ -87,11 +87,10 @@ class CalendarController extends Controller
                         ])
                         ->orderBy('week_number')
                         ->get();
-
             if ($weeks->isEmpty()) {
                 return response()->json([]);
             }
-
+            echo("+test"+$weeks);
             // Récupérer la promotion du premier slot trouvé
             $firstSlot = $weeks->pluck('slots')->flatten()->first();
             if (!$firstSlot) {
@@ -115,7 +114,7 @@ class CalendarController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage()+"test"
             ], 500);
         }
     }

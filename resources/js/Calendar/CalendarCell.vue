@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import CalendarSlot from "@/Calendar/CalendarSlot.vue";
 import { computed, ref } from "vue";
-import { SlotType } from "@/types/models";
+import { SlotType } from "@/types/models/calendars"; //SlotType dans calendars
 import { useCalendarStore } from "@/stores/calendar";
 
 const calendarStore = useCalendarStore();

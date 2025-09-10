@@ -1,7 +1,7 @@
 <template>
     <div class="page-content">
-      <HeaderMenu />
-      <Sidebar />
+      <HeaderMenu/>
+      <Sidebar/>
       <div class="main-content">
         <h1>Alertes Page</h1>
       </div>

@@ -2,14 +2,15 @@
 import { ref, onMounted, watch } from "vue";
 import axios from "axios";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
-import TeachersListManager from "@/Features/ListManager/TeachersListManager.vue";
+import TeachersListManager from "@/Features/ListManagers/TeachersListManager.vue";
 import CalendarTable from "@/Calendar/CalendarTable.vue";
 import { useCalendarStore } from "@/stores/calendar";
-import AddCalendarPopup from "@/Features/Popup/Calendar/AddCalendarPopup.vue";
+import AddCalendarPopup from "@/Features/Popups/Calendar/AddCalendarPopup.vue";
 
 const teachers = ref([]);
 const selectedTeacherIds = ref<number[]>([]);
 const calendarStore = useCalendarStore();
+const yearId = 1;
 
 // Watch store changes
 watch(
@@ -44,6 +45,7 @@ onMounted(async () => {
             <TeachersListManager
                 :teachers="teachers"
                 v-model:selectedTeacherIds="selectedTeacherIds"
+                v-model:yearId="yearId"
                 class="w-1/4"
             />
             <div class="w-3/4">

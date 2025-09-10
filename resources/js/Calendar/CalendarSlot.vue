@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SlotType } from "@/types/models";
+import { SlotType } from "@/types/models/calendars";//SlotType enum dans calendars.ts
 defineProps<{
     content: any;
     contentType: SlotType | null;
