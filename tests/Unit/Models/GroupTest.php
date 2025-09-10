@@ -68,13 +68,13 @@ class GroupTest extends TestCase
         $group->delete();
 
         // Vérifier que le groupe a été supprimé
-        $this->assertDatabaseMissing('academic_groups', [
+        $this->assertDatabaseMissing('groups', [
             'id' => $group->id
         ]);
 
         // Vérifier que les sous-groupes ont été supprimés en cascade
         foreach ($subgroupIds as $subgroupId) {
-            $this->assertDatabaseMissing('academic_subgroups', [
+            $this->assertDatabaseMissing('subgroups', [
                 'id' => $subgroupId
             ]);
         }
@@ -87,25 +87,25 @@ class GroupTest extends TestCase
             \Database\Seeders\Groups\PromotionSeeder::class,
         ]);
 
-        $promotion = AcademicPromotion::first();
+        $promotion = Promotion::first();
 
         // Test de création avec des données valides
-        $group = AcademicGroup::create([
+        $group = Group::create([
             'name' => 'Test Group',
-            'academic_promotion_id' => $promotion->id
+            'promotion_id' => $promotion->id
         ]);
 
-        $this->assertDatabaseHas('academic_groups', [
+        $this->assertDatabaseHas('groups', [
             'name' => 'Test Group',
-            'academic_promotion_id' => $promotion->id
+            'promotion_id' => $promotion->id
         ]);
 
         // Test de création avec une promotion inexistante
         $this->expectException(\Illuminate\Database\QueryException::class);
         
-        AcademicGroup::create([
+        Group::create([
             'name' => 'Invalid Group',
-            'academic_promotion_id' => 999 // ID inexistant
+            'promotion_id' => 999 // ID inexistant
         ]);
     }
 }
