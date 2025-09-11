@@ -31,10 +31,13 @@ class TrimesterTest extends TestCase
     {
         // Exécuter les seeders nécessaires
         $this->seed([
-            \Database\Seeders\YearSeeder::class,
+            \Database\Seeders\SemesterSeeder::class,
             \Database\Seeders\TrimesterSeeder::class,
-            \Database\Seeders\TeachingSeeder::class
+            \Database\Seeders\TeachingSeeder::class,
         ]);
+        #$this->seed([
+        #    
+       #]);
         
         $trimester = Trimester::with(['year', 'teachings'])->first();
 
