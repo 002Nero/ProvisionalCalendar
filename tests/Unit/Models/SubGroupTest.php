@@ -3,8 +3,8 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
-use App\Models\AcademicGroup;
-use App\Models\AcademicSubgroup;
+use App\Models\Groups\Group;
+use App\Models\Groups\Subgroup;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class SubGroupTest extends TestCase
@@ -16,16 +16,16 @@ class SubGroupTest extends TestCase
         // Exécuter les seeders nécessaires
         $this->seed([
             \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\AcademicPromotionSeeder::class,
-            \Database\Seeders\AcademicGroupSeeder::class,
-            \Database\Seeders\AcademicSubgroupSeeder::class
+            \Database\Seeders\Groups\PromotionSeeder::class,
+            \Database\Seeders\Groups\GroupSeeder::class,
+            \Database\Seeders\Groups\SubgroupSeeder::class
         ]);
-        
-        $subgroup = AcademicSubgroup::first();
 
-        $this->assertInstanceOf(AcademicSubgroup::class, $subgroup);
+        $subgroup = Subgroup::first();
+
+        $this->assertInstanceOf(Subgroup::class, $subgroup);
         $this->assertEquals('G1A', $subgroup->name);
-        $this->assertInstanceOf(AcademicGroup::class, $subgroup->academicGroup);
+        $this->assertInstanceOf(Group::class, $subgroup->academicGroup);
     }
 
     public function test_academic_subgroup_relationships()
@@ -33,15 +33,15 @@ class SubGroupTest extends TestCase
         // Exécuter les seeders nécessaires
         $this->seed([
             \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\AcademicPromotionSeeder::class,
-            \Database\Seeders\AcademicGroupSeeder::class,
-            \Database\Seeders\AcademicSubgroupSeeder::class
+            \Database\Seeders\Groups\PromotionSeeder::class,
+            \Database\Seeders\Groups\GroupSeeder::class,
+            \Database\Seeders\Groups\SubgroupSeeder::class
         ]);
         
-        $subgroup = AcademicSubgroup::with('academicGroup.academicPromotion')->first();
+        $subgroup = Subgroup::with('academicGroup.academicPromotion')->first();
 
         // Test de la relation avec AcademicGroup
-        $this->assertInstanceOf(AcademicGroup::class, $subgroup->academicGroup);
+        $this->assertInstanceOf(Group::class, $subgroup->academicGroup);
         $this->assertEquals('G1', $subgroup->academicGroup->name);
 
         // Test de la relation imbriquée avec AcademicPromotion
@@ -52,29 +52,29 @@ class SubGroupTest extends TestCase
     {
         $this->seed([
             \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\AcademicPromotionSeeder::class,
-            \Database\Seeders\AcademicGroupSeeder::class
+            \Database\Seeders\Groups\PromotionSeeder::class,
+            \Database\Seeders\Groups\GroupSeeder::class
         ]);
 
-        $group = AcademicGroup::first();
+        $group = Group::first();
 
         // Test de création avec des données valides
-        $subgroup = AcademicSubgroup::create([
+        $subgroup = Subgroup::create([
             'name' => 'Test Subgroup',
-            'academic_group_id' => $group->id
+            'group_id' => $group->id
         ]);
 
-        $this->assertDatabaseHas('academic_subgroups', [
+        $this->assertDatabaseHas('subgroups', [
             'name' => 'Test Subgroup',
-            'academic_group_id' => $group->id
+            'group_id' => $group->id
         ]);
 
         // Test de création avec un groupe inexistant
         $this->expectException(\Illuminate\Database\QueryException::class);
         
-        AcademicSubgroup::create([
+        Subgroup::create([
             'name' => 'Invalid Subgroup',
-            'academic_group_id' => 999 // ID inexistant
+            'group_id' => 999 // ID inexistant
         ]);
     }
 }

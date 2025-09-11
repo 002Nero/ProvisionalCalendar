@@ -15,6 +15,6 @@ class Subgroup extends Model
 
     public function academicGroup()
     {
-        return $this->belongsTo(Group::class);
+        return $this->belongsTo(Group::class, "group_id");
     }
 }
