@@ -12,6 +12,8 @@ class PromotionSeeder extends Seeder
      */
     public function run(): void
     {
+        #$year20242025 = Promotion::where('name', '2024-2025')->first();
+
         Promotion::create([
             'name' => 'BUT1',
             'year_id' => 1,
