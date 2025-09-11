@@ -17,4 +17,11 @@ export default defineConfig({
             },
         }),
     ],
+    server: {
+        watch: {
+            usePolling: true, // active le polling
+            interval: 1000,   // (optionnel) réduit la fréquence pour moins de charge
+            ignored: ["**/vendor/**", "**/node_modules/**"], // ignore fichiers inutiles
+        },
+    },
 });

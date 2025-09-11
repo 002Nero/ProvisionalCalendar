@@ -38,7 +38,7 @@ class RoleTest extends TestCase
         // Test de la relation avec Users
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $role->users);
         $this->assertInstanceOf(User::class, $role->users->first());
-        $this->assertCount(1, $role->users); // Car un seul utilisateur admin dans le seeder
+        $this->assertCount(4, $role->users); // Car 4 utilisateurs admin dans le seeder 
     }
 
     public function test_role_validation()
