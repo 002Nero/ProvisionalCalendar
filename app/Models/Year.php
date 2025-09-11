@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Validation\ValidationException;
+use App\Models\Groups\Promotion;
 
 class Year extends Model
 {
@@ -41,9 +42,9 @@ class Year extends Model
         return $this->hasMany(Teaching::class);
     }
 
-    public function academicPromotions()
+    public function Promotions()
     {
-        return $this->hasMany(AcademicPromotion::class);
+        return $this->hasMany(Promotion::class);
     }
 
     public function alerts()

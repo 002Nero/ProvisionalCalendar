@@ -22,15 +22,15 @@ class TeachingTest extends TestCase
             \Database\Seeders\TeachingSeeder::class
         ]);
         
-        $teaching = Teaching::first();
+        $teaching = Teaching::skip(7)->first();
 
         $this->assertInstanceOf(Teaching::class, $teaching);
         echo($teaching->title);
-        $this->assertEquals('R1.01 - Initiation à la programmation', $teaching->title);
-        $this->assertEquals('PROG_R1.01', $teaching->apogee_code);
-        $this->assertEquals(20.00, $teaching->tp_hours_initial);
-        $this->assertEquals(15.00, $teaching->td_hours_intial);
-        $this->assertEquals(10.00, $teaching->cm_hours_initial);
+        $this->assertEquals('R1.01 Initiation au développement', $teaching->title);
+        $this->assertEquals('TIN01A1M', $teaching->apogee_code);
+        $this->assertEquals(15.00, $teaching->tp_hours_initial);
+        $this->assertEquals(10.00, $teaching->td_hours_initial);
+        $this->assertEquals(15.00, $teaching->cm_hours_initial);
         $this->assertInstanceOf(Year::class, $teaching->year);
     }
 
@@ -73,7 +73,7 @@ class TeachingTest extends TestCase
             'title' => 'Test Teaching',
             'apogee_code' => 'TEST_001',
             'tp_hours_initial' => 10.00,
-            'td_hours_intial' => 10.00,
+            'td_hours_initial' => 10.00,
             'cm_hours_initial' => 10.00,
             'semester_id' => $semester->id,
             'trimester_id' => null,
@@ -93,7 +93,7 @@ class TeachingTest extends TestCase
             'title' => 'Invalid Teaching',
             'apogee_code' => 'TEST_002',
             'tp_hours_initial' => 10.00,
-            'td_hours_intial' => 10.00,
+            'td_hours_initial' => 10.00,
             'cm_hours_initial' => 10.00,
             'semester_id' => $semester->id,
             'trimester_id' => null,

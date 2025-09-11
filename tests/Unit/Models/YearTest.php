@@ -8,7 +8,7 @@ use App\Models\Semester;
 use App\Models\Trimester;
 use App\Models\Teaching;
 use App\Models\Teacher;
-use App\Models\AcademicPromotion;
+use App\Models\Groups\Promotion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 
@@ -39,7 +39,7 @@ class YearTest extends TestCase
             \Database\Seeders\RoleSeeder::class,
             \Database\Seeders\UserSeeder::class,
             \Database\Seeders\TeacherSeeder::class,
-            \Database\Seeders\AcademicPromotionSeeder::class
+            \Database\Seeders\Groups\PromotionSeeder::class
         ]);
         
         // Test année semestrielle
@@ -55,13 +55,13 @@ class YearTest extends TestCase
         $this->assertCount(0, $trimesterYear->semesters);
 
         // Test autres relations
-        $year = Year::with(['teachings', 'teachers', 'academicPromotions'])->first();
+        $year = Year::with(['teachings', 'teachers', 'Promotions'])->first();
         $this->assertNotNull($year->teachings);
         $this->assertInstanceOf(Teaching::class, $year->teachings->first());
         $this->assertNotNull($year->teachers);
         $this->assertInstanceOf(Teacher::class, $year->teachers->first());
-        $this->assertNotNull($year->academicPromotions);
-        $this->assertInstanceOf(AcademicPromotion::class, $year->academicPromotions->first());
+        $this->assertNotNull($year->Promotions);
+        $this->assertInstanceOf(Promotion::class, $year->Promotions->first());
     }
 
     public function test_year_validation()
