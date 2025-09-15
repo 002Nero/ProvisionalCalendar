@@ -3,6 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Groups\Promotion;
+use App\Models\Groups\Group;
+use App\Models\Groups\Subgroup;
+
 
 class Slot extends Model
 {
@@ -47,17 +51,17 @@ class Slot extends Model
 
     public function academicPromotion()
     {
-        return $this->belongsTo(AcademicPromotion::class);
+        return $this->belongsTo(Promotion::class);
     }
 
     public function academicGroup()
     {
-        return $this->belongsTo(AcademicGroup::class);
+        return $this->belongsTo(Group::class);
     }
 
     public function academicSubgroup()
     {
-        return $this->belongsTo(AcademicSubgroup::class);
+        return $this->belongsTo(Subgroup::class);
     }
 
     public function week()

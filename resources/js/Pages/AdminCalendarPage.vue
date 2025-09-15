@@ -4,6 +4,7 @@ import axios from "axios";
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import TeachersListManager from "@/Features/ListManagers/TeachersListManager.vue";
 import CalendarTable from "@/Calendar/CalendarTable.vue";
+import CalendarCell from "@/Calendar/CalendarCell.vue";
 import { useCalendarStore } from "@/stores/calendar";
 import AddCalendarPopup from "@/Features/Popups/Calendar/AddCalendarPopup.vue";
 
@@ -23,7 +24,7 @@ watch(
 
 onMounted(async () => {
     try {
-        const teachersResponse = await axios.get("/api/enseignants/1");
+        const teachersResponse = await axios.get("/api/teacher/1");
         teachers.value = teachersResponse.data
             .filter(
                 (teacher: any) =>

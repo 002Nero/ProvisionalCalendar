@@ -90,7 +90,6 @@ class CalendarController extends Controller
             if ($weeks->isEmpty()) {
                 return response()->json([]);
             }
-            echo("+test"+$weeks);
             // Récupérer la promotion du premier slot trouvé
             $firstSlot = $weeks->pluck('slots')->flatten()->first();
             if (!$firstSlot) {
