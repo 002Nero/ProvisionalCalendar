@@ -10,6 +10,9 @@ Application de gestion de calendrier provisoire développée avec Laravel et Vue
 - Git
 
 ## Installation
+Dans le cas où vous utilisez une VM linux il faut ajouter les ports suivant:
+
+<img width="640" height="392" alt="image" src="https://github.com/user-attachments/assets/03d69105-b469-4ac2-b0ec-4ed1d7317b25" />
 
 ### Cloner le projet
 ```bash
