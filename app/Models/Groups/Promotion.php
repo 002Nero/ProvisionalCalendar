@@ -12,7 +12,7 @@ class Promotion extends Model
         'year_id',
     ];
 
-    public function academicGroups()
+    public function Groups()
     {
         return $this->hasMany(Group::class);
     }

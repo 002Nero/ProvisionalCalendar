@@ -11,9 +11,9 @@ class Subgroup extends Model
         'group_id',
     ];
 
-    protected $with = ['academicGroup.academicPromotion'];
+    protected $with = ['Group.Promotion'];
 
-    public function academicGroup()
+    public function Group()
     {
         return $this->belongsTo(Group::class, "group_id");
     }

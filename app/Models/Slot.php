@@ -15,9 +15,9 @@ class Slot extends Model
         'teacher_id',
         'teaching_id',
         'substitute_teacher_id',
-        'academic_promotion_id',
-        'academic_group_id',
-        'academic_subgroup_id',
+        'promotion_id',
+        'group_id',
+        'subgroup_id',
         'is_neutralized',
         'week_id',
         'type', // Ajout du type
@@ -49,17 +49,17 @@ class Slot extends Model
         return $this->belongsTo(Teaching::class);
     }
 
-    public function academicPromotion()
+    public function Promotion()
     {
         return $this->belongsTo(Promotion::class);
     }
 
-    public function academicGroup()
+    public function Group()
     {
         return $this->belongsTo(Group::class);
     }
 
-    public function academicSubgroup()
+    public function Subgroup()
     {
         return $this->belongsTo(Subgroup::class);
     }

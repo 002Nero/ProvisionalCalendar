@@ -23,9 +23,9 @@ class CalendarController extends Controller
                 'teacher_id' => 'required|exists:teachers,id',
                 'teaching_id' => 'required|exists:teachings,id',
                 'substitute_teacher_id' => 'nullable|exists:teachers,id',
-                'academic_promotion_id' => 'nullable|exists:academic_promotions,id',
-                'academic_group_id' => 'nullable|exists:academic_groups,id',
-                'academic_subgroup_id' => 'nullable|exists:academic_subgroups,id',
+                'promotion_id' => 'nullable|exists:promotions,id',
+                'group_id' => 'nullable|exists:groups,id',
+                'subgroup_id' => 'nullable|exists:subgroups,id',
                 'is_neutralized' => 'boolean',
                 'week_id' => 'required|exists:weeks,id',
                 'type' => 'required|in:CM,TD,TP'
@@ -56,7 +56,7 @@ class CalendarController extends Controller
             $slot = Slot::create($request->all());
 
             // Charger les relations pour la réponse
-            $slot->load(['teacher', 'substituteTeacher', 'teaching', 'academicPromotion']);
+            $slot->load(['teacher', 'substituteTeacher', 'teaching', 'Promotion']);
 
             return response()->json([
                 'message' => 'Slot créé avec succès',
@@ -81,9 +81,9 @@ class CalendarController extends Controller
                             'slots.teacher',
                             'slots.teaching',
                             'slots.substituteTeacher',
-                            'slots.academicPromotion.academicGroups.academicSubgroups',
-                            'slots.academicGroup',
-                            'slots.academicSubgroup'
+                            'slots.Promotion.Groups.Subgroups',
+                            'slots.Group',
+                            'slots.Subgroup'
                         ])
                         ->orderBy('week_number')
                         ->get();
@@ -96,7 +96,7 @@ class CalendarController extends Controller
                 return response()->json([]);
             }
 
-            $promotion = $firstSlot->academicPromotion;
+            $promotion = $firstSlot->Promotion;
             if (!$promotion) {
                 return response()->json([]);
             }
@@ -113,7 +113,7 @@ class CalendarController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Une erreur est survenue',
-                'message' => $e->getMessage()+"test"
+                'message' => $e->getMessage()
             ], 500);
         }
     }
@@ -122,8 +122,8 @@ class CalendarController extends Controller
     {
         return collect([
             [
-                'contents' => $this->formatSlotContents($slots->where('academic_promotion_id', $promotion->id)->where('type', 'CM')),
-                'groups' => $this->formatGroups($slots->where('academic_promotion_id', $promotion->id), $promotion->academicGroups)
+                'contents' => $this->formatSlotContents($slots->where('promotion_id', $promotion->id)->where('type', 'CM')),
+                'groups' => $this->formatGroups($slots->where('promotion_id', $promotion->id), $promotion->Groups)
             ]
         ]);
     }
@@ -131,11 +131,11 @@ class CalendarController extends Controller
     private function formatGroups($promotionSlots, $groups)
     {
         return $groups->map(function ($group) use ($promotionSlots) {
-            $groupSlots = $promotionSlots->where('academic_group_id', $group->id);
+            $groupSlots = $promotionSlots->where('group_id', $group->id);
 
             return [
                 'contents' => $this->formatSlotContents($groupSlots->where('type', 'TD')),
-                'groups' => $this->formatSubgroups($groupSlots, $group->academicSubgroups)
+                'groups' => $this->formatSubgroups($groupSlots, $group->Subgroups)
             ];
         })->values();
     }
@@ -143,7 +143,7 @@ class CalendarController extends Controller
     private function formatSubgroups($groupSlots, $subgroups)
     {
         return $subgroups->map(function ($subgroup) use ($groupSlots) {
-            $subgroupSlots = $groupSlots->where('academic_subgroup_id', $subgroup->id);
+            $subgroupSlots = $groupSlots->where('subgroup_id', $subgroup->id);
 
             return [
                 'contents' => $this->formatSlotContents($subgroupSlots->where('type', 'TP'))
@@ -166,13 +166,13 @@ class CalendarController extends Controller
             // Ajouter les IDs en fonction du type de slot
             switch($slot->type) {
                 case 'CM':
-                    $data['promotionId'] = $slot->academic_promotion_id;
+                    $data['promotionId'] = $slot->promotion_id;
                     break;
                 case 'TD':
-                    $data['groupId'] = $slot->academic_group_id;
+                    $data['groupId'] = $slot->group_id;
                     break;
                 case 'TP':
-                    $data['subgroupId'] = $slot->academic_subgroup_id;
+                    $data['subgroupId'] = $slot->subgroup_id;
                     break;
             }
 
