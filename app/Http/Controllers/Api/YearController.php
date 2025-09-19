@@ -68,7 +68,7 @@ class YearController extends Controller
     public function show($id): JsonResponse
     {
         try {
-            $year = Year::with(['semesters', 'trimesters', 'teachings', 'teachers', 'academicPromotions'])
+            $year = Year::with(['semesters', 'trimesters', 'teachings', 'teachers', 'Promotions'])
                 ->find($id);
 
             if (!$year) {

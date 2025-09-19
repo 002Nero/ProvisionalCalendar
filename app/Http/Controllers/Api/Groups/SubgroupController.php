@@ -40,7 +40,7 @@ class SubgroupController extends Controller
     public function getSubgroupById($subgroup_id): JsonResponse
     {
         try {
-            $subgroup = Subgroup::with(['academicGroup.academicPromotion'])
+            $subgroup = Subgroup::with(['Group.Promotion'])
                 ->find($subgroup_id);
 
             if (!$subgroup) {
@@ -155,7 +155,7 @@ class SubgroupController extends Controller
     public function deleteSubgroup($subgroup): JsonResponse
     {
         try {
-            $subgroupToDelete = Subgroup::with(['academicGroup.academicPromotion'])
+            $subgroupToDelete = Subgroup::with(['Group.Promotion'])
                 ->find($subgroup);
 
             if (!$subgroupToDelete) {

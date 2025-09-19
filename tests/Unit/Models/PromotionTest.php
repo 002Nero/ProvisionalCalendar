@@ -36,12 +36,12 @@ class PromotionTest extends TestCase
             \Database\Seeders\Groups\GroupSeeder::class
         ]);
         
-        $promotion = Promotion::with('academicGroups')->first();
+        $promotion = Promotion::with('Groups')->first();
 
         // Test de la relation avec AcademicGroups
-        $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $promotion->academicGroups);
-        $this->assertInstanceOf(Group::class, $promotion->academicGroups->first());
-        $this->assertCount(3, $promotion->academicGroups); // Car BUT1 a trois groupes (G1, G2, G3)
+        $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $promotion->Groups);
+        $this->assertInstanceOf(Group::class, $promotion->Groups->first());
+        $this->assertCount(3, $promotion->Groups); // Car BUT1 a trois groupes (G1, G2, G3)
     }
 
     public function test_academic_promotion_cascade_deletion()
@@ -55,7 +55,7 @@ class PromotionTest extends TestCase
         ]);
 
         $promotion = Promotion::first();
-        $groupIds = $promotion->academicGroups->pluck('id')->toArray();
+        $groupIds = $promotion->Groups->pluck('id')->toArray();
 
         // Supprimer la promotion
         $promotion->delete();

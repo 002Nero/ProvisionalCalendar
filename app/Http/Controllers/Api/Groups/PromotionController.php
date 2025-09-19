@@ -41,7 +41,7 @@ class PromotionController extends Controller
     public function getPromotionById($promotion_id): JsonResponse
     {
         try {
-            $promotion = Promotion::with(['academicGroups.academicSubgroups'])
+            $promotion = Promotion::with(['Groups.Subgroups'])
                 ->find($promotion_id);
 
             if (!$promotion) {
@@ -153,7 +153,7 @@ class PromotionController extends Controller
     public function deletePromotion($promotion): JsonResponse
     {
         try {
-            $promotionToDelete = Promotion::with(['academicGroups.academicSubgroups'])
+            $promotionToDelete = Promotion::with(['Groups.Subgroups'])
                 ->find($promotion);
 
             if (!$promotionToDelete) {

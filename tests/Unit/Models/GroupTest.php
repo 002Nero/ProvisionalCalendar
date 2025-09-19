@@ -26,7 +26,7 @@ class GroupTest extends TestCase
 
         $this->assertInstanceOf(Group::class, $group);
         $this->assertEquals('G1', $group->name);
-        $this->assertInstanceOf(Promotion::class, $group->academicPromotion);
+        $this->assertInstanceOf(Promotion::class, $group->Promotion);
     }
 
     public function test_academic_group_relationships()
@@ -39,16 +39,16 @@ class GroupTest extends TestCase
             \Database\Seeders\Groups\SubgroupSeeder::class
         ]);
         
-        $group = Group::with(['academicPromotion', 'academicSubgroups'])->first();
+        $group = Group::with(['Promotion', 'Subgroups'])->first();
 
         // Test de la relation avec AcademicPromotion
-        $this->assertInstanceOf(Promotion::class, $group->academicPromotion);
-        $this->assertEquals('BUT1', $group->academicPromotion->name);
+        $this->assertInstanceOf(Promotion::class, $group->Promotion);
+        $this->assertEquals('BUT1', $group->Promotion->name);
 
         // Test de la relation avec AcademicSubgroups
-        $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $group->academicSubgroups);
-        $this->assertInstanceOf(Subgroup::class, $group->academicSubgroups->first());
-        $this->assertCount(2, $group->academicSubgroups); // Car G1 a deux sous-groupes (G1A et G1B)
+        $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $group->Subgroups);
+        $this->assertInstanceOf(Subgroup::class, $group->Subgroups->first());
+        $this->assertCount(2, $group->Subgroups); // Car G1 a deux sous-groupes (G1A et G1B)
     }
 
     public function test_academic_group_cascade_deletion()
@@ -62,7 +62,7 @@ class GroupTest extends TestCase
         ]);
 
         $group = Group::first();
-        $subgroupIds = $group->academicSubgroups->pluck('id')->toArray();
+        $subgroupIds = $group->Subgroups->pluck('id')->toArray();
 
         // Supprimer le groupe
         $group->delete();

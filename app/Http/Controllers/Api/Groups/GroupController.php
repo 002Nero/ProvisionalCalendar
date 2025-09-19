@@ -36,7 +36,7 @@ class GroupController extends Controller
     public function getGroupById($group_id): JsonResponse
     {
         try {
-            $group = Group::with(['academicSubgroups', 'academicPromotion'])
+            $group = Group::with(['Subgroups', 'Promotion'])
                 ->find($group_id);
 
             if (!$group) {
@@ -149,7 +149,7 @@ class GroupController extends Controller
     public function deleteGroup($group): JsonResponse
     {
         try {
-            $groupToDelete = Group::with(['academicSubgroups', 'academicPromotion', 'slots'])
+            $groupToDelete = Group::with(['Subgroups', 'Promotion', 'slots'])
                 ->find($group);
 
             if (!$groupToDelete) {
