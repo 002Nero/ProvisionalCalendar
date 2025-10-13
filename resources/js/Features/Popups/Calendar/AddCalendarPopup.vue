@@ -3,6 +3,28 @@ import { ref, computed } from "vue";
 import Popup from "@/Components/Popup/PopupComponent.vue";
 import CloseWithoutSaveConfirmationPopup from "@/Components/CloseWithoutSaveConfirmationPopup.vue";
 
+const emit = defineEmits(["close","cancel", "successfullyAdded"]);
+
+const isCloseWithoutSaveConfirmationPopupVisible = ref<boolean>(false);
+const hasBeenEdited = ref<boolean>(false);
+
+const showCloseWithoutSaveConfirmationPopup = () =>
+    (isCloseWithoutSaveConfirmationPopupVisible.value = true);
+
+const hideCloseWithoutSaveConfirmationPopup = () =>
+    (isCloseWithoutSaveConfirmationPopupVisible.value = false);
+
+const handleCancel = () =>
+    hasBeenEdited.value
+        ? showCloseWithoutSaveConfirmationPopup()
+        : emit("close");
+
+const handleCloseWithoutSaving = () => {
+    hideCloseWithoutSaveConfirmationPopup();
+    emit("close");
+};
+
+
 defineProps<{
     show?: boolean;
 }>();
@@ -51,21 +73,22 @@ const cancelClose = () => {
 const modifyCalendar = () => {
     // Logic to modify the calendar
 };
+
+const handleHasBeenEdited = () => {
+    hasBeenEdited.value = true;
+};
 </script>
 
 <template>
-    <Popup
-        title="Ajouter calendrier prévisionnel"
-        :show
-        @close="$emit('cancel')"
-    >
+    <Popup title="Ajouter calendrier prévisionnel" @close="handleCancel">
         <div class="space-y-6">
             <div>
                 <label class="block text-lg mb-2">Professeur</label>
                 <select
                     v-model="selectedProfessor"
+                    @change="handleHasBeenEdited"
                     class="w-full p-3 border rounded-lg bg-white appearance-none pr-10 relative"
-                >
+                >  
                     <option
                         v-for="prof in professors"
                         :key="prof.value"
@@ -75,12 +98,12 @@ const modifyCalendar = () => {
                     </option>
                 </select>
             </div>
-
             <div>
                 <label class="block text-lg mb-2">Heures</label>
                 <input
                     type="text"
                     v-model="hours"
+                    @input="handleHasBeenEdited"
                     placeholder="ex : 10.5"
                     class="w-full p-3 border rounded-lg"
                 />
@@ -92,6 +115,7 @@ const modifyCalendar = () => {
                         type="checkbox"
                         id="evaluation"
                         v-model="evaluation"
+                        @change="handleHasBeenEdited"
                         class="w-5 h-5 mr-3"
                     />
                     <label for="evaluation" class="text-lg">Évaluation</label>
@@ -102,6 +126,7 @@ const modifyCalendar = () => {
                             type="checkbox"
                             id="replaced"
                             v-model="replaced"
+                            @change="handleHasBeenEdited"
                             class="w-5 h-5 mr-3"
                         />
                         <label for="replaced" class="text-lg">Remplacé</label>
@@ -112,6 +137,7 @@ const modifyCalendar = () => {
                         >
                         <select
                             v-model="replacementProfessor"
+                            @change="handleHasBeenEdited"
                             class="w-full p-3 border rounded-lg bg-white appearance-none pr-10 relative"
                         >
                             <option
@@ -130,6 +156,7 @@ const modifyCalendar = () => {
                         type="checkbox"
                         id="neutralized"
                         v-model="neutralized"
+                        @change="handleHasBeenEdited"
                         class="w-5 h-5 mr-3"
                     />
                     <label for="neutralized" class="text-lg">Neutralisé</label>
@@ -146,8 +173,8 @@ const modifyCalendar = () => {
     </Popup>
 
     <CloseWithoutSaveConfirmationPopup
-        :show="showConfirmation"
-        @close="confirmClose"
-        @cancel="cancelClose"
+        v-if="isCloseWithoutSaveConfirmationPopupVisible"
+        @close="handleCloseWithoutSaving"
+        @cancel="hideCloseWithoutSaveConfirmationPopup"
     />
 </template>

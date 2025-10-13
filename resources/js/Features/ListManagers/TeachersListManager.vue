@@ -38,6 +38,7 @@ const emit = defineEmits([
 ]);
 
 const fetchTeachers = () => {
+    console.log("fetchTeachers");
     teacherService
         .getTeachers(props.yearId)
         .then((response) => (teachers.value = response))
@@ -45,6 +46,7 @@ const fetchTeachers = () => {
 };
 
 onMounted(() => {
+    console.log("test");
     fetchTeachers();
 });
 

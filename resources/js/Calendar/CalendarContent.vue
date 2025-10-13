@@ -18,12 +18,15 @@ onMounted(() => {
         contentRef.value.addEventListener("scroll", () => {
             if (headerRef.value) {
                 headerRef.value.scrollLeft = contentRef.value!.scrollLeft;
+                console.log("test1")
             }
         });
 
         headerRef.value.addEventListener("scroll", () => {
             if (contentRef.value) {
                 contentRef.value.scrollLeft = headerRef.value!.scrollLeft;
+                console.log("test2")
+
             }
         });
     }

@@ -17,15 +17,17 @@ const yearId = 1;
 watch(
     () => calendarStore.showingAddCalendarPopup,
     (showing) => {
-        console.log('Popup visibility changed:', showing);
-        console.log('Current popup data:', calendarStore.addCalendarPopupData);
+        //console.log('Popup visibility changed:', showing);
+        //console.log('Current popup data:', calendarStore.addCalendarPopupData);
     }
 );
 
 onMounted(async () => {
     try {
-        const teachersResponse = await axios.get("/api/teacher/1");
-                /*teachers.value = teachersResponse.data
+        const teachersResponse = await axios.get(`/api/teachers/${yearId}`);
+        console.log("Teachers response data:", teachersResponse);
+        //teachers.value = teachersResponse.data;
+                teachers.value = teachersResponse.data
             .filter(
                 (teacher: any) =>
                     teacher.teachings && teacher.teachings.length > 0
@@ -33,7 +35,7 @@ onMounted(async () => {
             .map((teacher: any) => ({
                 id: teacher.id,
                 name: `${teacher.first_name} ${teacher.last_name}`,
-            }));*/
+            }));
     } catch (error) {
         console.error("Erreur lors de la récupération des enseignants:", error);
     }

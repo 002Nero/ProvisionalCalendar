@@ -3,6 +3,8 @@ import { ref, defineEmits, onMounted, onUnmounted, computed } from "vue";
 import Filter from "@/Components/Filter.vue";
 import SearchBar from "@/Components/SearchBar.vue";
 import SelectionnableEditableButtonList from "./SelectionnableEditableButtonList.vue";
+//import RightSidebarHeader from "./RightSidebarHeader.vue";
+import RightSidebarHeader from "@/Calendar/RightSidebarHeader.vue";
 import { Item } from "@/types/models/utils";
 import { Period } from "@/types/models/periods";
 
@@ -119,7 +121,7 @@ onUnmounted(() => {
 <template>
     <div
         ref="listManager"
-        class="list-manager h-full flex flex-col p-6 bg-white rounded-3xl shadow-lg"
+        class="list-manager h-full flex flex-col p-6 bg-white rounded-3xl shadow-lg "
     >
         <h1 class="text-2xl font-bold mb-4">{{ title }}</h1>
         <SearchBar

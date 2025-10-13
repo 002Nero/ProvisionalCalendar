@@ -11,7 +11,7 @@ defineProps<{
 </script>
 
 <template>
-    <div class="flex flex-col flex-end gap-3">
+    <div class="flex flex-col flex-end gap-3 ">
         <SelectionnableEditableButton
             v-for="item in items"
             :key="item.id"

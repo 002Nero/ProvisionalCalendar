@@ -96,6 +96,8 @@ const closeOnClickOutside = (event: MouseEvent) => {
 
 onMounted(() => {
     document.addEventListener("click", closeOnClickOutside);
+    console.log("test3")
+
 });
 </script>
 

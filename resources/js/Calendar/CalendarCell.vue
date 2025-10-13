@@ -18,6 +18,9 @@ const isDragOver = ref<boolean>(false);
 const getGroupType = (): SlotType | null => {
     // Si le groupe a des contenus, on prend le type du premier contenu
     if (props.groupData.contents && props.groupData.contents.length > 0) {
+        console.log("oui"+props.groupData.contents[0].type as SlotType);
+        console.log("oui"+props.groupData.contents[0].type );
+        console.log("oui"+props.groupData.contents[0].type );
         return props.groupData.contents[0].type as SlotType;
     }
     return null;
@@ -34,13 +37,21 @@ const getId = () => {
 };
 
 const handleDrop = (e: DragEvent) => {
-    console.log('Drop event:', e);
-    const teacherData = JSON.parse(e.dataTransfer?.getData('teacher') || '{}');
+    e.preventDefault();
+    const data = (e.dataTransfer?.getData("text/plain") || '{}');
+    const teacherData = JSON.parse(data); // reconvertit en objet
+
+    //const teacherData = JSON.parse(e.dataTransfer?.getData('teacher') || '{}');
+    //console.log('test', JSON.parse(e.dataTransfer?.getData('teacher')));
+    //console.log('Drop event dataTransfer:', e.dataTransfer.getData('id'));
     console.log('Teacher data:', teacherData);
     const groupInfo = getId();
     console.log('Group info:', groupInfo);
-    
+    //teacherData.id=1; // A enlever
+
+    console.log(teacherData.id, groupInfo);
     if (teacherData.id && groupInfo) {
+        console.log("ça passe ?")
         const popupData = {
             teacherId: teacherData.id,
             type: groupInfo.type,
@@ -74,7 +85,7 @@ const cellWidth = computed(() => {
         <div
             :class="[
                 'relative min-w-96 flex items-center justify-start border-r-2 bg-white border-b-2 border-gray-200 after:absolute after:top-0 after:bottom-0 after:right-0 after:left-0',
-                { 'after:bg-blue-500 after:opacity-20': isDragOver },
+                { 'after:bg-blue-500 after:opacity-20': isDragOver},
             ]"
             :style="{ width: `${cellWidth}px` }"
             @dragover.prevent="isDragOver = true"

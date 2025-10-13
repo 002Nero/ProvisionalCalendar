@@ -35,7 +35,8 @@ const updateMainContentHeight = () => {
 onMounted(() => {
     headerMenu.value = mainLayout.value!.querySelector(".header-menu");
     window.addEventListener("resize", updateMainContentHeight);
-
+    console.log("test4")
+    
     observer.value = new MutationObserver(() => {
         setTimeout(updateMainContentHeight, 1);
     });

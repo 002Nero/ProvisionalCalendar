@@ -15,10 +15,13 @@ const handleEdit = () => {
 };
 
 const handleSelect = () => {
+    console.log("select");
     emit("select", props.item.id);
 };
 
 const handleDrag = (event: DragEvent) => {
+    //console.log("test")
+    console.log("testHandle ?", props.item.id)
     if (event.dataTransfer) {
         event.dataTransfer.setData("text/plain", JSON.stringify(props.item));
         event.dataTransfer.dropEffect = "move";
