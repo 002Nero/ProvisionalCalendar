@@ -18,6 +18,12 @@ export default defineConfig({
         }),
     ],
     server: {
+        host: '0.0.0.0', // listen on all interfaces
+        port: 5173, // match docker-compose port
+        strictPort: true, // fail fast if port in use
+        hmr: {
+            host: 'localhost', // use localhost for browser connection
+        },
         watch: {
             usePolling: true, // active le polling
             interval: 1000,   // (optionnel) réduit la fréquence pour moins de charge
