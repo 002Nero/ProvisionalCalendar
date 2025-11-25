@@ -12,6 +12,12 @@ const provisionnalCalendarMenuItems: MenuItem[] = [
         label: "Calendrier Prévisionnels",
         route: "editeur",
     },
+    {
+        iconClass: "Clock",
+        label: "Emplois du temps",
+        route: "edt"
+
+    },
 ];
 
 const configurationMenuItems: MenuItem[] = [
@@ -26,7 +32,11 @@ export const sidebarMenuItems: MenuItem[] = [
         route: "calendrier-previsionnel",
         submenu: provisionnalCalendarMenuItems,
     },
-    { iconClass: "Clock", label: "EDT", route: "edt", disable: true },
+    {
+        iconClass: "Clock",
+        label: "EDT",
+        route: "edt"
+    },
     {
         iconClass: "NotebookText",
         label: "Service",

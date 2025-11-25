@@ -55,6 +55,17 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/calendrier-previsionnel/editeur', [ProvisionnalCalendarEditorController::class, 'show'])
         ->name('provisionnal_calendar.editor');
 
+    Route::get('/calendrier-previsionnel/edt', function () {
+        return Inertia::render('ProvisionnalCalendarEdtPage');
+    })->name('provisionnal_calendar.edt');
+
+    // Page d'édition qui réutilise la même page Vue mais en mode édition (prop edit=true)
+    Route::get('/calendrier-previsionnel/edt/modifier', function () {
+        return Inertia::render('ProvisionnalCalendarEdtPage', [
+            'edit' => true,
+        ]);
+    })->name('provisionnal_calendar.edt.edit');
+
     Route::get('/configurations', function () {
         return redirect()->route('provisionnal_calendar.settings.labels');
     })->name('provisionnal_calendar.settings');
