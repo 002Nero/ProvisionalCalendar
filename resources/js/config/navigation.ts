@@ -35,7 +35,7 @@ export const sidebarMenuItems: MenuItem[] = [
     {
         iconClass: "Clock",
         label: "EDT",
-        route: "edt"
+        route: "calendrier-previsionnel/edt"
     },
     {
         iconClass: "NotebookText",

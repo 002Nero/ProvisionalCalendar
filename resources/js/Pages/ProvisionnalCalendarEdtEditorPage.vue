@@ -1,45 +1,18 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useEdtStore } from '@/stores/edtStore'
-
-const props = defineProps<{
-  edit?: boolean
-}>();
+import { ref, watch, computed } from 'vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import IconButton from '@/Components/IconButton.vue'
+import { useEdtStore } from '@/stores/edtStore'
 
-const promotions = ref([
-  { id: 1, name: 'A1' },
-  { id: 2, name: 'A2' },
-  { id: 3, name: 'A3' }
-])
+const edtStore = useEdtStore()
 
-const groupsByPromotion: Record<number, { id: number; name: string }[]> = {
-  1: [
-    { id: 1, name: 'G1' },
-    { id: 2, name: 'G2' },
-    { id: 3, name: 'G3' },
-  ],
-  2: [
-    { id: 4, name: 'G4' },
-    { id: 5, name: 'G5' },
-    { id: 6, name: 'G6' },
-  ],
-  3: [
-    { id: 7, name: 'G7' },
-    { id: 8, name: 'G8' },
-  ],
-}
-
-const selectedPromotion = ref(promotions.value[0].id)
-const groups = ref(groupsByPromotion[selectedPromotion.value] || [])
-const selectedGroup = ref<number | null>(groups.value[0]?.id ?? null)
-
-watch(selectedPromotion, (val) => {
-  groups.value = groupsByPromotion[val] || []
-  selectedGroup.value = groups.value[0]?.id ?? null
+const title = computed(() => {
+  const wk = edtStore.week ?? '-'
+  const promo = edtStore.promotionId ? `Promo A${edtStore.promotionId}` : '-'
+  const grp = edtStore.groupId ? `G${edtStore.groupId}` : '-'
+  const yr = edtStore.year ?? '-'
+  return `Modification Emploi du temps — Semaine ${wk}, ${promo} - ${grp} Année ${yr}`
 })
-const currentWeek = ref(1)
 
 const SLOT_START = 7 * 60
 const SLOT_END = 19 * 60 + 30
@@ -59,53 +32,21 @@ function isBlocked(mins: number) {
   return mins >= 12 * 60 && mins < 13 * 60 + 30
 }
 
-function prevWeek() {
-  if (currentWeek.value > 1) currentWeek.value -= 1
-}
-function nextWeek() {
-  currentWeek.value += 1
-}
-
-const edtStore = useEdtStore()
-watch(selectedPromotion, (val) => edtStore.setPromotion(val))
-watch(selectedGroup, (val) => edtStore.setGroup(val))
-watch(currentWeek, (val) => edtStore.setWeek(val))
-edtStore.setPromotion(selectedPromotion.value)
-edtStore.setGroup(selectedGroup.value)
-edtStore.setWeek(currentWeek.value)
-
 </script>
 
 <template>
-    <AdminLayout>
+  <AdminLayout>
     <div class="edt-container">
       <header class="edt-toolbar">
         <div class="left">
-          <h1 class="title">Emploi du temps (EDT)</h1>
+          <h1 class="title">{{ title }}</h1>
           <div class="controls">
-            <label>
-              Promotion
-              <select v-model="selectedPromotion">
-                <option v-for="p in promotions" :key="p.id" :value="p.id">{{ p.name }}</option>
-              </select>
-            </label>
-
-            <label>
-              Groupe
-              <select v-model="selectedGroup">
-                <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
-              </select>
-            </label>
           </div>
         </div>
 
-          <div class="right">
-          <IconButton iconClass="ChevronLeft" bgColor="#FFD8E4" small @click="prevWeek" />
-          <span class="week-indicator"> Semaine {{ currentWeek }}</span>
-          <IconButton iconClass="ChevronRight" bgColor="#FFD8E4" small @click="nextWeek" />
-          <button class="btn primary">Générer</button>
-          <button class="btn primary" @click="$inertia.visit('/calendrier-previsionnel/edt/modifier')">Modifier</button>
-          <button class="btn primary">PDF</button>
+        <div class="right">
+          <button class="btn primary">Sauvegarder</button>
+          <button class="btn primary" @click="$inertia.visit('/calendrier-previsionnel/edt')">Annuler</button>
 
         </div>
       </header>

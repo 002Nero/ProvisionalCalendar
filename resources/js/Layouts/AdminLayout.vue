@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
+import { useEdtStore } from '@/stores/edtStore'
 import HeaderMenu from "@/Components/Navigation/HeaderMenu.vue";
 import { sidebarMenuItems } from "@/config/navigation";
 import MainLayout from "./MainLayout.vue";
@@ -20,6 +21,18 @@ const selectedYearIndex = ref(0);
 
 const selectedYear = computed(() => {
     return years.value[selectedYearIndex.value]?.name || "Aucune année";
+});
+
+watch(selectedYear, (val) => {
+    (window as any).appSelectedYear = val;
+    const edt = useEdtStore()
+    edt.setYear(val as string)
+});
+
+onMounted(() => {
+    (window as any).appSelectedYear = selectedYear.value;
+    const edt = useEdtStore()
+    edt.setYear(selectedYear.value as string)
 });
 
 const handlePreviousYear = () => {
