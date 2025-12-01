@@ -34,6 +34,7 @@ const groupsByPromotion: Record<number, { id: number; name: string }[]> = {
 const selectedPromotion = ref(promotions.value[0].id)
 const groups = ref(groupsByPromotion[selectedPromotion.value] || [])
 const selectedGroup = ref<number | null>(groups.value[0]?.id ?? null)
+const selectedSubgroup = ref<string>('A')
 
 watch(selectedPromotion, (val) => {
   groups.value = groupsByPromotion[val] || []
@@ -69,10 +70,12 @@ function nextWeek() {
 const edtStore = useEdtStore()
 watch(selectedPromotion, (val) => edtStore.setPromotion(val))
 watch(selectedGroup, (val) => edtStore.setGroup(val))
+watch(selectedSubgroup, (val) => edtStore.setSubgroup(val))
 watch(currentWeek, (val) => edtStore.setWeek(val))
 edtStore.setPromotion(selectedPromotion.value)
 edtStore.setGroup(selectedGroup.value)
 edtStore.setWeek(currentWeek.value)
+edtStore.setSubgroup(selectedSubgroup.value)
 
 </script>
 
@@ -94,6 +97,13 @@ edtStore.setWeek(currentWeek.value)
               Groupe
               <select v-model="selectedGroup">
                 <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+              </select>
+            </label>
+            <label style="display:flex; align-items:center; gap:0.4rem;">
+              Sous-groupe
+              <select v-model="selectedSubgroup" style="width:64px;">
+                <option value="A">A</option>
+                <option value="B">B</option>
               </select>
             </label>
           </div>

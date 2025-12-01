@@ -9,7 +9,8 @@ const edtStore = useEdtStore()
 const title = computed(() => {
   const wk = edtStore.week ?? '-'
   const promo = edtStore.promotionId ? `Promo A${edtStore.promotionId}` : '-'
-  const grp = edtStore.groupId ? `G${edtStore.groupId}` : '-'
+  const subgroup = edtStore.subgroup ? String(edtStore.subgroup) : ''
+  const grp = edtStore.groupId ? `G${edtStore.groupId}${subgroup}` : '-'
   const yr = edtStore.year ?? '-'
   return `Modification Emploi du temps — Semaine ${wk}, ${promo} - ${grp} Année ${yr}`
 })
