@@ -13,9 +13,9 @@ const provisionnalCalendarMenuItems: MenuItem[] = [
         route: "editeur",
     },
     {
-        iconClass: "Clock",
-        label: "Emplois du temps",
-        route: "edt"
+        iconClass: "Constraint",
+        label: "Contraintes",
+        route: "constraintes"
 
     },
 ];

@@ -63,6 +63,10 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         return Inertia::render('ProvisionnalCalendarEdtEditorPage');
     })->name('provisionnal_calendar.edt.edit');
 
+    Route::get('/calendrier-previsionnel/constraintes', function () {
+        return Inertia::render('ConstraintsPage');
+    })->name('provisionnal_calendar.constraints');
+
     Route::get('/configurations', function () {
         return redirect()->route('provisionnal_calendar.settings.labels');
     })->name('provisionnal_calendar.settings');
