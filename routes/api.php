@@ -99,7 +99,7 @@ Route::middleware(['api.logger'])->group(function () {
         Route::post('/users/{user}/create-or-reset-password', [UserControllerApi::class, 'createOrResetPassword']);
 
     //Calendrier
-
         Route::post('/calendrier', [CalendarController::class, 'storeSlot']);
+        Route::post('/calendrier/bulk', [CalendarController::class, 'storeSlotsBulk']);
         Route::get('/calendrier/{id}', [CalendarController::class, 'getCalendarData']);
 });

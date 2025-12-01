@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
+import axios from 'axios'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import IconButton from '@/Components/IconButton.vue'
+// IconButton import removed (unused)
 import { useEdtStore } from '@/stores/edtStore'
 
 const edtStore = useEdtStore()
@@ -33,14 +34,75 @@ function isBlocked(mins: number) {
   return mins >= 12 * 60 && mins < 13 * 60 + 30
 }
 
-type Course = { id: number; code: string; title: string; type: string; duration: number; semester: number; room?: string; teacher?: string; editing?: boolean }
-const courses = ref<Course[]>([
-  { id: 1, code: 'R1.01', title: 'Algèbre linéaire',type: 'TD', duration: 90, semester: 1, room: 'R.50', teacher: 'M. Dubreuil', editing: false },
-  { id: 2, code: 'R2.02', title: 'Programmation JS', type: 'TP', duration: 120, semester: 2, room: '209', teacher: 'Mme. Poursat', editing: false },
-  { id: 3, code: 'R2.03', title: 'Physique générale', type: 'CM', duration: 60, semester: 2, room: '103', teacher: 'M. Monediere', editing: false },
-  { id: 4, code: 'R3.04', title: 'Anglais technique', type: 'Controle', duration: 60, semester: 3, room: '112', teacher: 'M. Onete', editing: false },
-  { id: 5, code: 'SAE1.01', title: 'Dev Application', type: 'SAE', duration: 60, semester: 1, room: 'R.47', teacher: '', editing: false },
-])
+type Course = { id: number; code?: string; title: string; type?: string; duration?: number; semester?: number | null; room?: string; teacher?: string; editing?: boolean; remainingMinutes?: number; selectedDuration?: number }
+const courses = ref<Course[]>([])
+
+async function loadTeachingsForYear(yearId: number) {
+  try {
+    const res = await axios.get(`/api/teachings/${yearId}`)
+    const data = Array.isArray(res.data) ? res.data : []
+    // Map backend teaching structure to Course used by the UI
+    courses.value = data.map((t: { id: number; name?: string; apogee_code?: string; tp_hours_initial?: number; td_hours_initial?: number; cm_hours_initial?: number; semester?: number | null }) => {
+      // prefer cm > td > tp for default type
+      let type = 'Autre'
+      if (t.cm_hours_initial && t.cm_hours_initial > 0) type = 'CM'
+      else if (t.td_hours_initial && t.td_hours_initial > 0) type = 'TD'
+      else if (t.tp_hours_initial && t.tp_hours_initial > 0) type = 'TP'
+
+      // determine a sensible default duration in minutes: use the first non-zero hours * 60, fallback 60
+      const hours = (t.td_hours_initial || t.tp_hours_initial || t.cm_hours_initial || 1)
+      const durationMinutes = Math.max(1, Number(hours)) * 60
+
+      // compute remaining minutes depending on type
+      let remaining = 0
+      if (type === 'CM') remaining = (t.cm_hours_initial || 0) * 60
+      else if (type === 'TD') remaining = (t.td_hours_initial || 0) * 60
+      else if (type === 'TP') remaining = (t.tp_hours_initial || 0) * 60
+      if (remaining <= 0) remaining = durationMinutes
+
+      return {
+          id: t.id,
+          code: t.apogee_code ?? undefined,
+          title: t.name ?? `Enseignement ${t.id}`,
+          type,
+          duration: durationMinutes,
+          semester: t.semester ?? null,
+          editing: false,
+          remainingMinutes: remaining,
+          selectedDuration: Math.min(30, remaining) // default 30min or remaining if less
+        }
+    })
+  } catch (e) {
+    console.error('Erreur chargement enseignements', e)
+  }
+}
+
+async function resolveYearId(): Promise<number | null> {
+  const y = edtStore.year
+  if (!y) return null
+  if (typeof y === 'number') return y
+  if (typeof y === 'string' && /^[0-9]+$/.test(y)) return parseInt(y, 10)
+  // else try to find by name
+  try {
+    const res = await axios.get('/api/years')
+    const found = (res.data || []).find((it: { id: number; name: string }) => it.name === y)
+    return found ? found.id : null
+  } catch (err) {
+    console.warn('Impossible de résoudre l\'année', err)
+    return null
+  }
+}
+
+// Load teachings when year is known
+onMounted(async () => {
+  const id = await resolveYearId()
+  if (id) await loadTeachingsForYear(id)
+})
+
+watch(() => edtStore.year, async () => {
+  const id = await resolveYearId()
+  if (id) await loadTeachingsForYear(id)
+})
 
 const searchQuery = ref('')
 const promotions = ref([
@@ -62,7 +124,7 @@ const semestersByPromotion: Record<number, number[]> = {
 
 const availableSemesters = computed(() => semestersByPromotion[selectedPromotionFilter.value] || [])
 
-watch(selectedPromotionFilter, (val) => {
+watch(selectedPromotionFilter, () => {
   if (selectedSemesterFilter.value !== 'all' && !availableSemesters.value.includes(selectedSemesterFilter.value as number)) {
     selectedSemesterFilter.value = 'all'
   }
@@ -71,11 +133,11 @@ watch(selectedPromotionFilter, (val) => {
 const filteredCourses = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   return courses.value.filter(c => {
-    if (selectedSemesterFilter.value !== 'all' && c.semester !== selectedSemesterFilter.value) return false
+    if (selectedSemesterFilter.value !== 'all' && (c.semester ?? -1) !== selectedSemesterFilter.value) return false
     const allowed = semestersByPromotion[selectedPromotionFilter.value] || semesters
-    if (!allowed.includes(c.semester)) return false
+    if (!allowed.includes((c.semester ?? -1) as number)) return false
     if (!q) return true
-    return c.title.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+    return (c.title || '').toLowerCase().includes(q) || (c.code || '').toLowerCase().includes(q)
   })
 })
 
@@ -110,10 +172,14 @@ function onCellDragLeave() {
   currentDrop.value = { day: null, time: null }
 }
 
-function durationSlotsForCourse(courseId: number) {
-  const c = courses.value.find(x => x.id === courseId)
-  if (!c) return 1
-  return Math.max(1, Math.ceil(c.duration / SLOT_STEP))
+// durationSlotsForCourse removed; we now compute span from selectedDuration where needed
+
+function durationOptionsForCourse(c: Course) {
+  const max = Math.max(c.remainingMinutes ?? (c.duration ?? SLOT_STEP), SLOT_STEP)
+  const steps = Math.max(1, Math.ceil(max / SLOT_STEP))
+  const arr: number[] = []
+  for (let i = 1; i <= steps; i++) arr.push(i * SLOT_STEP)
+  return arr
 }
 
 function onCellDrop(e: DragEvent, day: number, time: number) {
@@ -152,7 +218,16 @@ function onCellDrop(e: DragEvent, day: number, time: number) {
   const idStr = e.dataTransfer?.getData('text/course-id')
   if (!idStr) return
   const courseId = Number(idStr)
-  const span = durationSlotsForCourse(courseId)
+  const course = courses.value.find(x => x.id === courseId)
+  // determine selected duration (minutes)
+  const selectedDuration = course?.selectedDuration ?? course?.duration ?? SLOT_STEP
+  // check remaining minutes
+  if (course && typeof course.remainingMinutes === 'number' && course.remainingMinutes < selectedDuration) {
+    alert('Impossible : pas assez d\'heures restantes pour cet enseignement')
+    currentDrop.value = { day: null, time: null }
+    return
+  }
+  const span = Math.max(1, Math.ceil(selectedDuration / SLOT_STEP))
   const lastSlotStart = SLOT_END
   const endTime = time + (span - 1) * SLOT_STEP
   if (endTime > lastSlotStart) {
@@ -168,16 +243,16 @@ function onCellDrop(e: DragEvent, day: number, time: number) {
       return
     }
   }
-
-  const course = courses.value.find(x => x.id === courseId)
-  const duration = course?.duration ?? span * SLOT_STEP
+  const duration = selectedDuration
   placements.value.push({ id: nextPlacementId++, courseId, day, time, span, duration })
+  // subtract remaining minutes for that course
+  if (course) {
+    if (typeof course.remainingMinutes === 'number') course.remainingMinutes = Math.max(0, course.remainingMinutes - duration)
+  }
   currentDrop.value = { day: null, time: null }
 }
 
-function placementsFor(day: number, time: number) {
-  return placements.value.filter(p => p.day === day && p.time === time)
-}
+// placementsFor removed (unused) — use placementsStartingAt instead
 
 function placementsStartingAt(day: number, time: number) {
   return placements.value.filter(p => p.day === day && p.time === time)
@@ -215,7 +290,98 @@ function onPlacementClick(id: number) {
 
 function removePlacementById(id: number) {
   const idx = placements.value.findIndex(p => p.id === id)
-  if (idx !== -1) placements.value.splice(idx, 1)
+  if (idx !== -1) {
+    const p = placements.value.splice(idx, 1)[0]
+    // restore remaining minutes to the course
+    const c = courses.value.find(x => x.id === p.courseId)
+    if (c && typeof c.remainingMinutes === 'number') {
+      c.remainingMinutes = Math.max(0, (c.remainingMinutes || 0) + (p.duration || 0))
+    }
+  }
+}
+
+async function saveEdt() {
+  if (!edtStore.year || !edtStore.week) {
+    alert('Veuillez sélectionner une année et une semaine avant de sauvegarder.')
+    return
+  }
+
+  if (placements.value.length === 0) {
+    alert('Aucun placement à sauvegarder.')
+    return
+  }
+
+  // Resolve year_id: edtStore.year can be an id (number), numeric string, or a name.
+  let yearId: number | null = null
+  if (typeof edtStore.year === 'number') yearId = edtStore.year
+  else if (typeof edtStore.year === 'string' && /^[0-9]+$/.test(edtStore.year)) yearId = parseInt(edtStore.year, 10)
+  else if (typeof edtStore.year === 'string') {
+    // try to resolve by name via API
+    try {
+      const yearsRes = await axios.get('/api/years')
+      const found = (yearsRes.data || []).find((y: { id: number; name: string }) => y.name === edtStore.year)
+      if (found) yearId = found.id
+    } catch (e) {
+      console.warn("Impossible de récupérer les années pour résoudre l'ID", e)
+    }
+  }
+
+  if (!yearId) {
+    alert("Impossible de résoudre l'ID de l'année sélectionnée. Vérifiez la sélection.")
+    return
+  }
+
+  const payload = {
+    year_id: yearId,
+    week_number: edtStore.week,
+    placements: placements.value.map(p => {
+      const teachingId = p.courseId
+      const durationHours = Number((p.duration / 60).toFixed(1))
+      const course = courses.value.find(c => c.id === p.courseId)
+      const rawType = (course?.type || '').toString().toUpperCase()
+      let type = 'TD'
+      if (rawType.includes('CM')) type = 'CM'
+      else if (rawType.includes('TP')) type = 'TP'
+      else if (rawType.includes('TD')) type = 'TD'
+
+      return {
+        teaching_id: teachingId,
+        duration: durationHours,
+        type,
+        promotion_id: edtStore.promotionId ?? null,
+        group_id: edtStore.groupId ?? null,
+        subgroup_id: edtStore.subgroup ?? null,
+        is_neutralized: false
+      }
+    })
+  }
+
+  try {
+    const res = await axios.post('/api/calendrier/bulk', payload)
+    if (res.status === 201 || res.status === 200 || res.status === 207) {
+      const msg = res.data?.message || 'Sauvegarde terminée'
+      alert(msg)
+    } else {
+      alert('Réponse inattendue du serveur')
+      console.warn(res)
+    }
+  } catch (err: unknown) {
+    console.error(err)
+    let msg = 'Erreur lors de la sauvegarde'
+    if (err && typeof err === 'object') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = err as any
+      // If validation errors (422) include detailed messages
+      if (e?.response?.status === 422 && e?.response?.data?.messages) {
+        const messages = e.response.data.messages
+        // Flatten messages object into a string
+        msg = Object.keys(messages).map(k => `${k}: ${messages[k].join ? messages[k].join(', ') : messages[k]}`).join('\n')
+      } else {
+        msg = e?.response?.data?.message || e?.message || msg
+      }
+    }
+    alert(msg)
+  }
 }
 
 
@@ -232,7 +398,7 @@ function removePlacementById(id: number) {
         </div>
 
         <div class="right">
-          <button class="btn primary">Sauvegarder</button>
+          <button class="btn primary" @click="saveEdt">Sauvegarder</button>
           <button class="btn primary" @click="$inertia.visit('/calendrier-previsionnel/edt')">Annuler</button>
 
         </div>
@@ -261,14 +427,15 @@ function removePlacementById(id: number) {
                   >
                           <div class="course-top">
                                     <span class="course-badge" :class="courseKindClass(c.id)" aria-hidden="true"></span>
-                                    <div class="course-code">{{ c.code }}</div>
-                                    <div class="course-duration">{{ formatDuration(c.duration) }}</div>
+                                                                      <div class="course-code">{{ c.code }}</div>
+                                                                      <div class="course-duration">{{ formatDuration(c.duration ?? 0) }}</div>
                                   </div>
                     <div class="course-title">{{ c.title }}</div>
 
                     <div v-if="!c.editing" class="course-meta">
                       <div class="meta">Salle: <strong>{{ c.room || '-' }}</strong></div>
                       <div class="meta">Prof: <strong>{{ c.teacher || '-' }}</strong></div>
+                      <div class="meta">Restant: <strong>{{ formatDuration(c.remainingMinutes ?? 0) }}</strong></div>
                     </div>
 
                     <div v-else class="course-edit">
@@ -279,6 +446,9 @@ function removePlacementById(id: number) {
                       <select v-model="c.teacher" class="input-small">
                         <option value="" disabled>Choisir professeur</option>
                         <option v-for="t in teachers" :key="t" :value="t">{{ t }}</option>
+                      </select>
+                      <select v-model.number="c.selectedDuration" class="input-small">
+                        <option v-for="m in durationOptionsForCourse(c)" :key="m" :value="m">{{ formatDuration(m) }}</option>
                       </select>
                     </div>
 

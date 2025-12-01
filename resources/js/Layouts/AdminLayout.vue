@@ -23,16 +23,19 @@ const selectedYear = computed(() => {
     return years.value[selectedYearIndex.value]?.name || "Aucune année";
 });
 
-watch(selectedYear, (val) => {
-    (window as any).appSelectedYear = val;
+// Sync selected year ID (not the name) into edtStore so other pages use the numeric ID
+watch(selectedYearIndex, (idx) => {
+    (window as any).appSelectedYear = years.value[idx]?.name || "Aucune année";
     const edt = useEdtStore()
-    edt.setYear(val as string)
+    const id = years.value[idx]?.id ?? null
+    edt.setYear(id)
 });
 
 onMounted(() => {
     (window as any).appSelectedYear = selectedYear.value;
     const edt = useEdtStore()
-    edt.setYear(selectedYear.value as string)
+    const id = years.value[selectedYearIndex.value]?.id ?? null
+    edt.setYear(id)
 });
 
 const handlePreviousYear = () => {
@@ -62,6 +65,11 @@ onMounted(async () => {
     try {
         const response = await axios.get("/api/years");
         years.value = response.data;
+        // ensure selectedYearIndex is valid and set edtStore.year to the numeric id
+        if (selectedYearIndex.value >= years.value.length) selectedYearIndex.value = 0
+        const edt = useEdtStore()
+        const id = years.value[selectedYearIndex.value]?.id ?? null
+        edt.setYear(id)
     } catch (error) {
         console.error("Erreur lors de la récupération des années:", error);
     }
