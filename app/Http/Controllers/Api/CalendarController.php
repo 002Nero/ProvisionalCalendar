@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Slot;
+use App\Models\Teaching;
 
 class CalendarController extends Controller
 {
@@ -62,6 +63,85 @@ class CalendarController extends Controller
                 'message' => 'Slot créé avec succès',
                 'slot' => $slot
             ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Crée en masse plusieurs slots (bulk) à partir d'un tableau de placements.
+     * Attendu : { year_id, week_number, placements: [ { teaching_id, duration, type, promotion_id?, group_id?, subgroup_id?, substitute_teacher_id?, is_neutralized? } ] }
+     */
+    public function storeSlotsBulk(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'year_id' => 'required|exists:years,id',
+                'week_number' => 'required|integer',
+                'placements' => 'required|array|min:1',
+                'placements.*.teaching_id' => 'required|exists:teachings,id',
+                'placements.*.duration' => 'required|numeric|min:0',
+                'placements.*.type' => 'required|in:CM,TD,TP'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => 'Données invalides',
+                    'messages' => $validator->errors()
+                ], 422);
+            }
+
+            // Trouver la semaine correspondant à l'année + numéro
+            $week = Week::where('year_id', $request->year_id)->where('week_number', $request->week_number)->first();
+            if (!$week) {
+                return response()->json(['error' => 'Semaine introuvable pour cette année'], 404);
+            }
+
+            $created = [];
+            $errors = [];
+
+            foreach ($request->placements as $idx => $p) {
+                $teaching = Teaching::find($p['teaching_id']);
+                if (!$teaching) {
+                    $errors[] = "Enseignement introuvable: {$p['teaching_id']} (index {$idx})";
+                    continue;
+                }
+
+                // Récupère un enseignant assigné à l'enseignement (nécessaire car teacher_id n'est pas nullable)
+                $teacher = $teaching->teachers->first();
+                if (!$teacher) {
+                    $errors[] = "Aucun enseignant assigné pour l'enseignement {$teaching->id} (index {$idx})";
+                    continue;
+                }
+
+                $slotData = [
+                    'duration' => $p['duration'],
+                    'teacher_id' => $teacher->id,
+                    'teaching_id' => $teaching->id,
+                    'substitute_teacher_id' => $p['substitute_teacher_id'] ?? null,
+                    'promotion_id' => $p['promotion_id'] ?? null,
+                    'group_id' => $p['group_id'] ?? null,
+                    'subgroup_id' => $p['subgroup_id'] ?? null,
+                    'is_neutralized' => $p['is_neutralized'] ?? false,
+                    'week_id' => $week->id,
+                    'type' => $p['type']
+                ];
+
+                $slot = Slot::create($slotData);
+                $slot->load(['teacher', 'substituteTeacher', 'teaching', 'Promotion']);
+                $created[] = $slot;
+            }
+
+            $status = empty($errors) ? 201 : 207;
+            return response()->json([
+                'message' => empty($errors) ? 'Slots créés avec succès' : 'Création partielle: certains éléments ont échoué',
+                'created' => $created,
+                'errors' => $errors
+            ], $status);
 
         } catch (\Exception $e) {
             return response()->json([
