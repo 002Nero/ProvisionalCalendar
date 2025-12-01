@@ -41,7 +41,7 @@ watch(selectedPromotion, (val) => {
 })
 const currentWeek = ref(1)
 
-const SLOT_START = 7 * 60
+const SLOT_START = 8 * 60
 const SLOT_END = 19 * 60 + 30
 const SLOT_STEP = 30
 const timeSlots: number[] = []

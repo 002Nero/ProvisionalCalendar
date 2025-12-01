@@ -14,7 +14,7 @@ const title = computed(() => {
   return `Modification Emploi du temps — Semaine ${wk}, ${promo} - ${grp} Année ${yr}`
 })
 
-const SLOT_START = 7 * 60
+const SLOT_START = 8 * 60
 const SLOT_END = 19 * 60 + 30
 const SLOT_STEP = 30
 const timeSlots: number[] = []
@@ -32,12 +32,13 @@ function isBlocked(mins: number) {
   return mins >= 12 * 60 && mins < 13 * 60 + 30
 }
 
-type Course = { id: number; code: string; title: string; duration: number; semester: number; room?: string; teacher?: string; editing?: boolean }
+type Course = { id: number; code: string; title: string; type: string; duration: number; semester: number; room?: string; teacher?: string; editing?: boolean }
 const courses = ref<Course[]>([
-  { id: 1, code: 'MATH101', title: 'Algèbre linéaire', duration: 90, semester: 1, room: 'B101', teacher: 'Dr. Laurent', editing: false },
-  { id: 2, code: 'INFO202', title: 'Programmation JS', duration: 120, semester: 2, room: 'T203', teacher: 'Mme. Dupont', editing: false },
-  { id: 3, code: 'PHYS150', title: 'Physique générale', duration: 60, semester: 2, room: 'L12', teacher: 'M. Martin', editing: false },
-  { id: 4, code: 'ENG201', title: 'Anglais technique', duration: 60, semester: 3, room: 'B201', teacher: 'Ms. Smith', editing: false },
+  { id: 1, code: 'R1.01', title: 'Algèbre linéaire',type: 'TD', duration: 90, semester: 1, room: 'R.50', teacher: 'M. Dubreuil', editing: false },
+  { id: 2, code: 'R2.02', title: 'Programmation JS', type: 'TP', duration: 120, semester: 2, room: '209', teacher: 'Mme. Poursat', editing: false },
+  { id: 3, code: 'R2.03', title: 'Physique générale', type: 'CM', duration: 60, semester: 2, room: '103', teacher: 'M. Monediere', editing: false },
+  { id: 4, code: 'R3.04', title: 'Anglais technique', type: 'Controle', duration: 60, semester: 3, room: '112', teacher: 'M. Onete', editing: false },
+  { id: 5, code: 'SAE1.01', title: 'Dev Application', type: 'SAE', duration: 60, semester: 1, room: 'R.47', teacher: '', editing: false },
 ])
 
 const searchQuery = ref('')
@@ -92,7 +93,6 @@ function onCourseDragStart(e: DragEvent, courseId: number) {
 
 function onPlacementDragStart(e: DragEvent, placementId: number) {
   e.dataTransfer?.setData('text/placement-id', String(placementId))
-  // allow move
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
 
@@ -124,11 +124,19 @@ function onCellDrop(e: DragEvent, day: number, time: number) {
     if (idx === -1) return
     const old = placements.value.splice(idx, 1)[0]
     const span = old.span
+    const lastSlotStart = SLOT_END
+    const endTime = time + (span - 1) * SLOT_STEP
+    if (endTime > lastSlotStart) {
+      placements.value.splice(idx, 0, old)
+      alert('Placement impossible : dépasse la plage horaire')
+      currentDrop.value = { day: null, time: null }
+      return
+    }
     for (let i = 0; i < span; i++) {
       const t = time + i * SLOT_STEP
-      if (placements.value.some(p => p.day === day && p.time <= t && t < p.time + p.span * SLOT_STEP)) {
+      if (isBlocked(t) || placements.value.some(p => p.day === day && p.time <= t && t < p.time + p.span * SLOT_STEP)) {
         placements.value.splice(idx, 0, old)
-        alert('Chevauchement lors du déplacement — emplacement inchangé')
+        alert('Chevauchement ou zone bloquée lors du déplacement — emplacement inchangé')
         currentDrop.value = { day: null, time: null }
         return
       }
@@ -144,10 +152,17 @@ function onCellDrop(e: DragEvent, day: number, time: number) {
   if (!idStr) return
   const courseId = Number(idStr)
   const span = durationSlotsForCourse(courseId)
+  const lastSlotStart = SLOT_END
+  const endTime = time + (span - 1) * SLOT_STEP
+  if (endTime > lastSlotStart) {
+    alert('Placement impossible : dépasse la plage horaire')
+    currentDrop.value = { day: null, time: null }
+    return
+  }
   for (let i = 0; i < span; i++) {
     const t = time + i * SLOT_STEP
-    if (placements.value.some(p => p.day === day && p.time <= t && t < p.time + p.span * SLOT_STEP)) {
-      alert('Chevauchement avec un cours existant — choisissez un autre créneau')
+    if (isBlocked(t) || placements.value.some(p => p.day === day && p.time <= t && t < p.time + p.span * SLOT_STEP)) {
+      alert('Chevauchement avec un cours existant ou zone bloquée — choisissez un autre créneau')
       currentDrop.value = { day: null, time: null }
       return
     }
@@ -167,6 +182,14 @@ function placementsStartingAt(day: number, time: number) {
   return placements.value.filter(p => p.day === day && p.time === time)
 }
 
+function courseKindClass(courseId: number) {
+  const c = courses.value.find(x => x.id === courseId)
+  const t = (c?.type || 'Autre').toString().toLowerCase()
+  const map: Record<string,string> = { sae: 'sae', tp: 'tp', td: 'td', controle: 'controle', cm: 'autre' }
+  const key = map[t] ?? (t.match(/sae|tp|td|controle/) ? t : 'autre')
+  return `placed-${key}`
+}
+
 function isCovered(day: number, time: number) {
   return placements.value.some(p => p.day === day && p.time <= time && time < p.time + p.span * SLOT_STEP)
 }
@@ -183,6 +206,15 @@ function formatDuration(mins: number) {
   if (h > 0 && m > 0) return `${h}h${String(m).padStart(2, '0')}`
   if (h > 0) return `${h}h`
   return `${m}min`
+}
+
+function onPlacementClick(id: number) {
+  if (confirm('Supprimer ce placement ?')) removePlacementById(id)
+}
+
+function removePlacementById(id: number) {
+  const idx = placements.value.findIndex(p => p.id === id)
+  if (idx !== -1) placements.value.splice(idx, 1)
 }
 
 
@@ -227,9 +259,10 @@ function formatDuration(mins: number) {
                     @dragstart="(e) => onCourseDragStart(e, c.id)"
                   >
                           <div class="course-top">
-                            <div class="course-code">{{ c.code }}</div>
-                            <div class="course-duration">{{ formatDuration(c.duration) }}</div>
-                          </div>
+                                    <span class="course-badge" :class="courseKindClass(c.id)" aria-hidden="true"></span>
+                                    <div class="course-code">{{ c.code }}</div>
+                                    <div class="course-duration">{{ formatDuration(c.duration) }}</div>
+                                  </div>
                     <div class="course-title">{{ c.title }}</div>
 
                     <div v-if="!c.editing" class="course-meta">
@@ -273,7 +306,16 @@ function formatDuration(mins: number) {
                 @dragleave="onCellDragLeave"
                 @drop.prevent="(e) => onCellDrop(e, d, t)"
               >
-                <div v-for="p in placementsStartingAt(d, t)" :key="p.id" class="placed-course" :style="{ height: computePlacedHeight(p.span) }" draggable="true" @dragstart="(e) => onPlacementDragStart(e, p.id)">
+                <div v-for="p in placementsStartingAt(d, t)" :key="p.id" :class="['placed-course', courseKindClass(p.courseId)]" :style="{ height: computePlacedHeight(p.span) }" draggable="true" @dragstart="(e) => onPlacementDragStart(e, p.id)" @click="() => onPlacementClick(p.id)">
+                  <button class="placed-trash" @click.stop="() => removePlacementById(p.id)" title="Supprimer" aria-label="Supprimer le cours">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <path d="M3 6h18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M10 11v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M14 11v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M9 3h6l-1 3H10L9 3z" fill="currentColor"/>
+                    </svg>
+                  </button>
                   <div class="placed-title">{{ courses.find(c => c.id === p.courseId)?.title || 'Cours' }}</div>
                   <div class="placed-meta">{{ formatDuration(p.duration) }} • {{ courses.find(c => c.id === p.courseId)?.room || '-' }}</div>
                 </div>
@@ -323,6 +365,8 @@ function formatDuration(mins: number) {
 .course-item { padding:0.5rem; border-radius:8px; background: linear-gradient(180deg,#fff,#f8fafc); box-shadow:0 1px 2px rgba(0,0,0,0.04); border:1px solid #e6eef6; cursor:grab }
 .course-item:active { cursor:grabbing }
 .course-top { display:flex; justify-content:space-between; align-items:center; gap:0.5rem }
+.course-top { align-items: center }
+.course-badge { width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:0.5rem; flex:0 0 auto }
 .course-code { font-weight:600; color:#0f172a }
 .course-title { margin-top:0.25rem; color:#374151 }
 .course-duration { font-size:0.85rem; color:#6b7280 }
@@ -337,4 +381,22 @@ function formatDuration(mins: number) {
 .placed-title { font-weight:600; color:#0f172a }
 .placed-meta { font-size:0.8rem; color:#4b5563 }
 .covered-slot { position:absolute; inset:0; background: rgba(99,102,241,0.06); border-radius:4px; z-index:8 }
+.placed-trash { position:absolute; top:4px; right:6px; background:transparent; border:none; cursor:pointer; font-size:0.9rem }
+.placed-trash { display:flex; align-items:center; justify-content:center; width:26px; height:26px; background:rgba(0,0,0,0.04); border-radius:6px; border:1px solid rgba(15,23,42,0.04); color:#374151 }
+.placed-trash:hover { background:rgba(0,0,0,0.06); transform:translateY(-1px) }
+.placed-trash svg { display:block }
+
+/* Course badge colors (also used by placed blocks via class) */
+.course-badge.placed-sae { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,0.08) }
+.course-badge.placed-tp { background: #60a5fa; box-shadow: 0 0 0 3px rgba(96,165,250,0.08) }
+.course-badge.placed-td { background: #fb7185; box-shadow: 0 0 0 3px rgba(251,113,133,0.08) }
+.course-badge.placed-controle { background: #a78bfa; box-shadow: 0 0 0 3px rgba(167,139,250,0.08) }
+.course-badge.placed-autre { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.06) }
+
+/* Color by course type */
+.placed-sae { background: #e6ffed; border-color: #34d399; }
+.placed-tp { background: #e6f2ff; border-color: #60a5fa; }
+.placed-td { background: #fff0f6; border-color: #fb7185; }
+.placed-controle { background: #f3e8ff; border-color: #a78bfa; }
+.placed-autre { background: #fffaf0; border-color: #f59e0b; }
 </style>
