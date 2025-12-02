@@ -1,3 +1,9 @@
+BOCQUET Lucas: lbocquet0
+CHASTENET Valentin: 002Nero
+DESCOUTURES Cathy: Cat-dcts
+DESMOND Romain: RomainDesmond
+GENDRY Marine: Wiiinterz
+
 # Calendrier prévisionnel
 
 Application de gestion de calendrier provisoire développée avec Laravel et Vue.js.
