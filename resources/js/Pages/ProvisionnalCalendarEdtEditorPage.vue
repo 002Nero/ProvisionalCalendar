@@ -39,39 +39,52 @@ const courses = ref<Course[]>([])
 
 async function loadTeachingsForYear(yearId: number) {
   try {
-    const res = await axios.get(`/api/teachings/${yearId}`)
-    const data = Array.isArray(res.data) ? res.data : []
-    // Map backend teaching structure to Course used by the UI
-    courses.value = data.map((t: { id: number; name?: string; apogee_code?: string; tp_hours_initial?: number; td_hours_initial?: number; cm_hours_initial?: number; semester?: number | null }) => {
-      // prefer cm > td > tp for default type
-      let type = 'Autre'
-      if (t.cm_hours_initial && t.cm_hours_initial > 0) type = 'CM'
-      else if (t.td_hours_initial && t.td_hours_initial > 0) type = 'TD'
-      else if (t.tp_hours_initial && t.tp_hours_initial > 0) type = 'TP'
+      const res = await axios.get(`/api/teachings/${yearId}`)
+      const data = Array.isArray(res.data) ? res.data : []
+      console.debug('teachings API response count', data.length, data.slice ? data.slice(0,5) : data)
+      // Map backend teaching structure to Course used by the UI.
+      // Be permissive: the API has changed names in places (cm_hours vs cm_hours_initial,
+      // td_hours_intial typo, title vs name). We normalize here without touching the DB.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      courses.value = data.map((t: any) => {
+        const title = t.name ?? t.title ?? `Enseignement ${t.id}`
+        const code = t.apogee_code ?? t.code ?? undefined
 
-      // determine a sensible default duration in minutes: use the first non-zero hours * 60, fallback 60
-      const hours = (t.td_hours_initial || t.tp_hours_initial || t.cm_hours_initial || 1)
-      const durationMinutes = Math.max(1, Number(hours)) * 60
+        const tpHours = Number(t.tp_hours_initial ?? t.tp_hours ?? 0)
+        // backend had a typo "td_hours_intial" in one method; accept several forms
+        const tdHours = Number(t.td_hours_initial ?? t.td_hours_intial ?? t.td_hours ?? 0)
+        const cmHours = Number(t.cm_hours_initial ?? t.cm_hours ?? 0)
 
-      // compute remaining minutes depending on type
-      let remaining = 0
-      if (type === 'CM') remaining = (t.cm_hours_initial || 0) * 60
-      else if (type === 'TD') remaining = (t.td_hours_initial || 0) * 60
-      else if (type === 'TP') remaining = (t.tp_hours_initial || 0) * 60
-      if (remaining <= 0) remaining = durationMinutes
+        // prefer cm > td > tp for default type
+        let type = 'Autre'
+        if (cmHours > 0) type = 'CM'
+        else if (tdHours > 0) type = 'TD'
+        else if (tpHours > 0) type = 'TP'
 
-      return {
-          id: t.id,
-          code: t.apogee_code ?? undefined,
-          title: t.name ?? `Enseignement ${t.id}`,
+        // determine a sensible default duration in minutes: use the first non-zero hours * 60, fallback 60
+        const hours = tdHours || tpHours || cmHours || 1
+        const durationMinutes = Math.max(1, Number(hours)) * 60
+
+        // compute remaining minutes depending on type
+        let remaining = 0
+        if (type === 'CM') remaining = cmHours * 60
+        else if (type === 'TD') remaining = tdHours * 60
+        else if (type === 'TP') remaining = tpHours * 60
+        if (!remaining || remaining <= 0) remaining = durationMinutes
+
+        return {
+          id: Number(t.id),
+          code,
+          title,
           type,
           duration: durationMinutes,
-          semester: t.semester ?? null,
+          // Default semester to 1 when missing so filters don't hide the course
+          semester: t.semester ?? t.semester_id ?? 1,
           editing: false,
           remainingMinutes: remaining,
-          selectedDuration: Math.min(30, remaining) // default 30min or remaining if less
+          selectedDuration: Math.min(SLOT_STEP, remaining) // default min step or remaining
         }
-    })
+      })
   } catch (e) {
     console.error('Erreur chargement enseignements', e)
   }
