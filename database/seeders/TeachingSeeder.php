@@ -3,9 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Teaching;
-use App\Models\Year;
-use App\Models\Semester;
-use App\Models\Trimester;
 use Illuminate\Database\Seeder;
 
 class TeachingSeeder extends Seeder
@@ -20,11 +17,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'SAÉ 1.02 Comparaison d\'approches algorithmiques',
@@ -33,11 +26,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 21.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 21.00,
             ],
             [
                 'title' => 'SAÉ 1.03 Installation d\'un poste pour le développement ',
@@ -46,11 +35,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => 15.00,
                 'td_hours_initial' => 20.00,
                 'td_hours_continued' => 15.00,
-                'cm_hours_initial' => 25.00,
-                'cm_hours_continued' => 20.00,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 25.00,
             ],
 
             [
@@ -60,11 +45,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 1.05 Recueil de besoins',
@@ -73,11 +54,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'SAÉ 1.06 Découverte de l\'environnement économique et écologique ',
@@ -86,11 +63,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Portfolio',
@@ -99,11 +72,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.01 Initiation au développement',
@@ -112,11 +81,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R1.02 Développement d\'interfaces web',
@@ -125,11 +90,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.03 Introduction à l\'architecture des ordinateurs',
@@ -138,11 +99,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R1.04 Introduction aux systèmes d\'exploitation et à leur fonctionnement',
@@ -151,11 +108,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.05 Introduction aux bases de données et SQL',
@@ -164,11 +117,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R1.06 Mathématiques discrètes',
@@ -177,11 +126,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.07 Outils mathématiques fondamentaux',
@@ -190,11 +135,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.08 Introduction à la gestion des organisations',
@@ -203,11 +144,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R1.09 Introduction à l\'économie durable et numérique',
@@ -216,11 +153,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.10 Anglais',
@@ -229,11 +162,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R1.11 Bases de la communication',
@@ -242,11 +171,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.08 Introduction à la gestion des organisations',
@@ -255,11 +180,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R1.09 Introduction à l\'économie durable et numérique',
@@ -268,11 +189,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.10 Anglais',
@@ -281,11 +198,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R1.11 Bases de la communication',
@@ -294,11 +207,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'R1.12 Projet Personnel et Professionnel',
@@ -307,11 +216,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.01 Développement d\'une application',
@@ -320,11 +225,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 10.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 10.00,
             ],
             [
                 'title' => 'SAÉ 2.02 Exploration algorithmique d\'un problème',
@@ -333,11 +234,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.03 Installation de services réseau',
@@ -346,11 +243,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.04 Exploitation d\'une base de données',
@@ -359,11 +252,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.05 Gestion d\'un projet',
@@ -372,11 +261,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.06 Organisation d\'un travail d\'équipe',
@@ -385,11 +270,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Portfolio',
@@ -398,11 +279,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.01 Développement orienté objets',
@@ -411,11 +288,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.02 Développement d\'applications avec IHM',
@@ -424,11 +297,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.03 Qualité de développement',
@@ -437,11 +306,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.04 Communication et fonctionnement bas niveau',
@@ -450,11 +315,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.05 Introduction aux services réseaux',
@@ -463,11 +324,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.06 Exploitation d\'une base de données',
@@ -476,11 +333,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.07 Graphes',
@@ -489,11 +342,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.08 Outils numériques pour les statistiques descriptives',
@@ -502,11 +351,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.09 Méthodes numériques',
@@ -515,11 +360,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.10 Introduction à la gestion des systèmes d\'information',
@@ -528,11 +369,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R1.12 Projet Personnel et Professionnel',
@@ -541,11 +378,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 1,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.01 Développement d\'une application',
@@ -554,11 +387,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 15.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.02 Exploration algorithmique d\'un problème',
@@ -567,11 +396,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.03 Installation de services réseau',
@@ -580,11 +405,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.04 Exploitation d\'une base de données',
@@ -593,11 +414,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.05 Gestion d\'un projet',
@@ -606,11 +423,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 2.06 Organisation d\'un travail d\'équipe',
@@ -619,11 +432,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Portfolio',
@@ -632,11 +441,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.01 Développement orienté objets',
@@ -645,11 +450,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.02 Développement d\'applications avec IHM',
@@ -658,11 +459,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.03 Qualité de développement',
@@ -671,11 +468,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.04 Communication et fonctionnement bas niveau',
@@ -684,11 +477,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.05 Introduction aux services réseaux',
@@ -697,11 +486,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.06 Exploitation d\'une base de données',
@@ -710,11 +495,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.07 Graphes',
@@ -723,11 +504,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.08 Outils numériques pour les statistiques descriptives',
@@ -736,11 +513,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.09 Méthodes numériques',
@@ -749,11 +522,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.10 Introduction à la gestion des systèmes d\'information',
@@ -762,11 +531,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.11 Introduction au droit',
@@ -775,11 +540,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.12 Anglais',
@@ -788,11 +549,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.13 Communication technique',
@@ -801,11 +558,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R2.14 Projet Personnel et Professionnel',
@@ -814,11 +567,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAE 3.01 Développement d’une application',
@@ -827,11 +576,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Portfolio',
@@ -840,11 +585,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.01 Développement web',
@@ -853,11 +594,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.02 Développement efficace ',
@@ -866,11 +603,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.03 Analyse',
@@ -879,11 +612,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.04 Qualité et développement',
@@ -892,11 +621,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.05 Programmation système',
@@ -905,11 +630,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.06 Architecture des réseaux ',
@@ -918,11 +639,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.07 SQL dans un langage de programmation',
@@ -931,11 +648,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.08 Probabilités',
@@ -944,11 +657,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.09 Cryptographie et sécurité',
@@ -957,11 +666,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.10 Management des systèmes d’information',
@@ -970,11 +675,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.11 Droit des contrats et du numérique ',
@@ -983,11 +684,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.12 Anglais',
@@ -996,11 +693,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 2,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.13 Communication professionnelle',
@@ -1009,11 +702,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R3.14 Projet personnel et professionnel',
@@ -1022,11 +711,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 3,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAE 4.01 Développement d\'une application complexe',
@@ -1035,11 +720,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Stage',
@@ -1048,11 +729,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Portfolio',
@@ -1061,11 +738,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.01 Architecture logicielle',
@@ -1074,11 +747,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.02 Qualité et développement',
@@ -1087,11 +756,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.03 Qualité au-delà du relationnel',
@@ -1100,11 +765,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.04 Méthode d\'optimisation',
@@ -1113,11 +774,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.05 Anglais',
@@ -1126,11 +783,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.06 Communication interne',
@@ -1139,11 +792,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.07 Projet personnel et professionnel',
@@ -1152,11 +801,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.08 Virtualisation',
@@ -1165,11 +810,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.09 Management avancé des systèmes d’information',
@@ -1178,11 +819,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.10 Complément web',
@@ -1191,11 +828,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.11 Développement pour applications mobiles',
@@ -1204,11 +837,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R4.12 Automates et Langages',
@@ -1217,11 +846,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 4,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 5.Real.01 | Développement avancé',
@@ -1230,11 +855,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Portfolio',
@@ -1243,11 +864,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.01 | Initiation au management d\'une équipe de projet informatique',
@@ -1256,11 +873,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.02 | Projet personnel et professionnel',
@@ -1269,11 +882,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.03 | Politique de communication',
@@ -1282,11 +891,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.04 | Qualité algorithmique',
@@ -1295,11 +900,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.05 | Programmation avancée',
@@ -1308,11 +909,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.06 | Sensibilisation à la programmation multimédia',
@@ -1321,11 +918,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.07 | Automatisation de la chaîne de production',
@@ -1334,11 +927,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.08 | Qualité de développement',
@@ -1347,11 +936,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.09 | Virtualisation avancée',
@@ -1360,11 +945,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.10 | Nouveaux paradigmes de base de données',
@@ -1373,11 +954,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.11 | Méthodes d\'optimisation pour l\'aide à la décision',
@@ -1386,11 +963,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.12 | Modélisations mathématiques',
@@ -1399,11 +972,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.13 | Économie durable et numérique',
@@ -1412,11 +981,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R5.Real.14 | Anglais',
@@ -1425,11 +990,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 5,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'SAÉ 6.Real.01 | Évolution d\'une application existante',
@@ -1438,11 +999,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Stage',
@@ -1451,11 +1008,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'Portfolio',
@@ -1464,11 +1017,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R6.01 | Initiation à l\'entrepreneuriat',
@@ -1477,11 +1026,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R6.02 | Droit du numérique et de la propriété intellectuelle',
@@ -1490,11 +1035,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R6.03 | Communication : organisation et diffusion de l\'information',
@@ -1503,11 +1044,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R6.04 | Projet personnel et professionnel',
@@ -1516,11 +1053,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R6.Real.05 | Développement avancée',
@@ -1529,11 +1062,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
             [
                 'title' => 'R6.Real.06 | Maintenance applicative',
@@ -1542,11 +1071,7 @@ class TeachingSeeder extends Seeder
                 'tp_hours_continued' => null,
                 'td_hours_initial' => 10.00,
                 'td_hours_continued' => null,
-                'cm_hours_initial' => 15.00,
-                'cm_hours_continued' => null,
-                'semester_id' => 6,
-                'trimester_id' => null,
-                'year_id' => 1
+                'cm_hours' => 15.00,
             ],
 
 

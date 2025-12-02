@@ -10,18 +10,20 @@ class TeacherTeachingSeeder extends Seeder
 {
     public function run(): void
     {
-        $teacher = Teacher::where('acronym', 'LD')->first();
-        $teaching = Teaching::where('apogee_code', 'WEB_R1.05')->first();
+        $pairs = [
+            ['acronym' => 'LD', 'apogee' => 'R1.05'],
+            ['acronym' => 'TM', 'apogee' => 'R2.01'],
+            ['acronym' => 'NM', 'apogee' => 'R3.01'],
+            ['acronym' => 'IB', 'apogee' => 'R1.02'],
+            ['acronym' => 'AL', 'apogee' => 'R1.03'],
+        ];
 
-        if ($teacher && $teaching) {
-            $teacher->teachings()->attach($teaching->id);
-        } else {
-            // Log an error or handle the case where either $teacher or $teaching is null
-            if (!$teacher) {
-                echo "Teacher with acronym 'LD' not found.\n";
-            }
-            if (!$teaching) {
-                echo "Teaching with apogee_code 'WEB_R1.05' not found.\n";
+        foreach ($pairs as $p) {
+            $teacher = \App\Models\Teacher::whereHas('user', function($q) use ($p) { $q->where('acronym', $p['acronym']); })->first();
+            $teaching = \App\Models\Teaching::where('apogee_code', $p['apogee'])->first();
+
+            if ($teacher && $teaching) {
+                $teacher->teachings()->syncWithoutDetaching([$teaching->id]);
             }
         }
     }

@@ -36,13 +36,13 @@ class LabelsSeeder extends Seeder
             'Service',
             'Configurations',
             'Déconnexion',
-            
         ];
 
         foreach ($labels as $label) {
-            \App\Models\Label::create([
-                'original_name' => $label,
-            ]);
+            \App\Models\Label::updateOrCreate(
+                ['original_name' => $label],
+                ['name' => $label]
+            );
         }
     }
 }

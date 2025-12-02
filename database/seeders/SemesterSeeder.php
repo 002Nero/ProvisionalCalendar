@@ -11,13 +11,12 @@ class SemesterSeeder extends Seeder
     public function run(): void
     {
         // Vérifier si l'année semestrielle existe
-        $year = Year::where('periodicity', 'Semestrial')->first();
-        
+        $year = Year::first();
+
         if (!$year) {
             // Créer l'année si elle n'existe pas
             $year = Year::create([
-                'name' => '2024-2025',
-                'periodicity' => 'Semestrial',
+                'name' => '2024-2025'
             ]);
         }
 

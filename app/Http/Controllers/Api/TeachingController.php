@@ -26,8 +26,7 @@ class TeachingController extends Controller
             }
 
             // Récupère les enseignements pour l'année spécifiée
-            $teachings = Teaching::where('year_id', $year)
-                ->get()
+            $teachings = Teaching::get()
                 ->map(function ($teaching) {
                     return [
                         'id' => $teaching->id,
@@ -37,10 +36,7 @@ class TeachingController extends Controller
                         'tp_hours_continued' => $teaching->tp_hours_continued,
                         'td_hours_intial' => $teaching->td_hours_intial,
                         'td_hours_continued' => $teaching->td_hours_continued,
-                        'cm_hours_initial' => $teaching->cm_hours_initial,
-                        'cm_hours_continued' => $teaching->cm_hours_continued,
-                        'semester' => $teaching->semester?->semester_number,
-                        'trimester' => $teaching->trimester?->trimester_number,
+                        'cm_hours' => $teaching->cm_hours,
                     ];
                 });
 

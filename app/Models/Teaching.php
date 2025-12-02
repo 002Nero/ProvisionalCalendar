@@ -13,25 +13,14 @@ class Teaching extends Model
         'tp_hours_continued',
         'td_hours_initial',
         'td_hours_continued',
-        'cm_hours_initial',
-        'cm_hours_continued',
+        'cm_hours',
         'semester_id',
-        'trimester_id',
         'year_id'
     ];
 
     protected static function boot()
     {
         parent::boot();
-
-        static::saving(function ($teaching) {
-            if (($teaching->semester_id !== null && $teaching->trimester_id !== null) || 
-                ($teaching->semester_id === null && $teaching->trimester_id === null)) {
-                throw new \InvalidArgumentException(
-                    'Un enseignement doit avoir soit un semestre, soit un trimestre, mais pas les deux.'
-                );
-            }
-        });
 
         static::updated(function ($teaching) {
             foreach ($teaching->teachers as $teacher) {

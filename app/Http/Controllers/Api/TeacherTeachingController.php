@@ -26,9 +26,7 @@ class TeacherTeachingController extends Controller
             }
 
             // Récupère les enseignants avec leurs enseignements pour l'année spécifiée
-            $teachers = Teacher::with(['teachings'])
-                ->where('year_id', $year)
-                ->get()
+            $teachers = Teacher::with(['teachings'])::get()
                 ->map(function ($teacher) {
                     return [
                         'id' => $teacher->id,
@@ -67,8 +65,7 @@ class TeacherTeachingController extends Controller
             }
 
             // Récupère les enseignements pour l'année spécifiée
-            $teachings = Teaching::where('year_id', $year)
-                ->get()
+            $teachings = Teaching::get()
                 ->map(function ($teaching) {
                     return [
                         'id' => $teaching->id,
@@ -268,7 +265,6 @@ class TeacherTeachingController extends Controller
 
             // Vérifie si un enseignant avec le même acronyme existe déjà pour cette année
             $existingTeacher = Teacher::where('acronym', $request->acronym)
-                ->where('year_id', $year)
                 ->first();
 
             if ($existingTeacher) {
@@ -282,7 +278,6 @@ class TeacherTeachingController extends Controller
                 'first_name' => $request->first_name,
                 'last_name' => $request->last_name,
                 'user_id' => $request->user_id,
-                'year_id' => $year
             ]);
 
             return response()->json([
@@ -293,7 +288,6 @@ class TeacherTeachingController extends Controller
                     'first_name' => $teacher->first_name,
                     'last_name' => $teacher->last_name,
                     'user_id' => $teacher->user_id,
-                    'year_id' => $teacher->year_id
                 ]
             ], 201);
 
@@ -344,7 +338,6 @@ class TeacherTeachingController extends Controller
 
             // Vérifie si un enseignement avec le même code apogée existe déjà pour cette année
             $existingTeaching = Teaching::where('apogee_code', $request->apogee_code)
-                ->where('year_id', $year)
                 ->first();
 
             if ($existingTeaching) {
@@ -359,7 +352,6 @@ class TeacherTeachingController extends Controller
 
             if ($request->semester) {
                 $semester = Semester::where('semester_number', $request->semester)
-                    ->where('year_id', $year)
                     ->first();
 
                 if (!$semester) {
@@ -371,7 +363,6 @@ class TeacherTeachingController extends Controller
                 $semester_id = $semester->id;
             } else {
                 $trimester = Trimester::where('trimester_number', $request->trimester)
-                    ->where('year_id', $year)
                     ->first();
 
                 if (!$trimester) {
@@ -394,7 +385,6 @@ class TeacherTeachingController extends Controller
                 'cm_hours_continued' => $request->cm_hours_continued,
                 'semester_id' => $semester_id,
                 'trimester_id' => $trimester_id,
-                'year_id' => $year
             ]);
 
             return response()->json([
@@ -411,7 +401,6 @@ class TeacherTeachingController extends Controller
                     'cm_hours_continued' => $teaching->cm_hours_continued,
                     'semester_id' => $teaching->semester_id,
                     'trimester_id' => $teaching->trimester_id,
-                    'year_id' => $teaching->year_id
                 ]
             ], 201);
 
@@ -443,7 +432,6 @@ class TeacherTeachingController extends Controller
 
             // Vérifie si un autre enseignant avec le même acronyme existe déjà pour cette année
             $existingTeacher = Teacher::where('acronym', $request->acronym)
-                ->where('year_id', $teacher->year_id)
                 ->where('id', '!=', $teacher_id)
                 ->first();
 
@@ -518,7 +506,6 @@ class TeacherTeachingController extends Controller
 
             // Vérifie si un autre enseignement avec le même code apogée existe déjà pour cette année
             $existingTeaching = Teaching::where('apogee_code', $request->apogee_code)
-                ->where('year_id', $teaching->year_id)
                 ->where('id', '!=', $teaching_id)
                 ->first();
 
@@ -534,7 +521,6 @@ class TeacherTeachingController extends Controller
 
             if ($request->semester) {
                 $semester = Semester::where('semester_number', $request->semester)
-                    ->where('year_id', $teaching->year_id)
                     ->first();
 
                 if (!$semester) {
@@ -546,7 +532,6 @@ class TeacherTeachingController extends Controller
                 $semester_id = $semester->id;
             } else {
                 $trimester = Trimester::where('trimester_number', $request->trimester)
-                    ->where('year_id', $teaching->year_id)
                     ->first();
 
                 if (!$trimester) {
