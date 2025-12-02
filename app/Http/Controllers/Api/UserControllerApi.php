@@ -22,16 +22,16 @@ class UserControllerApi extends Controller
         try {
             $validated = $request->validate([
                 'username' => 'required|string|max:255|unique:users',
-                'firstname' => 'required|string|max:255',
-                'lastname' => 'required|string|max:255',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users',
                 'role_id' => 'required|exists:roles,id',
             ]);
 
             $user = User::create([
                 'username' => $validated['username'],
-                'firstname' => $validated['firstname'],
-                'lastname' => $validated['lastname'],
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
                 'email' => $validated['email'],
                 'role_id' => $validated['role_id'],
                 'password' => null
@@ -66,8 +66,8 @@ class UserControllerApi extends Controller
         try {
             $validated = $request->validate([
                 'username' => 'required|string|max:255|unique:users,username,' . $id,
-                'firstname' => 'required|string|max:255',
-                'lastname' => 'required|string|max:255',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users,email,' . $id,
                 'role_id' => 'required|exists:roles,id',
             ]);
@@ -75,8 +75,8 @@ class UserControllerApi extends Controller
             $user = User::findOrFail($id);
             $user->update([
                 'username' => $validated['username'],
-                'firstname' => $validated['firstname'],
-                'lastname' => $validated['lastname'],
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
                 'email' => $validated['email'],
                 'role_id' => $validated['role_id'],
             ]);
@@ -109,7 +109,7 @@ class UserControllerApi extends Controller
     {
         try {
             $users = User::with('role')
-                ->select('id', 'username', 'firstname', 'lastname', 'email', 'role_id', 'password')
+                ->select('id', 'username', 'first_name', 'last_name', 'email', 'role_id', 'password')
                 ->get()
                 ->map(function ($user) {
                     $user->has_password = !is_null($user->password);
@@ -156,7 +156,7 @@ class UserControllerApi extends Controller
     {
         // Générer un mot de passe aléatoire
         $newPassword = Str::random(12);
-        
+
         // Mettre à jour le mot de passe de l'utilisateur
         $user->password = Hash::make($newPassword);
         $user->save();

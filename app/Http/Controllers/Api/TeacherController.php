@@ -25,14 +25,13 @@ class TeacherController extends Controller
 
             // Récupère les enseignants avec leurs enseignements pour l'année spécifiée
             $teachers = Teacher::with(['user'])
-                ->where('year_id', $year)
                 ->get()
                 ->map(function ($teacher) {
                     return [
                         'id' => $teacher->id,
                         'code' => $teacher->acronym,
-                        'firstname' => $teacher->user->firstname,
-                        'lastname' => $teacher->user->lastname
+                        'first_name' => $teacher->user->first_name,
+                        'last_name' => $teacher->user->last_name
                     ];
                 });
 
@@ -125,7 +124,6 @@ class TeacherController extends Controller
 
             // Vérifie si un enseignant avec le même acronyme existe déjà pour cette année
             $existingTeacher = Teacher::where('acronym', $request->acronym)
-                ->where('year_id', $year)
                 ->first();
 
             if ($existingTeacher) {
@@ -137,7 +135,6 @@ class TeacherController extends Controller
             $teacher = Teacher::create([
                 'acronym' => $request->acronym,
                 'user_id' => $request->user_id,
-                'year_id' => $year
             ]);
 
             return response()->json([
@@ -148,7 +145,6 @@ class TeacherController extends Controller
                     'first_name' => $teacher->first_name,
                     'last_name' => $teacher->last_name,
                     'user_id' => $teacher->user_id,
-                    'year_id' => $teacher->year_id
                 ]
             ], 201);
 
@@ -178,7 +174,6 @@ class TeacherController extends Controller
 
             // Vérifie si un autre enseignant avec le même acronyme existe déjà pour cette année
             $existingTeacher = Teacher::where('acronym', $request->acronym)
-                ->where('year_id', $teacher->year_id)
                 ->where('id', '!=', $teacher_id)
                 ->first();
 

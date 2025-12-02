@@ -12,16 +12,11 @@ class YearController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $years = Year::with(['semesters', 'trimesters'])
-                ->get()
+            $years = Year::get()
                 ->map(function ($year) {
                     return [
                         'id' => $year->id,
                         'name' => $year->name,
-                        'periodicity' => $year->periodicity,
-                        'periods' => $year->periodicity === 'Semestrial'
-                            ? $year->semesters->map(fn($s) => ['id' => $s->id, 'number' => $s->semester_number])
-                            : $year->trimesters->map(fn($t) => ['id' => $t->id, 'number' => $t->trimester_number])
                     ];
                 });
 
@@ -40,12 +35,10 @@ class YearController extends Controller
         try {
             $request->validate([
                 'name' => 'required|string|max:255|unique:years,name',
-                'periodicity' => 'required|in:Semestrial,Trimestrial'
             ]);
 
             $year = Year::create([
                 'name' => $request->name,
-                'periodicity' => $request->periodicity
             ]);
 
             return response()->json([
@@ -53,7 +46,6 @@ class YearController extends Controller
                 'year' => [
                     'id' => $year->id,
                     'name' => $year->name,
-                    'periodicity' => $year->periodicity
                 ]
             ], 201);
 
@@ -68,7 +60,7 @@ class YearController extends Controller
     public function show($id): JsonResponse
     {
         try {
-            $year = Year::with(['semesters', 'trimesters', 'teachings', 'teachers', 'Promotions'])
+            $year = Year::with(['teachings', 'teachers', 'academicPromotions'])
                 ->find($id);
 
             if (!$year) {
@@ -80,13 +72,9 @@ class YearController extends Controller
             return response()->json([
                 'id' => $year->id,
                 'name' => $year->name,
-                'periodicity' => $year->periodicity,
-                'periods' => $year->periodicity === 'Semestrial'
-                    ? $year->semesters->map(fn($s) => ['id' => $s->id, 'number' => $s->semester_number])
-                    : $year->trimesters->map(fn($t) => ['id' => $t->id, 'number' => $t->trimester_number]),
                 'teachings_count' => $year->teachings->count(),
                 'teachers_count' => $year->teachers->count(),
-                'promotions_count' => $year->academicPromotions->count()
+                'promotions_count' => method_exists($year, 'academicPromotions') ? $year->academicPromotions->count() : 0,
             ]);
 
         } catch (\Exception $e) {

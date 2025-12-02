@@ -3,76 +3,147 @@
 namespace Database\Seeders;
 
 use App\Models\Slot;
+use App\Models\SlotType;
 use Illuminate\Database\Seeder;
 
 class SlotSeeder extends Seeder
 {
     public function run(): void
     {
-        // Semaine 1 - CM pour toute la promotion
-        Slot::create([
-            'duration' => 2,
-            'teacher_id' => 1,
-            'teaching_id' => 1,
-            'promotion_id' => 1,
-            'week_id' => 1,
-            'type' => 'CM',
-            'substitute_teacher_id' => null  // Ajout du champ
-        ]);
-
-        // Semaine 2 - TD pour les groupes
-        $groups = [1, 2]; // IDs des groupes
-        foreach ($groups as $groupId) {
-            Slot::create([
-                'duration' => 1.5,
-                'teacher_id' => 2,
+        $entries = [
+            // Semaine 1 - CM pour toute la promotion
+            [
+                'duration' => 2.0,
                 'teaching_id' => 1,
                 'promotion_id' => 1,
-                'group_id' => $groupId,
-                'week_id' => 2,
-                'type' => 'TD',
-                'substitute_teacher_id' => null  // Ajout du champ
-            ]);
-        }
+                'group_id' => null,
+                'subgroup_id' => null,
+                'room_amount' => 85,
+                'is_neutralized' => false,
+                'is_exam' => false,
+                'week_id' => 1,
+                'type_id' => 1, // CM
+            ],
 
-        // Semaine 2 - TP pour les sous-groupes
-        $subgroups = [1, 2, 3, 4]; // IDs des sous-groupes
-        foreach ($subgroups as $subgroupId) {
-            Slot::create([
-                'duration' => 1,
-                'teacher_id' => 3,
+            // Semaine 2 - TD pour les groupes (G1,G2)
+            [
+                'duration' => 1.5,
                 'teaching_id' => 1,
                 'promotion_id' => 1,
-                'group_id' => ceil($subgroupId/2), // Associe aux bons groupes
-                'subgroup_id' => $subgroupId,
+                'group_id' => 1,
+                'subgroup_id' => null,
+                'room_amount' => 30,
+                'is_neutralized' => false,
+                'is_exam' => false,
                 'week_id' => 2,
-                'type' => 'TP',
-                'substitute_teacher_id' => null  // Ajout du champ
-            ]);
-        }
-
-        // Autre enseignement - Semaine 3
-        Slot::create([
-            'duration' => 2,
-            'teacher_id' => 2,
-            'teaching_id' => 2,
-            'promotion_id' => 1,
-            'week_id' => 3,
-            'type' => 'CM',
-            'substitute_teacher_id' => null  // Ajout du champ
-        ]);
-
-        foreach ($groups as $groupId) {
-            Slot::create([
+                'type_id' => 2, // TD
+            ],
+            [
                 'duration' => 1.5,
-                'teacher_id' => 3,
+                'teaching_id' => 1,
+                'promotion_id' => 1,
+                'group_id' => 2,
+                'subgroup_id' => null,
+                'room_amount' => 30,
+                'is_neutralized' => false,
+                'is_exam' => false,
+                'week_id' => 2,
+                'type_id' => 2, // TD
+            ],
+
+            // Semaine 2 - TP pour les sous-groupes
+            [
+                'duration' => 1.0,
+                'teaching_id' => 1,
+                'promotion_id' => 1,
+                'group_id' => 1,
+                'subgroup_id' => 1,
+                'room_amount' => 15,
+                'is_neutralized' => false,
+                'is_exam' => false,
+                'week_id' => 2,
+                'type_id' => 3, // TP
+            ],
+            [
+                'duration' => 1.0,
+                'teaching_id' => 1,
+                'promotion_id' => 1,
+                'group_id' => 1,
+                'subgroup_id' => 2,
+                'room_amount' => 15,
+                'is_neutralized' => false,
+                'is_exam' => false,
+                'week_id' => 2,
+                'type_id' => 3, // TP
+            ],
+            [
+                'duration' => 1.0,
+                'teaching_id' => 1,
+                'promotion_id' => 1,
+                'group_id' => 2,
+                'subgroup_id' => 1,
+                'room_amount' => 15,
+                'is_neutralized' => false,
+                'is_exam' => false,
+                'week_id' => 2,
+                'type_id' => 3, // TP
+            ],
+            [
+                'duration' => 1.0,
+                'teaching_id' => 1,
+                'promotion_id' => 1,
+                'group_id' => 2,
+                'subgroup_id' => 2,
+                'room_amount' => 15,
+                'is_neutralized' => false,
+                'is_exam' => false,
+                'week_id' => 2,
+                'type_id' => 3, // TP
+            ],
+
+            // Autre enseignement - Semaine 3 CM + TD pour groupes
+            [
+                'duration' => 2.0,
                 'teaching_id' => 2,
                 'promotion_id' => 1,
-                'group_id' => $groupId,
+                'group_id' => null,
+                'subgroup_id' => null,
+                'room_amount' => 85,
+                'is_neutralized' => false,
+                'is_exam' => false,
                 'week_id' => 3,
-                'type' => 'TD',
-                'substitute_teacher_id' => null  // Ajout du champ
-            ]);
+                'type_id' => 1, // CM
+            ],
+            [
+                'duration' => 1.5,
+                'teaching_id' => 2,
+                'promotion_id' => 1,
+                'group_id' => 1,
+                'subgroup_id' => null,
+                'room_amount' => 30,
+                'is_neutralized' => false,
+                'is_exam' => false,
+                'week_id' => 3,
+                'type_id' => 2, // TD
+            ],
+            [
+                'duration' => 1.5,
+                'teaching_id' => 2,
+                'promotion_id' => 1,
+                'group_id' => 2,
+                'subgroup_id' => null,
+                'room_amount' => 30,
+                'is_neutralized' => false,
+                'is_exam' => false,
+                'week_id' => 3,
+                'type_id' => 2, // TD
+            ],
+        ];
+
+        foreach ($entries as $entry) {
+            Slot::Create($entry);
         }
     }
 }
+
+

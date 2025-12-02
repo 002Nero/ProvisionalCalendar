@@ -12,15 +12,15 @@ class Slot extends Model
 {
     protected $fillable = [
         'duration',
-        'teacher_id',
         'teaching_id',
-        'substitute_teacher_id',
         'promotion_id',
         'group_id',
         'subgroup_id',
+        'room_amount',
         'is_neutralized',
+        'is_exam',
         'week_id',
-        'type', // Ajout du type
+        'type_id',
     ];
 
     protected static function boot()

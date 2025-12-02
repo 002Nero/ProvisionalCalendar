@@ -13,10 +13,12 @@ class YearSeeder extends Seeder
      */
     public function run(): void
     {
-        Year::create([
-            'id' => 1,
-            'name' => '2024-2025',
-            'periodicity' => 'Semestrial',
-        ]);
+       $years = [
+            '2020-2021','2021-2022','2022-2023','2023-2024','2024-2025','2025-2026','2026-2027','2027-2028','2028-2029','2029-2030'
+        ];
+
+        foreach ($years as $name) {
+            Year::updateOrCreate(['name' => $name], ['name' => $name]);
+        }
     }
 }

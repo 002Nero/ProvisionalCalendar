@@ -10,21 +10,12 @@ use App\Models\Groups\Promotion;
 class Year extends Model
 {
     protected $fillable = [
-        'name',
-        'periodicity',
+        'name'
     ];
 
     protected static function boot()
     {
         parent::boot();
-
-        static::creating(function ($year) {
-            if (!in_array($year->periodicity, ['Semestrial', 'Trimestrial'])) {
-                throw ValidationException::withMessages([
-                    'periodicity' => ['La périodicité doit être soit Semestrial soit Trimestrial']
-                ]);
-            }
-        });
     }
 
     public function weeks()
