@@ -1,8 +1,8 @@
-BOCQUET Lucas: lbocquet0
-CHASTENET Valentin: 002Nero
-DESCOUTURES Cathy: Cat-dcts
-DESMOND Romain: RomainDesmond
-GENDRY Marine: Wiiinterz
+- BOCQUET Lucas: lbocquet0
+- CHASTENET Valentin: 002Nero
+- DESCOUTURES Cathy: Cat-dcts
+- DESMOND Romain: RomainDesmond
+- GENDRY Marine: Wiiinterz
 
 # Calendrier prévisionnel
 
