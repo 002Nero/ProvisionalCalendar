@@ -1,37 +1,19 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { ref, computed, Ref, watch } from 'vue'
+import { ref, computed, Ref, watch, onMounted } from 'vue'
+import axios from 'axios'
+import { useEdtStore } from '@/stores/edtStore'
 
 const activeTab = ref<'salles'|'profs'|'groupes'>('salles')
 const filter = ref('')
 
-const rooms = ref(['R.50','209','103','112','R.47','B101'])
-const teachers = ref(['M. Dubreuil','Mme. Poursat','M. Monediere','M. Onete','Dr. Laurent'])
-const promotions = ref([
-  { id: 1, name: 'A1' },
-  { id: 2, name: 'A2' },
-  { id: 3, name: 'A3' }
-])
-const groups = ref([
-  { id: 1, name: 'G1', promotionId: 1 },
-  { id: 2, name: 'G2', promotionId: 1 },
-  { id: 3, name: 'G3', promotionId: 1 },
-  { id: 4, name: 'G4', promotionId: 2 },
-  { id: 5, name: 'G5', promotionId: 2 },
-  { id: 6, name: 'G6', promotionId: 2 },
-  { id: 7, name: 'G7', promotionId: 3 },
-  { id: 8, name: 'G8', promotionId: 3 },
-
-])
+const rooms = ref<{id:number;name:string}[]>([])
+const teachers = ref<{id:number;name:string}[]>([])
+const promotions = ref<{id:number;name:string}[]>([])
+const groups = ref<{id:number;name:string;promotionId:number}[]>([])
 const subgroupsByGroup: Record<number, string[]> = {
-  1: ['A','B'],
-  2: ['A','B'],
-  3: ['A','B'],
-  4: ['A','B'],
-  5: ['A','B'],
-  6: ['A','B'],
-  7: ['A','B'],
-  8: ['A','B'],
+  // will be populated from API when available; keep fallback
+  0: ['A','B']
 }
 
 type Constraint = { id: number; text: string; room?: string; teacher?: string; promotionId?: number; groupId?: number; subgroup?: string; week?: number; day?: string; startTime?: string; endTime?: string; repeatWeekly?: boolean }
@@ -48,25 +30,138 @@ const groupConstraints = ref<Constraint[]>([
 
 let nextId = 10
 
+const edt = useEdtStore()
+
+async function loadRooms() {
+  try {
+    const res = await axios.get('/api/rooms')
+    const data = Array.isArray(res.data) ? res.data : []
+    rooms.value = data.map((r: any) => ({ id: r.id, name: r.name }))
+    if (rooms.value.length > 0 && !newRoomSel.value) newRoomSel.value = rooms.value[0].id
+  } catch (e) {
+    console.warn('Could not load rooms', e)
+  }
+}
+
+async function loadPromotions(yearId: number) {
+  try {
+    const res = await axios.get(`/api/promotions/${yearId}`)
+    promotions.value = Array.isArray(res.data) ? res.data : []
+    if (promotions.value.length > 0 && !newGroupPromo.value) newGroupPromo.value = promotions.value[0].id
+  } catch (e) {
+    console.warn('Could not load promotions', e)
+  }
+}
+
+async function loadGroupsForPromotion(promoId: number | undefined) {
+  if (!promoId) return
+  try {
+    const res = await axios.get(`/api/groups/${promoId}`)
+    groups.value = Array.isArray(res.data) ? res.data.map((g: any) => ({ id: g.id, name: g.name, promotionId: promoId })) : []
+    // build a simple subgroup map if API has subgroups endpoint later
+    groups.value.forEach(g => { if (!subgroupsByGroup[g.id]) subgroupsByGroup[g.id] = ['A','B'] })
+    if (groups.value.length > 0 && !newGroupGroupId.value) newGroupGroupId.value = groups.value[0].id
+  } catch (e) {
+    console.warn('Could not load groups', e)
+  }
+}
+
+async function loadTeachers(yearId: number) {
+  try {
+    const res = await axios.get(`/api/teachers/${yearId}`)
+    const data = Array.isArray(res.data) ? res.data : []
+    // map to objects with id and display name
+    teachers.value = data.map((t: any) => ({ id: t.id, name: (`${t.last_name ?? ''} ${t.first_name ?? ''}`.trim() || t.code || `T${t.id}`) }))
+    if (teachers.value.length > 0 && !newTeacherSel.value) newTeacherSel.value = teachers.value[0].id
+  } catch (e) {
+    console.warn('Could not load teachers', e)
+  }
+}
+
+async function ensureDataLoaded() {
+  // resolve year id from store, fallback to first year via /api/years
+  let yearId: number | null = null
+  if (typeof edt.year === 'number') yearId = edt.year
+  else if (typeof edt.year === 'string' && /^[0-9]+$/.test(edt.year)) yearId = parseInt(edt.year,10)
+  if (!yearId) {
+    try {
+      const yrs = await axios.get('/api/years')
+      const arr = Array.isArray(yrs.data) ? yrs.data : []
+      if (arr.length > 0) yearId = arr[0].id
+    } catch (e) {
+      console.warn('Could not resolve year', e)
+    }
+  }
+
+  // parallel loads
+  await Promise.all([
+    loadRooms(),
+    yearId ? loadPromotions(yearId) : Promise.resolve(),
+    yearId ? loadTeachers(yearId) : Promise.resolve()
+  ])
+  // if we have a promotion, load groups
+  if (newGroupPromo.value) await loadGroupsForPromotion(newGroupPromo.value)
+  // load constraints after base data
+  await loadConstraints()
+}
+
+onMounted(() => { ensureDataLoaded() })
+
+// Load constraints from DB
+async function loadConstraints() {
+  try {
+    const [rRes, tRes, gRes] = await Promise.all([
+      axios.get('/api/room-constraints'),
+      axios.get('/api/teacher-constraints'),
+      axios.get('/api/group-constraints')
+    ])
+      const rr = Array.isArray(rRes.data) ? rRes.data : []
+      roomConstraints.value = rr.map((r: any) => ({ id: r.id, text: r.reason || r.constraint_type, room: (rooms.value.find(x => x.id === r.room_id)?.name) ?? String(r.room_id), week: r.week_id ?? undefined, day: r.day_of_week, startTime: r.start_time, endTime: r.end_time, repeatWeekly: (r.week_id == null) }))
+      const tt = Array.isArray(tRes.data) ? tRes.data : []
+      teacherConstraints.value = tt.map((s: any) => ({ id: s.id, text: s.reason || s.constraint_type, teacher: (teachers.value.find(x => x.id === s.teacher_id)?.name) ?? String(s.teacher_id), week: s.week_id ?? undefined, day: s.day_of_week, startTime: s.start_time, endTime: s.end_time, repeatWeekly: (s.week_id == null) }))
+      const gg = Array.isArray(gRes.data) ? gRes.data : []
+      groupConstraints.value = gg.map((s: any) => ({ id: s.id, text: s.reason || s.constraint_type, promotionId: undefined, groupId: s.group_id, subgroup: undefined, week: s.week_id ?? undefined, day: s.day_of_week, startTime: s.start_time, endTime: s.end_time, repeatWeekly: (s.week_id == null) }))
+  } catch (e) {
+    console.warn('Failed to load constraints', e)
+  }
+}
+
+
 function addRoomConstraint() {
   const text = newRoomText.value?.trim()
   if (!text) return
-  roomConstraints.value.push({
-    id: nextId++,
-    text,
-    room: newRoomSel.value,
-    week: newRoomWeek.value,
-    day: newRoomDay.value,
-    startTime: newRoomStart.value,
-    endTime: newRoomEnd.value,
-    repeatWeekly: newRoomRepeat.value,
-  })
-  newRoomText.value = ''
-  newRoomWeek.value = undefined
-  newRoomDay.value = undefined
-  newRoomStart.value = undefined
-  newRoomEnd.value = undefined
-  newRoomRepeat.value = false
+  ;(async () => {
+    try {
+      if (!newRoomSel.value || !rooms.value.find(r => r.id === newRoomSel.value)) {
+        alert('Veuillez sélectionner une salle valide avant de sauvegarder.')
+        return
+      }
+      const payload = {
+        room_id: newRoomSel.value,
+        constraint_type: 'unavailable',
+        day_of_week: newRoomDay.value ?? null,
+        start_time: newRoomStart.value ?? null,
+        end_time: newRoomEnd.value ?? null,
+        reason: text,
+        week_id: newRoomRepeat.value ? null : (newRoomWeek.value ?? null),
+        priority: 'hard',
+        active: true
+      }
+      const res = await axios.post('/api/room-constraints', payload)
+      const id = res.data?.id ?? nextId++
+          const roomName = rooms.value.find(r => r.id === newRoomSel.value)?.name ?? String(newRoomSel.value ?? '')
+      roomConstraints.value.push({ id, text, room: roomName, week: newRoomWeek.value, day: newRoomDay.value, startTime: newRoomStart.value, endTime: newRoomEnd.value, repeatWeekly: newRoomRepeat.value })
+      newRoomText.value = ''
+      newRoomWeek.value = undefined
+      newRoomDay.value = undefined
+      newRoomStart.value = undefined
+      newRoomEnd.value = undefined
+      newRoomRepeat.value = false
+    } catch (e: any) {
+      console.error('Failed to save room constraint', e?.response?.data ?? e)
+      alert('Échec sauvegarde contrainte salle: ' + (e?.response?.data?.message || e?.message || 'Erreur serveur'))
+    }
+  })()
 }
 const newTeacherWeek = ref<number | undefined>(undefined)
 const newTeacherDay = ref<string | undefined>(undefined)
@@ -77,47 +172,100 @@ const newTeacherRepeat = ref<boolean>(false)
 function addTeacherConstraint() {
   const text = newTeacherText.value?.trim()
   if (!text) return
-  teacherConstraints.value.push({
-    id: nextId++,
-    text,
-    teacher: newTeacherSel.value,
-    week: newTeacherWeek.value,
-    day: newTeacherDay.value,
-    startTime: newTeacherStart.value,
-    endTime: newTeacherEnd.value,
-    repeatWeekly: newTeacherRepeat.value,
-  })
-  newTeacherText.value = ''
-  newTeacherWeek.value = undefined
-  newTeacherDay.value = undefined
-  newTeacherStart.value = undefined
-  newTeacherEnd.value = undefined
-  newTeacherRepeat.value = false
+  ;(async () => {
+    try {
+      const payload = {
+        teacher_id: newTeacherSel.value ?? null,
+        constraint_type: 'unavailable',
+        day_of_week: newTeacherDay.value ?? null,
+        start_time: newTeacherStart.value ?? null,
+        end_time: newTeacherEnd.value ?? null,
+        reason: text,
+        week_id: newTeacherRepeat.value ? null : (newTeacherWeek.value ?? null),
+        priority: 'hard',
+        active: true
+      }
+      if (!newTeacherSel.value || !teachers.value.find(t => t.id === newTeacherSel.value)) {
+        alert('Veuillez sélectionner un professeur valide avant de sauvegarder.')
+        return
+      }
+      const res = await axios.post('/api/teacher-constraints', payload)
+      const id = res.data?.id ?? nextId++
+      const teacherName = teachers.value.find(t => t.id === newTeacherSel.value)?.name ?? String(newTeacherSel.value ?? '')
+      teacherConstraints.value.push({ id, text, teacher: teacherName, week: newTeacherWeek.value, day: newTeacherDay.value, startTime: newTeacherStart.value, endTime: newTeacherEnd.value, repeatWeekly: newTeacherRepeat.value })
+      newTeacherText.value = ''
+      newTeacherWeek.value = undefined
+      newTeacherDay.value = undefined
+      newTeacherStart.value = undefined
+      newTeacherEnd.value = undefined
+      newTeacherRepeat.value = false
+    } catch (e: any) {
+      console.error('Failed to save teacher constraint', e?.response?.data ?? e)
+      alert('Échec sauvegarde contrainte professeur: ' + (e?.response?.data?.message || e?.message || 'Erreur serveur'))
+    }
+  })()
 }
 function addGroupConstraint() {
   const text = newGroupText.value?.trim()
   if (!text) return
-  const promoId = newGroupPromo.value
-  const gid = newGroupGroupId.value
-  const sub = newGroupSubgroup.value
-  groupConstraints.value.push({ id: nextId++, text, promotionId: promoId, groupId: gid, subgroup: sub, week: newGroupWeek.value, day: newGroupDay.value, startTime: newGroupStart.value, endTime: newGroupEnd.value, repeatWeekly: newGroupRepeat.value })
-  newGroupText.value = ''
-  newGroupWeek.value = undefined
-  newGroupDay.value = undefined
-  newGroupStart.value = undefined
-  newGroupEnd.value = undefined
-  newGroupRepeat.value = false
+  ;(async () => {
+    try {
+      const payload = {
+        group_id: newGroupGroupId.value ?? null,
+        constraint_type: 'unavailable',
+        day_of_week: newGroupDay.value ?? null,
+        start_time: newGroupStart.value ?? null,
+        end_time: newGroupEnd.value ?? null,
+        reason: text,
+        week_id: newGroupWeek.value ?? null,
+        priority: 'hard',
+        active: true
+      }
+      if (!newGroupGroupId.value || !groups.value.find(g => g.id === newGroupGroupId.value)) {
+        alert('Veuillez sélectionner un groupe valide avant de sauvegarder.')
+        return
+      }
+      const res = await axios.post('/api/group-constraints', payload)
+      const id = res.data?.id ?? nextId++
+      groupConstraints.value.push({ id, text, promotionId: newGroupPromo.value, groupId: newGroupGroupId.value, subgroup: newGroupSubgroup.value, week: newGroupWeek.value, day: newGroupDay.value, startTime: newGroupStart.value, endTime: newGroupEnd.value, repeatWeekly: newGroupRepeat.value })
+      newGroupText.value = ''
+      newGroupWeek.value = undefined
+      newGroupDay.value = undefined
+      newGroupStart.value = undefined
+      newGroupEnd.value = undefined
+      newGroupRepeat.value = false
+    } catch (e: any) {
+      console.error('Failed to save group constraint', e?.response?.data ?? e)
+      alert('Échec sauvegarde contrainte groupe: ' + (e?.response?.data?.message || e?.message || 'Erreur serveur'))
+    }
+  })()
 }
 
 function removeConstraint(list: Ref<Constraint[]> | Constraint[], id: number) {
   const arr = Array.isArray(list) ? list : (list as Ref<Constraint[]>).value
   const idx = arr.findIndex(c => c.id === id)
-  if (idx !== -1) arr.splice(idx, 1)
+  if (idx === -1) return
+  ;(async () => {
+    try {
+      // attempt remote delete according to which list
+      if (arr === roomConstraints.value) {
+        await axios.delete(`/api/room-constraints/${id}`)
+      } else if (arr === teacherConstraints.value) {
+        await axios.delete(`/api/teacher-constraints/${id}`)
+      } else if (arr === groupConstraints.value) {
+        await axios.delete(`/api/group-constraints/${id}`)
+      }
+      arr.splice(idx, 1)
+    } catch (e) {
+      console.error('Failed to delete constraint', e)
+      alert('Échec suppression contrainte')
+    }
+  })()
 }
 
 const editingRoomId = ref<number | null>(null)
 const editRoomText = ref('')
-const editRoomSel = ref<string | undefined>(undefined)
+const editRoomSel = ref<number | undefined>(undefined)
 const editRoomWeek = ref<number | undefined>(undefined)
 const editRoomDay = ref<string | undefined>(undefined)
 const editRoomStart = ref<string | undefined>(undefined)
@@ -126,7 +274,7 @@ const editRoomRepeat = ref<boolean>(false)
 
 const editingTeacherId = ref<number | null>(null)
 const editTeacherText = ref('')
-const editTeacherSel = ref<string | undefined>(undefined)
+const editTeacherSel = ref<number | undefined>(undefined)
 const editTeacherWeek = ref<number | undefined>(undefined)
 const editTeacherDay = ref<string | undefined>(undefined)
 const editTeacherStart = ref<string | undefined>(undefined)
@@ -149,7 +297,7 @@ function startEditRoom(id: number) {
   if (!c) return
   editingRoomId.value = id
   editRoomText.value = c.text
-  editRoomSel.value = c.room
+  editRoomSel.value = rooms.value.find(r => r.name === c.room)?.id
   editRoomWeek.value = c.week
   editRoomDay.value = c.day
   editRoomStart.value = c.startTime
@@ -159,14 +307,33 @@ function startEditRoom(id: number) {
 function saveRoomEdit(id: number) {
   const c = roomConstraints.value.find(x => x.id === id)
   if (!c) return
-  c.text = editRoomText.value || c.text
-  c.room = editRoomSel.value
-  c.week = editRoomWeek.value
-  c.day = editRoomDay.value
-  c.startTime = editRoomStart.value
-  c.endTime = editRoomEnd.value
-  c.repeatWeekly = editRoomRepeat.value
-  editingRoomId.value = null
+  ;(async () => {
+    try {
+      const payload = {
+        room_id: editRoomSel.value ?? null,
+        constraint_type: 'unavailable',
+        day_of_week: editRoomDay.value ?? null,
+        start_time: editRoomStart.value ?? null,
+        end_time: editRoomEnd.value ?? null,
+        reason: editRoomText.value ?? c.text,
+        week_id: editRoomRepeat.value ? null : (editRoomWeek.value ?? null),
+        priority: 'hard',
+        active: true
+      }
+      await axios.put(`/api/room-constraints/${id}`, payload)
+      c.text = editRoomText.value || c.text
+      c.room = rooms.value.find(r => r.id === editRoomSel.value)?.name ?? c.room
+      c.week = editRoomWeek.value
+      c.day = editRoomDay.value
+      c.startTime = editRoomStart.value
+      c.endTime = editRoomEnd.value
+      c.repeatWeekly = editRoomRepeat.value
+      editingRoomId.value = null
+    } catch (e) {
+      console.error('Failed to update room constraint', e)
+      alert('Échec mise à jour contrainte salle')
+    }
+  })()
 }
 function cancelRoomEdit() {
   editingRoomId.value = null
@@ -177,7 +344,7 @@ function startEditTeacher(id: number) {
   if (!c) return
   editingTeacherId.value = id
   editTeacherText.value = c.text
-  editTeacherSel.value = c.teacher
+  editTeacherSel.value = teachers.value.find(t => t.name === c.teacher)?.id
   editTeacherWeek.value = c.week
   editTeacherDay.value = c.day
   editTeacherStart.value = c.startTime
@@ -187,14 +354,39 @@ function startEditTeacher(id: number) {
 function saveTeacherEdit(id: number) {
   const c = teacherConstraints.value.find(x => x.id === id)
   if (!c) return
-  c.text = editTeacherText.value || c.text
-  c.teacher = editTeacherSel.value
-  c.week = editTeacherWeek.value
-  c.day = editTeacherDay.value
-  c.startTime = editTeacherStart.value
-  c.endTime = editTeacherEnd.value
-  c.repeatWeekly = editTeacherRepeat.value
-  editingTeacherId.value = null
+  ;(async () => {
+    try {
+      if (!editTeacherSel.value || !teachers.value.find(t => t.id === editTeacherSel.value)) {
+        alert('Veuillez sélectionner un professeur valide avant d\'enregistrer.')
+        return
+      }
+      const payload = {
+        teacher_id: editTeacherSel.value,
+        constraint_type: 'unavailable',
+        day_of_week: editTeacherDay.value ?? null,
+        start_time: editTeacherStart.value ?? null,
+        end_time: editTeacherEnd.value ?? null,
+        reason: editTeacherText.value ?? c.text,
+        week_id: editTeacherRepeat.value ? null : (editTeacherWeek.value ?? null),
+        priority: 'hard',
+        active: true
+      }
+      const res = await axios.put(`/api/teacher-constraints/${id}`, payload)
+      if (res.status !== 200) throw new Error('Unexpected response ' + res.status)
+      c.text = editTeacherText.value || c.text
+      c.teacher = teachers.value.find(t => t.id === editTeacherSel.value)?.name ?? c.teacher
+      c.week = editTeacherWeek.value
+      c.day = editTeacherDay.value
+      c.startTime = editTeacherStart.value
+      c.endTime = editTeacherEnd.value
+      c.repeatWeekly = editTeacherRepeat.value
+      editingTeacherId.value = null
+    } catch (e) {
+      console.error('Failed to update teacher constraint', e?.response?.data ?? e)
+      const msg = e?.response?.data?.message || e?.response?.data || e?.message || 'Erreur serveur'
+      alert('Échec mise à jour contrainte professeur: ' + msg)
+    }
+  })()
 }
 function cancelTeacherEdit() { editingTeacherId.value = null }
 
@@ -215,16 +407,35 @@ function startEditGroup(id: number) {
 function saveGroupEdit(id: number) {
   const c = groupConstraints.value.find(x => x.id === id)
   if (!c) return
-  c.text = editGroupText.value || c.text
-  c.promotionId = editGroupPromo.value
-  c.groupId = editGroupGroupId.value
-  c.subgroup = editGroupSubgroup.value
-  c.week = editGroupWeek.value
-  c.day = editGroupDay.value
-  c.startTime = editGroupStart.value
-  c.endTime = editGroupEnd.value
-  c.repeatWeekly = editGroupRepeat.value
-  editingGroupId.value = null
+  ;(async () => {
+    try {
+      const payload = {
+        group_id: editGroupGroupId.value ?? null,
+        constraint_type: 'unavailable',
+        day_of_week: editGroupDay.value ?? null,
+        start_time: editGroupStart.value ?? null,
+        end_time: editGroupEnd.value ?? null,
+        reason: editGroupText.value ?? c.text,
+        week_id: editGroupRepeat.value ? null : (editGroupWeek.value ?? null),
+        priority: 'hard',
+        active: true
+      }
+      await axios.put(`/api/group-constraints/${id}`, payload)
+      c.text = editGroupText.value || c.text
+      c.promotionId = editGroupPromo.value
+      c.groupId = editGroupGroupId.value
+      c.subgroup = editGroupSubgroup.value
+      c.week = editGroupWeek.value
+      c.day = editGroupDay.value
+      c.startTime = editGroupStart.value
+      c.endTime = editGroupEnd.value
+      c.repeatWeekly = editGroupRepeat.value
+      editingGroupId.value = null
+    } catch (e) {
+      console.error('Failed to update group constraint', e)
+      alert('Échec mise à jour contrainte groupe')
+    }
+  })()
 }
 function cancelGroupEdit() { editingGroupId.value = null }
 
@@ -249,15 +460,15 @@ const newGroupEnd = ref<string | undefined>(undefined)
 const newGroupRepeat = ref<boolean>(false)
 
 const newRoomText = ref('')
-const newRoomSel = ref(rooms.value[0])
+const newRoomSel = ref<number | undefined>(rooms.value[0]?.id)
 const newTeacherText = ref('')
-const newTeacherSel = ref(teachers.value[0])
+const newTeacherSel = ref<number | undefined>(teachers.value[0]?.id)
 const newGroupText = ref('')
 const newGroupPromo = ref<number | undefined>(promotions.value[0]?.id)
 const newGroupGroupId = ref<number | undefined>(groups.value.find(g => g.promotionId === newGroupPromo.value)?.id)
-const newGroupSubgroup = ref<string | undefined>(subgroupsByGroup[newGroupGroupId.value ?? groups.value[0].id]?.[0])
+const newGroupSubgroup = ref<string | undefined>(subgroupsByGroup[newGroupGroupId.value ?? groups.value[0]?.id ?? 0]?.[0] ?? undefined)
 
-const newGroupSel = ref(groups.value[0].name)
+// removed unused newGroupSel
 
 const filteredRoomConstraints = computed(() => {
   const q = filter.value.trim().toLowerCase()
@@ -329,7 +540,7 @@ watch(newGroupGroupId, (val) => {
           <form @submit.prevent="addRoomConstraint" class="add-form">
             <input v-model="newRoomText" placeholder="Nouvelle contrainte (ex: salle indisponible)" class="input" />
             <select v-model="newRoomSel" class="input small">
-              <option v-for="r in rooms" :key="r" :value="r">{{ r }}</option>
+              <option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</option>
             </select>
             <input v-model.number="newRoomWeek" type="number" min="1" placeholder="Semaine" class="input small" />
             <select v-model="newRoomDay" class="input small">
@@ -348,7 +559,7 @@ watch(newGroupGroupId, (val) => {
                 <template v-if="editingRoomId === c.id">
                   <input v-model="editRoomText" class="input" />
                   <select v-model="editRoomSel" class="input small">
-                    <option v-for="r in rooms" :key="r" :value="r">{{ r }}</option>
+                    <option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</option>
                   </select>
                   <input v-model.number="editRoomWeek" type="number" min="1" placeholder="Semaine" class="input small" />
                   <select v-model="editRoomDay" class="input small">
@@ -391,7 +602,7 @@ watch(newGroupGroupId, (val) => {
           <form @submit.prevent="addTeacherConstraint" class="add-form">
             <input v-model="newTeacherText" placeholder="Nouvelle contrainte (ex: indisponible)" class="input" />
             <select v-model="newTeacherSel" class="input small">
-              <option v-for="t in teachers" :key="t" :value="t">{{ t }}</option>
+              <option v-for="t in teachers" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
             <input v-model.number="newTeacherWeek" type="number" min="1" placeholder="Semaine" class="input small" />
             <select v-model="newTeacherDay" class="input small">
@@ -410,7 +621,7 @@ watch(newGroupGroupId, (val) => {
                 <template v-if="editingTeacherId === c.id">
                   <input v-model="editTeacherText" class="input" />
                   <select v-model="editTeacherSel" class="input small">
-                    <option v-for="t in teachers" :key="t" :value="t">{{ t }}</option>
+                    <option v-for="t in teachers" :key="t.id" :value="t.id">{{ t.name }}</option>
                   </select>
                   <input v-model.number="editTeacherWeek" type="number" min="1" placeholder="Semaine" class="input small" />
                   <select v-model="editTeacherDay" class="input small">

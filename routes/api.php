@@ -59,6 +59,10 @@ Route::middleware(['api.logger'])->group(function () {
         //Récupération des données
 
         Route::get('/teachers/{year}', [TeacherController::class, 'getTeachers']);
+        // Salles (simple endpoint exposant toutes les salles)
+        Route::get('/rooms', function() {
+            return \App\Models\Room::orderBy('name')->get(['id','name']);
+        });
         Route::get('/teachings/{year}', [TeachingController::class, 'getTeachings']);
         Route::get('/teacher/teachings/{teacher}', [TeacherTeachingController::class, 'getTeachingsByTeacher']);
         Route::get('/teacher/{teacher}', [TeacherController::class, 'getTeacher']);
@@ -102,4 +106,139 @@ Route::middleware(['api.logger'])->group(function () {
         Route::post('/calendrier', [CalendarController::class, 'storeSlot']);
         Route::post('/calendrier/bulk', [CalendarController::class, 'storeSlotsBulk']);
         Route::get('/calendrier/{id}', [CalendarController::class, 'getCalendarData']);
+
+        // Constraints endpoints (minimal closures using DB)
+        Route::get('/room-constraints', function() {
+            return \Illuminate\Support\Facades\DB::table('room_constraints')
+                ->select('id','room_id','constraint_type','day_of_week','start_time','end_time','reason','week_id','priority','active','created_at')
+                ->get();
+        });
+        Route::post('/room-constraints', function(\Illuminate\Http\Request $request) {
+            $id = \Illuminate\Support\Facades\DB::table('room_constraints')->insertGetId([
+                'room_id' => $request->input('room_id'),
+                'constraint_type' => $request->input('constraint_type','unavailable'),
+                'day_of_week' => $request->input('day_of_week'),
+                'start_time' => $request->input('start_time'),
+                'end_time' => $request->input('end_time'),
+                'reason' => $request->input('reason'),
+                'priority' => $request->input('priority','hard'),
+                'week_id' => $request->input('week_id'),
+                'active' => $request->input('active', true),
+                'created_at' => now()
+            ]);
+            return response()->json(['id' => $id], 201);
+        });
+        Route::delete('/room-constraints/{id}', function($id) {
+            \Illuminate\Support\Facades\DB::table('room_constraints')->where('id',$id)->delete();
+            return response()->json([], 204);
+        });
+
+        Route::get('/teacher-constraints', function() {
+            return \Illuminate\Support\Facades\DB::table('teacher_constraints')->get();
+        });
+        Route::post('/teacher-constraints', function(\Illuminate\Http\Request $request) {
+            $id = \Illuminate\Support\Facades\DB::table('teacher_constraints')->insertGetId([
+                'teacher_id' => $request->input('teacher_id'),
+                'constraint_type' => $request->input('constraint_type','unavailable'),
+                'day_of_week' => $request->input('day_of_week'),
+                'start_time' => $request->input('start_time'),
+                'end_time' => $request->input('end_time'),
+                'reason' => $request->input('reason'),
+                'priority' => $request->input('priority','hard'),
+                'week_id' => $request->input('week_id'),
+                'active' => $request->input('active', true),
+                'created_at' => now()
+            ]);
+            return response()->json(['id' => $id], 201);
+        });
+        Route::delete('/teacher-constraints/{id}', function($id) {
+            \Illuminate\Support\Facades\DB::table('teacher_constraints')->where('id',$id)->delete();
+            return response()->json([], 204);
+        });
+
+        Route::get('/group-constraints', function() {
+            return \Illuminate\Support\Facades\DB::table('group_constraints')->get();
+        });
+            // Update existing group constraint
+            Route::put('/group-constraints/{id}', function(\Illuminate\Http\Request $request, $id) {
+                $data = [
+                    'group_id' => $request->input('group_id'),
+                    'constraint_type' => $request->input('constraint_type','unavailable'),
+                    'day_of_week' => $request->input('day_of_week'),
+                    'start_time' => $request->input('start_time'),
+                    'end_time' => $request->input('end_time'),
+                    'reason' => $request->input('reason'),
+                    'priority' => $request->input('priority','hard'),
+                    'week_id' => $request->input('week_id'),
+                    'active' => $request->input('active', true)
+                ];
+                \Illuminate\Support\Facades\DB::table('group_constraints')->where('id', $id)->update($data);
+                return response()->json(['ok' => true], 200);
+            });
+        Route::post('/group-constraints', function(\Illuminate\Http\Request $request) {
+            $id = \Illuminate\Support\Facades\DB::table('group_constraints')->insertGetId([
+                'group_id' => $request->input('group_id'),
+                'constraint_type' => $request->input('constraint_type','unavailable'),
+                'day_of_week' => $request->input('day_of_week'),
+                'start_time' => $request->input('start_time'),
+                'end_time' => $request->input('end_time'),
+                'reason' => $request->input('reason'),
+                'priority' => $request->input('priority','hard'),
+                'week_id' => $request->input('week_id'),
+                'active' => $request->input('active', true),
+                'created_at' => now()
+            ]);
+            return response()->json(['id' => $id], 201);
+        });
+        Route::delete('/group-constraints/{id}', function($id) {
+            \Illuminate\Support\Facades\DB::table('group_constraints')->where('id',$id)->delete();
+            return response()->json([], 204);
+        });
+            // Update endpoints for room and teacher constraints
+            Route::put('/room-constraints/{id}', function(\Illuminate\Http\Request $request, $id) {
+                $data = [
+                    'room_id' => $request->input('room_id'),
+                    'constraint_type' => $request->input('constraint_type','unavailable'),
+                    'day_of_week' => $request->input('day_of_week'),
+                    'start_time' => $request->input('start_time'),
+                    'end_time' => $request->input('end_time'),
+                    'reason' => $request->input('reason'),
+                    'priority' => $request->input('priority','hard'),
+                    'week_id' => $request->input('week_id'),
+                    'active' => $request->input('active', true)
+                ];
+                \Illuminate\Support\Facades\DB::table('room_constraints')->where('id', $id)->update($data);
+                return response()->json(['ok' => true], 200);
+            });
+            Route::put('/teacher-constraints/{id}', function(\Illuminate\Http\Request $request, $id) {
+                try {
+                    $teacherId = $request->input('teacher_id');
+                    if ($teacherId && !\Illuminate\Support\Facades\DB::table('teachers')->where('id', $teacherId)->exists()) {
+                        return response()->json(['message' => 'Teacher not found'], 400);
+                    }
+                    $weekId = $request->input('week_id');
+                    if ($weekId && !\Illuminate\Support\Facades\DB::table('weeks')->where('id', $weekId)->exists()) {
+                        return response()->json(['message' => 'Week not found'], 400);
+                    }
+
+                    $data = [
+                        'teacher_id' => $teacherId,
+                        'constraint_type' => $request->input('constraint_type','unavailable'),
+                        'day_of_week' => $request->input('day_of_week'),
+                        'start_time' => $request->input('start_time'),
+                        'end_time' => $request->input('end_time'),
+                        'reason' => $request->input('reason'),
+                        'priority' => $request->input('priority','hard'),
+                        'week_id' => $weekId,
+                        'active' => $request->input('active', true)
+                    ];
+
+                    \Illuminate\Support\Facades\DB::table('teacher_constraints')->where('id', $id)->update($data);
+                    return response()->json(['ok' => true], 200);
+                } catch (\Illuminate\Database\QueryException $qe) {
+                    return response()->json(['message' => 'Database error', 'error' => $qe->getMessage()], 500);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Server error', 'error' => $e->getMessage()], 500);
+                }
+            });
 });
