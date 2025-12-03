@@ -48,10 +48,21 @@ const showEditGroupPopup = (groupId: number) => (groupToEditId.value = groupId);
 const hideEditGroupPopup = () => (groupToEditId.value = undefined);
 
 const fetchGroups = () => {
+    console.debug('GroupListManager.fetchGroups called with promotionId=', props.promotionId)
+    if (!props.promotionId) {
+        groups.value = undefined
+        return
+    }
     groupService
-        .getGroups(props.promotionId!)
-        .then((returnedGroups) => (groups.value = returnedGroups))
-        .catch((error) => (errorMessage.value = error));
+        .getGroups(props.promotionId)
+        .then((returnedGroups) => {
+            console.debug('GroupListManager: received groups count=', returnedGroups?.length)
+            groups.value = returnedGroups
+        })
+        .catch((error) => {
+            console.debug('GroupListManager.fetchGroups error', error)
+            errorMessage.value = error
+        });
 };
 
 const handleSelect = (item: number) => {
@@ -88,16 +99,16 @@ const resetErrorMessage = () => (errorMessage.value = undefined);
         <ListManager
             :title="title"
             hasAdd
-            :canAdd="!!promotionId"
+            :canAdd="!!props.promotionId"
             :items="groups"
-            :selectedItemsId="selectedGroupId ? [selectedGroupId] : undefined"
+            :selectedItemsId="props.selectedGroupId ? [props.selectedGroupId] : undefined"
             @select="handleSelect"
             @edit="showEditGroupPopup"
             @add="handleAdd"
         />
         <AddGroupPopup
             v-if="isAddGroupPopupVisible"
-            :promotionId="promotionId!"
+            :promotionId="props.promotionId!"
             @successfullyAdded="handleSuccessfullyAdded"
             @cancel="hideAddGroupPopup"
         />

@@ -148,7 +148,7 @@ onUnmounted(() => {
                 v-if="visibleItems.length > 0"
                 class="w-full"
                 :items="visibleItems"
-                :selectedItemsId
+                :selectedItemsId="props.selectedItemsId"
                 @select="emit('select', $event)"
                 @edit="emit('edit', $event)"
             />

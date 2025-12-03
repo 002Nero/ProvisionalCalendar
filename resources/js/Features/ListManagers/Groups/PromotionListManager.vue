@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import ListManager from "@/Components/ListManager/ListManager.vue";
-import { defineProps, defineEmits, onMounted, computed, ref } from "vue";
+import { defineProps, defineEmits, onMounted, computed, ref, watch } from "vue";
 import { useLabelsStore } from "@/stores/labelsStore";
 import { Item } from "@/types/models/utils";
 import AddPromotionPopup from "@/Features/Popups/Groups/Promotions/AddPromotionPopup.vue";
@@ -11,7 +11,7 @@ import { usePromotionService } from "@/services/groups/promotionService";
 
 const labelsStore = useLabelsStore();
 
-const props = defineProps<{ yearId: number; selectedPromotionId?: number }>();
+const props = defineProps<{ yearId: number | null; selectedPromotionId?: number }>();
 
 const emit = defineEmits([
     "select",
@@ -30,8 +30,16 @@ const isAddPromotionPopupVisible = ref<boolean>(false);
 const errorMessage = ref<string>();
 
 onMounted(() => {
-    fetchPromotions();
+    if (props.yearId !== null && props.yearId !== undefined) fetchPromotions();
     labelsStore.fetchLabels();
+});
+
+watch(() => props.yearId, (newYearId) => {
+    if (newYearId !== null && newYearId !== undefined) {
+        fetchPromotions();
+    } else {
+        promotions.value = undefined;
+    }
 });
 
 const title = computed(() => {
@@ -48,13 +56,19 @@ const hideEditPromotionPopup = () => (promotionToEditId.value = undefined);
 const showError = (error: string) => (errorMessage.value = error);
 
 const fetchPromotions = () => {
+    console.debug('PromotionListManager.fetchPromotions called with yearId=', props.yearId)
     promotionService
         .getPromotions(props.yearId)
         .then(
-            (returnedPromotions: Promotion[]) =>
-                (promotions.value = returnedPromotions)
+            (returnedPromotions: Promotion[]) => {
+                console.debug('PromotionListManager: received promotions count=', returnedPromotions?.length)
+                promotions.value = returnedPromotions
+            }
         )
-        .catch(showError);
+        .catch((err) => {
+            console.debug('PromotionListManager.fetchPromotions error', err)
+            showError(err)
+        });
 };
 
 const handleSelect = (item: number) => {
@@ -100,7 +114,7 @@ const handleSuccessfullyDeleted = (id: number) => {
         />
         <AddPromotionPopup
             v-if="isAddPromotionPopupVisible"
-            :yearId
+            :yearId="props.yearId"
             @successfullyAdded="handleSuccessfullyAdded"
             @cancel="hideAddPromotionPopup"
         />

@@ -51,13 +51,25 @@ const showErrorPopup = (error: string) => (errorMessage.value = error);
 const resetErrorMessage = () => (errorMessage.value = undefined);
 
 const fetchSubgroups = () =>
-    subgroupService
-        .getSubgroups(props.groupId!)
-        .then(
-            (returnedSubgroups: Subgroup[]) =>
-                (subgroups.value = returnedSubgroups)
-        )
-        .catch(showErrorPopup);
+    ((): void => {
+        console.debug('SubgroupListManager.fetchSubgroups called with groupId=', props.groupId)
+        if (!props.groupId) {
+            subgroups.value = undefined
+            return
+        }
+        subgroupService
+            .getSubgroups(props.groupId)
+            .then(
+                (returnedSubgroups: Subgroup[]) => {
+                    console.debug('SubgroupListManager: received subgroups count=', returnedSubgroups?.length)
+                    subgroups.value = returnedSubgroups
+                }
+            )
+            .catch((err) => {
+                console.debug('SubgroupListManager.fetchSubgroups error', err)
+                showErrorPopup(err)
+            })
+    })();
 
 const handleSelect = (item: number) => {
     emit("select", item);
@@ -91,7 +103,7 @@ const handleSuccessfullyDeleted = (id: number) => {
         <ListManager
             :title="title"
             hasAdd
-            :canAdd="!!groupId"
+            :canAdd="!!props.groupId"
             :items="subgroups"
             @select="handleSelect"
             @edit="showEditSubgroupPopup"
@@ -99,7 +111,7 @@ const handleSuccessfullyDeleted = (id: number) => {
         />
         <AddSubgroupPopup
             v-if="isAddSubgroupPopupVisible"
-            :groupId="groupId!"
+            :groupId="props.groupId!"
             @successfullyAdded="handleSuccessfullyAdded"
             @cancel="hideAddSubgroupPopup"
         />
