@@ -22,6 +22,12 @@ class UserSeeder extends Seeder
             ['username' => 'djmingo', 'first_name' => 'David-Jean', 'last_name' => 'Mingo', 'email' => 'davidjean.mingo@gmail.com', 'password' => bcrypt('mingo123'), 'role_id' => 2, 'acronym' => 'DM'],
             ['username' => 'alaurent', 'first_name' => 'Amaury', 'last_name' => 'Laurent', 'email' => 'amaury.laurent89@gmail.com', 'password' => bcrypt('laurent123'), 'role_id' => 2, 'acronym' => 'AL'],
             ['username' => 'apoursat', 'first_name' => 'Anais', 'last_name' => 'Poursat', 'email' => 'anais.poursat@unilim.fr', 'password' => bcrypt('poursat123'), 'role_id' => 2, 'acronym' => 'AP'],
+            ['username' => 'tberthier', 'first_name' => 'Thierry', 'last_name' => 'Berthier', 'email' => 'thierry.berthier@etu.unilim.fr', 'password' => bcrypt('tberthier123'), 'role_id' => 2, 'acronym' => 'TB'],
+            ['username' => 'jlairesse', 'first_name' => 'Julie', 'last_name' => 'Lairesse', 'email' => 'julie.lairesse@etu.unilim.fr', 'password' => bcrypt('Lairesse123'), 'role_id' => 2, 'acronym' => 'JL'],
+            ['username' => 'atheron', 'first_name' => 'Albert', 'last_name' => 'Theron', 'email' => 'albert.theron@etu.unilim.fr', 'password' => bcrypt('Theron123'), 'role_id' => 2, 'acronym' => 'AT'],
+            ['username' => 'jparis', 'first_name' => 'Jonathan', 'last_name' => 'Paris', 'email' => 'jonathan.paris@etu.unilim.fr', 'password' => bcrypt('Paris123'), 'role_id' => 2, 'acronym' => 'JP'],
+            ['username' => 'gsimonne', 'first_name' => 'Gregory', 'last_name' => 'Simonne', 'email' => 'gregory.simonne@etu.unilim.fr', 'password' => bcrypt('Simonne123'), 'role_id' => 2, 'acronym' => 'GS'],
+            ['username' => 'cpupille', 'first_name' => 'Christian', 'last_name' => 'Pupille', 'email' => 'christian.pupille@etu.unilim.fr', 'password' => bcrypt('Pupille123'), 'role_id' => 2, 'acronym' => 'CP'],
         ];
 
         foreach ($users as $u) {
@@ -29,3 +35,4 @@ class UserSeeder extends Seeder
         }
     }
 }
+
