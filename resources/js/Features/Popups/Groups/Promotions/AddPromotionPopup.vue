@@ -51,7 +51,7 @@ const handleHasBeenEdited = () => {
 <template>
     <Popup title="Ajouter une promotion" @close="handleCancel">
         <AddPromotionForm
-            :yearId
+            :yearId="yearId"
             @successfullyAdded="$emit('successfullyAdded')"
             @edited="handleHasBeenEdited"
         />

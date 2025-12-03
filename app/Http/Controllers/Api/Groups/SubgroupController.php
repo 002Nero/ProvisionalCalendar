@@ -22,10 +22,17 @@ class SubgroupController extends Controller
                     ];
                 });
 
-            if (!$subgroups) {
-                return response()->json([
-                    'error' => 'Sous-groupe non trouvé'
-                ], 404);
+            if ($subgroups->isEmpty()) {
+                $defaults = Subgroup::whereNull('group_id')
+                    ->get()
+                    ->map(function ($subgroup) {
+                        return [
+                            'id' => $subgroup->id,
+                            'name' => $subgroup->name,
+                        ];
+                    });
+
+                return response()->json($defaults);
             }
 
             return response()->json($subgroups);

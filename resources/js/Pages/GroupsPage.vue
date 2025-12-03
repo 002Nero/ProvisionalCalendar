@@ -2,10 +2,14 @@
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import GroupListManager from "@/Features/ListManagers/Groups/GroupListManager.vue";
 import SubgroupListManager from "@/Features/ListManagers/Groups/SubgroupListManager.vue";
-import { ref } from "vue";
+import { ref, computed } from "vue";
+import { useEdtStore } from '@/stores/edtStore'
 import PromotionListManager from "@/Features/ListManagers/Groups/PromotionListManager.vue";
 
-const yearId = ref<number>(1);
+const edtStore = useEdtStore()
+const yearId = computed<number | null>(() => {
+    return (typeof edtStore.year === 'number') ? edtStore.year : (edtStore.year ? Number(edtStore.year) : null)
+})
 const selectedPromotionId = ref<number | undefined>();
 const selectedGroupId = ref<number | undefined>();
 
@@ -53,8 +57,9 @@ const handleGroupDeleted = (id: number) => {
     <AdminLayout>
         <div class="flex gap-10 w-full h-full">
             <PromotionListManager
+                v-if="yearId !== null"
                 class="w-full h-full"
-                :yearId
+                :yearId="yearId"
                 :selectedPromotionId="selectedPromotionId"
                 @select="handlePromotionSelect"
                 @successfullyDeleted="handlePromotionDeleted"
