@@ -31,13 +31,6 @@ watch(selectedYearIndex, (idx) => {
     edt.setYear(id)
 });
 
-onMounted(() => {
-    (window as any).appSelectedYear = selectedYear.value;
-    const edt = useEdtStore()
-    const id = years.value[selectedYearIndex.value]?.id ?? null
-    edt.setYear(id)
-});
-
 const handlePreviousYear = () => {
     if (selectedYearIndex.value > 0) {
         selectedYearIndex.value--;
@@ -65,9 +58,16 @@ onMounted(async () => {
     try {
         const response = await axios.get("/api/years");
         years.value = response.data;
-        // ensure selectedYearIndex is valid and set edtStore.year to the numeric id
-        if (selectedYearIndex.value >= years.value.length) selectedYearIndex.value = 0
+        // initialize selectedYearIndex from persisted edt.year (if present)
         const edt = useEdtStore()
+        let index = 0
+        if (edt.year !== null && edt.year !== undefined) {
+            const num = Number(edt.year as any)
+            const found = years.value.findIndex((y) => y.id === num)
+            if (found !== -1) index = found
+        }
+        if (index >= years.value.length) index = 0
+        selectedYearIndex.value = index
         const id = years.value[selectedYearIndex.value]?.id ?? null
         edt.setYear(id)
     } catch (error) {
