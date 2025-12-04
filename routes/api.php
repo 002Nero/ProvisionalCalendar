@@ -106,6 +106,9 @@ Route::middleware(['api.logger'])->group(function () {
         Route::post('/calendrier', [CalendarController::class, 'storeSlot']);
         Route::post('/calendrier/bulk', [CalendarController::class, 'storeSlotsBulk']);
         Route::get('/calendrier/{id}', [CalendarController::class, 'getCalendarData']);
+            // edt_slot endpoints: fetch and save placements (edt_slot rows)
+            Route::get('/edt/{year}/{week}', [CalendarController::class, 'getEdtSlots']);
+            Route::post('/edt/bulk', [CalendarController::class, 'storeEdtSlotsBulk']);
 
         // Constraints endpoints (minimal closures using DB)
         Route::get('/room-constraints', function() {

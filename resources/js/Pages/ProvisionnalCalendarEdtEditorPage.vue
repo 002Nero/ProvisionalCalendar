@@ -34,7 +34,7 @@ function isBlocked(mins: number) {
   return mins >= 12 * 60 && mins < 13 * 60 + 30
 }
 
-type Course = { id: number; code?: string; title: string; type?: string; duration?: number; semester?: number | null; room?: string; teacher?: string; editing?: boolean; remainingMinutes?: number; selectedDuration?: number }
+type Course = { id: number; code?: string; title: string; type?: string; duration?: number; semester?: number | null; room?: number | string; teacher?: number | string; editing?: boolean; remainingMinutes?: number; selectedDuration?: number }
 const courses = ref<Course[]>([])
 
 async function loadTeachingsForYear(yearId: number) {
@@ -110,12 +110,73 @@ async function resolveYearId(): Promise<number | null> {
 onMounted(async () => {
   const id = await resolveYearId()
   if (id) await loadTeachingsForYear(id)
+  // load rooms and teachers for the year
+  await loadRooms()
+  if (id) await loadTeachers(id)
+  // if week is set as well, load existing edt placements
+  const wk = edtStore.week
+  if (id && wk) await loadEdtSlots(id, wk)
 })
 
 watch(() => edtStore.year, async () => {
   const id = await resolveYearId()
   if (id) await loadTeachingsForYear(id)
+  await loadRooms()
+  if (id) await loadTeachers(id)
+  const wk = edtStore.week
+  if (id && wk) await loadEdtSlots(id, wk)
 })
+
+watch(() => edtStore.week, async () => {
+  const id = await resolveYearId()
+  const wk = edtStore.week
+  if (id && wk) await loadEdtSlots(id, wk)
+})
+
+// map day name to index used in editor (1 = Lundi)
+function dayNameToIndex(name: string | null | undefined): number {
+  if (!name) return 1
+  const n = name.toString().toLowerCase()
+  if (n.startsWith('lun')) return 1
+  if (n.startsWith('mar')) return 2
+  if (n.startsWith('mer')) return 3
+  if (n.startsWith('jeu')) return 4
+  if (n.startsWith('ven')) return 5
+  if (n.startsWith('sam')) return 6
+  return 1
+}
+
+function minutesFromTimeString(s: string | null | undefined): number {
+  if (!s) return 0
+  const parts = (s || '').split(':')
+  const h = Number(parts[0] || 0)
+  const m = Number(parts[1] || 0)
+  return h * 60 + m
+}
+
+async function loadEdtSlots(yearId: number, weekNumber: number) {
+  try {
+    const res = await axios.get(`/api/edt/${yearId}/${weekNumber}`)
+    const data = Array.isArray(res.data) ? res.data : []
+    // map to placements used by editor
+    placements.value = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data.forEach((r: any) => {
+      const courseId = Number(r.teaching_id)
+      const day = dayNameToIndex(r.day_of_week)
+      const time = minutesFromTimeString(r.start_hour)
+      const durationMinutes = Number(r.duration) * 60 // duration stored in hours
+      const span = Math.max(1, Math.ceil((durationMinutes) / SLOT_STEP))
+      // edt_slot id is r.id
+      placements.value.push({ id: Number(r.id), courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null })
+      // reduce remaining minutes for this course if present
+      const c = courses.value.find(x => x.id === courseId)
+      if (c && typeof c.remainingMinutes === 'number') c.remainingMinutes = Math.max(0, (c.remainingMinutes || 0) - (durationMinutes || 0))
+    })
+  } catch (e) {
+    console.warn('Could not load edt slots', e)
+  }
+}
 
 const searchQuery = ref('')
 const promotions = ref([
@@ -154,10 +215,32 @@ const filteredCourses = computed(() => {
   })
 })
 
-const rooms = ref(['B101','B201','T203','L12','Amphi A'])
-const teachers = ref(['Dr. Laurent','Mme. Dupont','M. Martin','Ms. Smith','Dr. Perez'])
+const rooms = ref<{id:number;name:string}[]>([])
+const teachers = ref<{id:number;name:string}[]>([])
 
-type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number }
+async function loadRooms() {
+  try {
+    const res = await axios.get('/api/rooms')
+    const data = Array.isArray(res.data) ? res.data : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rooms.value = data.map((r: any) => ({ id: r.id, name: r.name }))
+  } catch (e) {
+    console.warn('Could not load rooms', e)
+  }
+}
+
+async function loadTeachers(yearId: number) {
+  try {
+    const res = await axios.get(`/api/teachers/${yearId}`)
+    const data = Array.isArray(res.data) ? res.data : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    teachers.value = data.map((t: any) => ({ id: t.id, name: (`${t.last_name ?? ''} ${t.first_name ?? ''}`.trim() || t.acronym || `T${t.id}`) }))
+  } catch (e) {
+    console.warn('Could not load teachers', e)
+  }
+}
+
+type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null }
 const placements = ref<Placement[]>([])
 let nextPlacementId = 1
 
@@ -257,7 +340,12 @@ function onCellDrop(e: DragEvent, day: number, time: number) {
     }
   }
   const duration = selectedDuration
-  placements.value.push({ id: nextPlacementId++, courseId, day, time, span, duration })
+  // If the course has a selected teacher/room in the left panel, propagate them to the placement
+  const placementTeacherRaw = course?.teacher ?? null
+  const placementRoomRaw = course?.room ?? null
+  const placementTeacherId = typeof placementTeacherRaw === 'number' ? placementTeacherRaw : (typeof placementTeacherRaw === 'string' && /^[0-9]+$/.test(placementTeacherRaw) ? parseInt(placementTeacherRaw, 10) : null)
+  const placementRoomId = typeof placementRoomRaw === 'number' ? placementRoomRaw : (typeof placementRoomRaw === 'string' && /^[0-9]+$/.test(placementRoomRaw) ? parseInt(placementRoomRaw, 10) : null)
+  placements.value.push({ id: nextPlacementId++, courseId, day, time, span, duration, teacherId: placementTeacherId, roomId: placementRoomId })
   // subtract remaining minutes for that course
   if (course) {
     if (typeof course.remainingMinutes === 'number') course.remainingMinutes = Math.max(0, course.remainingMinutes - duration)
@@ -324,6 +412,19 @@ async function saveEdt() {
     return
   }
 
+  // Client-side validation: ensure each placement has required fields to avoid DB errors
+  const clientErrors: string[] = []
+  placements.value.forEach((p, idx) => {
+    if (!p.teacherId) clientErrors.push(`Placement ${idx + 1}: aucun enseignant sélectionné`)
+    if (!p.roomId) clientErrors.push(`Placement ${idx + 1}: aucune salle sélectionnée`)
+    if (!p.day) clientErrors.push(`Placement ${idx + 1}: jour manquant`)
+    if (p.time === null || typeof p.time === 'undefined') clientErrors.push(`Placement ${idx + 1}: heure de début manquante`)
+  })
+  if (clientErrors.length) {
+    alert(`Impossible de sauvegarder :\n${clientErrors.join('\n')}`)
+    return
+  }
+
   // Resolve year_id: edtStore.year can be an id (number), numeric string, or a name.
   let yearId: number | null = null
   if (typeof edtStore.year === 'number') yearId = edtStore.year
@@ -344,39 +445,63 @@ async function saveEdt() {
     return
   }
 
-  const payload = {
-    year_id: yearId,
-    week_number: edtStore.week,
-    placements: placements.value.map(p => {
-      const teachingId = p.courseId
-      const durationHours = Number((p.duration / 60).toFixed(1))
-      const course = courses.value.find(c => c.id === p.courseId)
-      const rawType = (course?.type || '').toString().toUpperCase()
-      let type = 'TD'
-      if (rawType.includes('CM')) type = 'CM'
-      else if (rawType.includes('TP')) type = 'TP'
-      else if (rawType.includes('TD')) type = 'TD'
-
-      return {
-        teaching_id: teachingId,
-        duration: durationHours,
-        type,
-        promotion_id: edtStore.promotionId ?? null,
-        group_id: edtStore.groupId ?? null,
-        subgroup_id: edtStore.subgroup ?? null,
-        is_neutralized: false
-      }
-    })
-  }
+  
 
   try {
-    const res = await axios.post('/api/calendrier/bulk', payload)
-    if (res.status === 201 || res.status === 200 || res.status === 207) {
-      const msg = res.data?.message || 'Sauvegarde terminée'
-      alert(msg)
-    } else {
-      alert('Réponse inattendue du serveur')
-      console.warn(res)
+    // Ensure we have a valid room id to use for edt_slot entries. Use first room as fallback.
+    let defaultRoomId: number | null = null
+    try {
+      const roomsRes = await axios.get('/api/rooms')
+      const arr = Array.isArray(roomsRes.data) ? roomsRes.data : []
+      if (arr.length > 0) defaultRoomId = arr[0].id
+    } catch (e) {
+      console.warn('Could not load rooms for default room id', e)
+    }
+    if (!defaultRoomId) {
+      alert('Aucune salle disponible pour enregistrer l\'EDT (room_id manquant)')
+      return
+    }
+
+    // Build placements with position info for edt_slot API (start_hour as HH:MM, day_of_week as string)
+    const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+    const edtPayload = {
+      year_id: yearId,
+      week_number: edtStore.week,
+      placements: placements.value.map(p => {
+        const startHour = formatTime(p.time)
+        const dayName = dayNames[(p.day || 1) - 1] || 'Lundi'
+        const durationHours = Number(((p.duration || SLOT_STEP) / 60).toFixed(1))
+        // coerce store ids to numbers where possible (some values may be strings like 'A')
+        const parseOrNull = (v: unknown): number | null => {
+          if (typeof v === 'number') return v
+          if (typeof v === 'string' && /^[0-9]+$/.test(v)) return parseInt(v, 10)
+          return null
+        }
+        const promotionId = parseOrNull(edtStore.promotionId)
+        const groupId = parseOrNull(edtStore.groupId)
+        const subgroupId = parseOrNull(edtStore.subgroup)
+
+        return {
+          teaching_id: p.courseId,
+          duration: durationHours,
+          type: (courses.value.find(c => c.id === p.courseId)?.type || 'TD'),
+          promotion_id: promotionId,
+          group_id: groupId,
+          subgroup_id: subgroupId,
+          is_neutralized: false,
+          day_of_week: dayName,
+          start_hour: startHour,
+          room_id: p.roomId ?? defaultRoomId,
+          teacher_id: p.teacherId ?? null
+        }
+      })
+    }
+
+    const res = await axios.post('/api/edt/bulk', edtPayload)
+    // on success (or partial success), navigate back to main EDT page
+    if (res.status >= 200 && res.status < 300) {
+      window.location.href = '/calendrier-previsionnel/edt'
+      return
     }
   } catch (err: unknown) {
     console.error(err)
@@ -446,19 +571,19 @@ async function saveEdt() {
                     <div class="course-title">{{ c.title }}</div>
 
                     <div v-if="!c.editing" class="course-meta">
-                      <div class="meta">Salle: <strong>{{ c.room || '-' }}</strong></div>
-                      <div class="meta">Prof: <strong>{{ c.teacher || '-' }}</strong></div>
+                      <div class="meta">Salle: <strong>{{ (typeof c.room === 'number' ? (rooms.find(r => r.id === c.room)?.name) : c.room) || '-' }}</strong></div>
+                      <div class="meta">Prof: <strong>{{ (typeof c.teacher === 'number' ? (teachers.find(t => t.id === c.teacher)?.name) : c.teacher) || '-' }}</strong></div>
                       <div class="meta">Restant: <strong>{{ formatDuration(c.remainingMinutes ?? 0) }}</strong></div>
                     </div>
 
                     <div v-else class="course-edit">
                       <select v-model="c.room" class="input-small">
                         <option value="" disabled>Choisir salle</option>
-                        <option v-for="r in rooms" :key="r" :value="r">{{ r }}</option>
+                        <option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</option>
                       </select>
                       <select v-model="c.teacher" class="input-small">
                         <option value="" disabled>Choisir professeur</option>
-                        <option v-for="t in teachers" :key="t" :value="t">{{ t }}</option>
+                        <option v-for="t in teachers" :key="t.id" :value="t.id">{{ t.name }}</option>
                       </select>
                       <select v-model.number="c.selectedDuration" class="input-small">
                         <option v-for="m in durationOptionsForCourse(c)" :key="m" :value="m">{{ formatDuration(m) }}</option>
@@ -501,7 +626,7 @@ async function saveEdt() {
                     </svg>
                   </button>
                   <div class="placed-title">{{ courses.find(c => c.id === p.courseId)?.title || 'Cours' }}</div>
-                  <div class="placed-meta">{{ formatDuration(p.duration) }} • {{ courses.find(c => c.id === p.courseId)?.room || '-' }}</div>
+                  <div class="placed-meta">{{ formatDuration(p.duration) }} • {{ (p.roomId ? (rooms.find(r => r.id === p.roomId)?.name) : (courses.find(c => c.id === p.courseId)?.room)) || '-' }}</div>
                 </div>
                 <div v-if="isCovered(d, t) && placementsStartingAt(d, t).length === 0" class="covered-slot"></div>
               </div>
