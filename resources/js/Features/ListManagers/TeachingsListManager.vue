@@ -7,9 +7,7 @@ import EditTeachingPopup from "@/Features/Popups/Teachings/EditTeachingPopup.vue
 import { ref } from "vue";
 import { useLabelsStore } from "@/stores/labelsStore";
 import { useTeachingService } from "@/services/teachingService";
-import { Period } from "@/types/models/periods";
 import ErrorPopup from "../Popups/ErrorPopup.vue";
-import { usePeriodService } from "@/services/periodsService";
 
 const labelsStore = useLabelsStore();
 
@@ -30,10 +28,7 @@ const emit = defineEmits([
 ]);
 
 const teachingService = useTeachingService();
-const periodsService = usePeriodService();
-
 const teachings = ref<Teaching[] | undefined>();
-const periods = ref<Period[] | undefined>();
 
 const isAddTeachingPopupVisible = ref<boolean>(false);
 
@@ -43,21 +38,14 @@ const errorMessage = ref<string>();
 
 const fetchTeachings = () => {
     teachingService
-        .getTeachings(props.yearId, periods.value!)
+        .getTeachings(props.yearId)
         .then((response) => (teachings.value = response))
         .catch((error) => (errorMessage.value = error));
 };
 
-const fetchPeriodsAndTeachings = () => {
-    periodsService
-        .getPeriods(props.yearId)
-        .then((response) => (periods.value = response))
-        .then(fetchTeachings)
-        .catch((error) => (errorMessage.value = error));
-};
 
 onMounted(() => {
-    fetchPeriodsAndTeachings();
+    fetchTeachings();
 });
 
 const showAddTeachingPopup = () => (isAddTeachingPopupVisible.value = true);
@@ -103,7 +91,6 @@ const resetErrorMessage = () => (errorMessage.value = undefined);
             hasAdd
             hasImport
             canAdd
-            :periods
             :items="teachings"
             :selectedItemsId="selectedTeachingIds"
             @add="showAddTeachingPopup"

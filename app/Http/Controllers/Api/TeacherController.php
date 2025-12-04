@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Teacher;
 use App\Models\Year;
 use App\Models\Teaching;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -29,9 +30,10 @@ class TeacherController extends Controller
                 ->map(function ($teacher) {
                     return [
                         'id' => $teacher->id,
-                        'code' => $teacher->acronym,
+                        'code' => $teacher->user->acronym,
                         'first_name' => $teacher->user->first_name,
-                        'last_name' => $teacher->user->last_name
+                        'last_name' => $teacher->user->last_name,
+                        'type' => $teacher->type,
                     ];
                 });
 
@@ -80,7 +82,7 @@ class TeacherController extends Controller
     {
         try {
             // Vérifie si l'enseignant existe
-            $teacher = Teacher::with(['teachings', 'year'])
+            $teacher = Teacher::with(['teachings', 'year', 'user'])
                 ->find($teacher_id);
 
             if (!$teacher) {
@@ -92,7 +94,7 @@ class TeacherController extends Controller
             // Prépare la réponse avec les données de l'enseignant
             $response = [
                 'id' => $teacher->id,
-                'acronym' => $teacher->acronym,
+                'acronym' => $teacher->user->acronym,
                 'user_id' => $teacher->user_id
             ];
 
@@ -122,28 +124,37 @@ class TeacherController extends Controller
                 ], 404);
             }
 
-            // Vérifie si un enseignant avec le même acronyme existe déjà pour cette année
-            $existingTeacher = Teacher::where('acronym', $request->acronym)
-                ->first();
-
-            if ($existingTeacher) {
+            // Vérifie si un utilisateur avec le même acronyme existe déjà
+            $existingUser = User::where('acronym', $request->acronym)->first();
+            if ($existingUser && $existingUser->id != $request->user_id) {
                 return response()->json([
-                    'error' => 'Un enseignant avec cet acronyme existe déjà pour cette année'
+                    'error' => 'Un utilisateur avec cet acronyme existe déjà'
                 ], 422);
             }
 
+            // Met à jour l'acronyme de l'utilisateur fourni
+            $user = User::find($request->user_id);
+            if (!$user) {
+                return response()->json([
+                    'error' => 'Utilisateur non trouvé'
+                ], 404);
+            }
+            $user->acronym = $request->acronym;
+            $user->save();
+
+            // Crée l'enseignant (associe l'utilisateur)
             $teacher = Teacher::create([
-                'acronym' => $request->acronym,
                 'user_id' => $request->user_id,
+                'year_id' => $year
             ]);
 
             return response()->json([
                 'message' => 'Enseignant créé avec succès',
                 'teacher' => [
                     'id' => $teacher->id,
-                    'acronym' => $teacher->acronym,
-                    'first_name' => $teacher->first_name,
-                    'last_name' => $teacher->last_name,
+                    'acronym' => $user->acronym,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
                     'user_id' => $teacher->user_id,
                 ]
             ], 201);
@@ -165,32 +176,42 @@ class TeacherController extends Controller
             ]);
 
             // Vérifie si l'enseignant existe
-            $teacher = Teacher::find($teacher_id);
+            $teacher = Teacher::with('user')
+                ->find($teacher_id);
             if (!$teacher) {
                 return response()->json([
                     'error' => 'Enseignant non trouvé'
                 ], 404);
             }
 
-            // Vérifie si un autre enseignant avec le même acronyme existe déjà pour cette année
-            $existingTeacher = Teacher::where('acronym', $request->acronym)
-                ->where('id', '!=', $teacher_id)
+            // Vérifie si un autre utilisateur avec le même acronyme existe déjà
+            $existingUserWithAcronym = User::where('acronym', $request->acronym)
+                ->where('id', '!=', $request->user_id)
                 ->first();
 
-            if ($existingTeacher) {
+            if ($existingUserWithAcronym) {
                 return response()->json([
-                    'error' => 'Un enseignant avec cet acronyme existe déjà pour cette année'
+                    'error' => 'Un utilisateur avec cet acronyme existe déjà pour cette année'
                 ], 422);
             }
 
-            $teacher->update([
-                'acronym' => $request->acronym,
-                'user_id' => $request->user_id
-            ]);
+            // Met à jour l'acronyme sur l'utilisateur cible
+            $newUser = User::find($request->user_id);
+            if (!$newUser) {
+                return response()->json([
+                    'error' => 'Utilisateur non trouvé'
+                ], 404);
+            }
+            $newUser->acronym = $request->acronym;
+            $newUser->save();
+
+            // Met à jour l'association teacher->user_id
+            $teacher->user_id = $request->user_id;
+            $teacher->save();
 
             return response()->json([
                 'id' => $teacher->id,
-                'acronym' => $teacher->acronym,
+                'acronym' => $newUser->acronym,
                 'user_id' => $teacher->user_id,
             ]);
 

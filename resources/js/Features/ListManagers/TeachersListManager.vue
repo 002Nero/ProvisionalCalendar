@@ -54,8 +54,20 @@ const title = computed(() => {
     return labelsStore.getLabel("Enseignants");
 });
 
-const handleSelect = (teacher: Teacher) => {
-    emit("select", teacher);
+const handleSelect = (payload: unknown) => {
+    // accept either a Teacher object or a numeric id
+    let id: number | null = null;
+    if (payload == null) return;
+    if (typeof payload === 'number') id = payload;
+    else if (typeof payload === 'object') {
+        const p = payload as any;
+        if (p.id != null) id = p.id;
+        else if (p.teacher && p.teacher.id != null) id = p.teacher.id;
+        else if (p.value != null) id = p.value;
+    }
+    // eslint-disable-next-line no-console
+    console.log('TeachersListManager handleSelect payload -> id', payload, id);
+    if (id != null) emit('select', id);
 };
 
 const handleSuccessfullyAdded = (teacher: Teacher) => {

@@ -24,7 +24,7 @@ export interface MCCCFormInput {
     /**
      * Le nombre initial de CM de l'enseignement.
      */
-    initial_cm?: number;
+    cm_hours?: number;
     /**
      * Le nombre initial de TD de l'enseignement.
      */
@@ -33,10 +33,6 @@ export interface MCCCFormInput {
      * Le nombre initial de TP de l'enseignement.
      */
     initial_tp?: number;
-    /**
-     * Le nombre continu de CM de l'enseignement.
-     */
-    continuing_cm?: number;
     /**
      * Le nombre continu de TD de l'enseignement.
      */
