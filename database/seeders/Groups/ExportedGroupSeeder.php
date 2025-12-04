@@ -88,7 +88,22 @@ class ExportedGroupSeeder extends Seeder
             ['id'=>77,'name'=>'G8','promotion_id'=>28,'student_amount'=>28,'created_at'=>'2025-12-03 09:31:27','updated_at'=>'2025-12-03 09:31:27'],
         ];
 
-        // Insert preserving provided IDs/timestamps. If you prefer a fresh insert, truncate first.
-        DB::table('groups')->insert($rows);
+        // Remove any rows with ids greater than 77 (these are duplicates/old)
+        // as you requested to keep only ids 1..77.
+        try {
+            DB::table('groups')->where('id', '>', 77)->delete();
+        } catch (\Exception $e) {
+            // ignore deletion errors; continue with upsert
+        }
+
+        // Upsert preserving provided IDs/timestamps. This avoids duplicate inserts
+        // when the seeder is run multiple times. We use 'id' as the unique key
+        // and update the main fields except 'created_at' so original timestamps
+        // are preserved on existing records.
+        DB::table('groups')->upsert(
+            $rows,
+            ['id'],
+            ['name', 'promotion_id', 'student_amount', 'updated_at']
+        );
     }
 }
