@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { ref, defineEmits, onMounted, onUnmounted, computed } from "vue";
+import { ref, defineEmits, computed } from "vue";
 import Filter from "@/Components/Filter.vue";
 import SearchBar from "@/Components/SearchBar.vue";
 import SelectionnableEditableButtonList from "./SelectionnableEditableButtonList.vue";
-//import RightSidebarHeader from "./RightSidebarHeader.vue";
-import RightSidebarHeader from "@/Calendar/RightSidebarHeader.vue";
 import { Item } from "@/types/models/utils";
 import { Period } from "@/types/models/periods";
 
@@ -25,21 +23,8 @@ const selectedPeriodId = ref(0);
 
 const searchValue = ref("");
 
-const listManagerItemsHeight = ref("0px");
 const visibleItems = computed(() => {
     if (!props.items) return [];
-
-    console.log(
-        props.items.filter(
-            (item) =>
-                item.period?.id != null &&
-                item.period.id - 1 === selectedPeriodId.value
-        )
-    );
-
-    console.log(props.items);
-
-    console.log(props.periods);
 
     if (props.periods)
         return props.items
@@ -65,7 +50,7 @@ const visibleItems = computed(() => {
 
 const handleNextPeriod = () => {
     selectedPeriodId.value =
-        selectedPeriodId.value < props.periods!.length! - 1
+        selectedPeriodId.value < (props.periods?.length ?? 0) - 1
             ? selectedPeriodId.value + 1
             : 0;
 };
@@ -73,7 +58,7 @@ const handleNextPeriod = () => {
 const handlePreviousPeriod = () => {
     selectedPeriodId.value =
         selectedPeriodId.value === 0
-            ? props.periods!.length - 1
+            ? (props.periods?.length ?? 1) - 1
             : selectedPeriodId.value - 1;
 };
 
@@ -83,39 +68,33 @@ const handleSearch = (event: Event) => {
 
 const listManager = ref<HTMLElement | null>(null);
 
-const updateHeight = () => {
-    if (!listManager.value) return;
-
-    requestAnimationFrame(() => {
-        const elements = listManager.value?.querySelectorAll(
-            ":scope > :not(.list-manager-items)"
-        );
-        const elementsHeight = Array.from(elements || []).reduce(
-            (acc, el) => acc + el.clientHeight,
-            0
-        );
-        listManagerItemsHeight.value = `${
-            listManager.value!.clientHeight! -
-            elementsHeight -
-            (props.periods ? 96 : 80)
-        }px`;
-    });
-};
-
-const resizeObserver = new ResizeObserver(() => {
-    updateHeight();
-});
-
-onMounted(() => {
-    if (listManager.value) {
-        resizeObserver.observe(listManager.value);
+// Normalize select payloads: if payload is an object with `id`, emit id, otherwise emit payload
+const handleItemSelect = (payload: any) => {
+    try {
+        if (payload && typeof payload === "object") {
+            if (payload.id != null) {
+                emit("select", payload.id);
+                return;
+            }
+            // nested cases
+            if (payload.teacher && payload.teacher.id != null) {
+                emit("select", payload.teacher.id);
+                return;
+            }
+            if (payload.value != null) {
+                emit("select", payload.value);
+                return;
+            }
+        }
+        // fallback
+        emit("select", payload);
+    } catch (e) {
+        // prevent uncaught exceptions from bubbling up to Vue's global handler
+        // and log for debugging
+        // eslint-disable-next-line no-console
+        console.error("handleItemSelect error:", e, payload);
     }
-    updateHeight();
-});
-
-onUnmounted(() => {
-    resizeObserver.disconnect();
-});
+};
 </script>
 
 <template>
@@ -149,8 +128,8 @@ onUnmounted(() => {
                 class="w-full"
                 :items="visibleItems"
                 :selectedItemsId="props.selectedItemsId"
-                @select="emit('select', $event)"
-                @edit="emit('edit', $event)"
+                @select="handleItemSelect"
+                @edit="(e) => emit('edit', e)"
             />
             <div v-else class="flex items-center justify-center h-full">
                 <p>Aucun élément trouvé</p>
@@ -158,9 +137,3 @@ onUnmounted(() => {
         </div>
     </div>
 </template>
-
-<style scoped>
-.list-manager-items {
-    height: var(--list-manager-items-height);
-}
-</style>

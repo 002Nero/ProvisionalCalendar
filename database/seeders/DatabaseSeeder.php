@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use Database\Seeders\Groups\GroupSeeder;
 use Database\Seeders\Groups\PromotionSeeder;
 use Database\Seeders\Groups\SubgroupSeeder;
+use Database\Seeders\Groups\ExportedGroupSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -18,7 +19,7 @@ class DatabaseSeeder extends Seeder
             SlotTypesTableSeeder::class,
             RoomsSeeder::class,
             PromotionSeeder::class,
-            GroupSeeder::class,
+            ExportedGroupSeeder::class,
             SubgroupSeeder::class,
             SemesterSeeder::class,
             WeekSeeder::class,

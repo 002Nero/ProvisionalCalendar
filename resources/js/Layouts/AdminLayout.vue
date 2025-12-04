@@ -78,7 +78,7 @@ onMounted(async () => {
 
 <template>
     <MainLayout>
-        <div class="flex flex-col gap-10 -mt-10 h-[calc(100%+40px)]">
+        <div class="flex flex-col gap-10 -mt-10 h-full">
             <div class="flex justify-between items-center px-6">
                 <HeaderMenu :items="getCurrentSubmenu()!" />
                 <div class="flex items-center gap-4">
@@ -103,7 +103,7 @@ onMounted(async () => {
                     />
                 </div>
             </div>
-            <div class="content w-full flex-1">
+            <div class="content w-full flex-1 h-3/4">
                 <slot />
             </div>
         </div>

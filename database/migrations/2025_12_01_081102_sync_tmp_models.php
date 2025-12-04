@@ -87,6 +87,7 @@ return new class extends Migration
         Schema::create('subgroups', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('group_id');
             $table->integer('student_amount')->nullable();
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();

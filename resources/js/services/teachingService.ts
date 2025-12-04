@@ -1,12 +1,10 @@
 import axios from "axios";
 import { API_ENDPOINTS, MESSAGES } from "@/constants";
 import { Teaching } from "@/types/models/teachings";
-import { Period } from "@/types/models/periods";
 
 export const useTeachingService = () => {
     const getTeachings = (
         promotionId: number,
-        periods: Period[]
     ): Promise<Teaching[]> => {
         return new Promise((resolve, reject) =>
             axios
@@ -17,19 +15,13 @@ export const useTeachingService = () => {
                         teachings.push({
                             id: teaching.id,
                             name: teaching.name,
-                            period: periods.find(
-                                (p) =>
-                                    p.id === teaching.semester ||
-                                    teaching.trimester
-                            ),
                             apogee_code: teaching.apogee_code,
                             mcccFormInput: {
                                 initial_tp: teaching.tp_hours_initial,
                                 continuing_tp: teaching.tp_hours_continued,
                                 initial_td: teaching.td_hours_initial,
                                 continuing_td: teaching.td_hours_continued,
-                                initial_cm: teaching.cm_hours_initial,
-                                continuing_cm: teaching.cm_hours_continued,
+                                cm_hours: teaching.cm_hours,
                             },
                         });
                     }

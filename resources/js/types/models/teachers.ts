@@ -7,6 +7,7 @@ import { Teaching } from "./teachings";
  * Représente un enseignant.
  */
 export type Teacher = Item & {
+    id: number;
     /**
      * Le code de l'enseignant.
      */

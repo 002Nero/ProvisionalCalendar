@@ -1,28 +1,16 @@
 import axios from "axios";
 import { API_ENDPOINTS, MESSAGES } from "@/constants";
-import { Period, PeriodType, ApiPeriodResponse, ApiSemester, ApiTrimester } from "@/types/models/periods";
+import { Period } from "@/types/models/periods";
 
 export const usePeriodService = () => {
-    const getPeriods = (yearId: number): Promise<Period[]> => {
+    const getPeriods = (yearId: number): Promise<Period> => {
         return new Promise((resolve, reject) =>
             axios
-                .get<ApiPeriodResponse>(`${API_ENDPOINTS.PERIODS}/${yearId}`)
+                .get<Period>(`${API_ENDPOINTS.PERIODS}/${yearId}`)
                 .then((response) => {
-                    if (response.data.semesters) {
+                    if (response.data) {
                         resolve(
-                            response.data.semesters.map((semester: ApiSemester) => ({
-                                id: semester.id,
-                                name: `Semestre ${semester.number}`,
-                                type: PeriodType.SEMESTER,
-                            }))
-                        );
-                    } else if (response.data.trimesters) {
-                        resolve(
-                            response.data.trimesters.map((trimester: ApiTrimester) => ({
-                                id: trimester.id,
-                                name: `Trimestre ${trimester.number}`,
-                                type: PeriodType.TRIMESTER,
-                            }))
+                            response.data
                         );
                     } else {
                         reject(MESSAGES.DEFAULT_ERROR_MESSAGE);
