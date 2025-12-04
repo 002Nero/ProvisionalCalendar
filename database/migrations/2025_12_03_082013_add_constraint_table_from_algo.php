@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('start_hour', 8);
             $table->unsignedBigInteger('slot_id');
             $table->unsignedBigInteger('room_id');
-            $table->tinyInteger('day');
+            $table->string('day_of_week', 20);
             $table->timestamps();
 
             $table->foreign('room_id')->references('id')->on('rooms')->onDelete('cascade');
