@@ -62,12 +62,25 @@ const fetchSubgroups = () =>
             .then(
                 (returnedSubgroups: Subgroup[]) => {
                     console.debug('SubgroupListManager: received subgroups count=', returnedSubgroups?.length)
-                    subgroups.value = returnedSubgroups
+                    // If the backend returns no subgroups for this group, show default A/B
+                    if (!returnedSubgroups || returnedSubgroups.length === 0) {
+                        subgroups.value = [
+                            { id: -1, name: 'A' },
+                            { id: -2, name: 'B' },
+                        ] as any;
+                    } else {
+                        subgroups.value = returnedSubgroups
+                    }
                 }
             )
             .catch((err) => {
-                console.debug('SubgroupListManager.fetchSubgroups error', err)
-                showErrorPopup(err)
+                // Log the error for debugging but fallback to default A/B subgroups
+                // so the UI remains usable when the API fails or returns an error.
+                console.error('SubgroupListManager.fetchSubgroups error', err)
+                subgroups.value = [
+                    { id: -1, name: 'A' },
+                    { id: -2, name: 'B' },
+                ] as any;
             })
     })();
 
