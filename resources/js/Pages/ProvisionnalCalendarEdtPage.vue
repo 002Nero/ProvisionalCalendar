@@ -1,46 +1,102 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
+import axios from 'axios'
 import { useEdtStore } from '@/stores/edtStore'
 
-const props = defineProps<{
-  edit?: boolean
-}>();
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import IconButton from '@/Components/IconButton.vue'
 
-const promotions = ref([
-  { id: 1, name: 'A1' },
-  { id: 2, name: 'A2' },
-  { id: 3, name: 'A3' }
-])
+// promotions/groups loaded from API (dependent on year)
+const promotions = ref<{ id: number; name: string }[]>([])
+const groups = ref<{ id: number; name: string }[]>([])
 
-const groupsByPromotion: Record<number, { id: number; name: string }[]> = {
-  1: [
-    { id: 1, name: 'G1' },
-    { id: 2, name: 'G2' },
-    { id: 3, name: 'G3' },
-  ],
-  2: [
-    { id: 4, name: 'G4' },
-    { id: 5, name: 'G5' },
-    { id: 6, name: 'G6' },
-  ],
-  3: [
-    { id: 7, name: 'G7' },
-    { id: 8, name: 'G8' },
-  ],
-}
-
-const selectedPromotion = ref(promotions.value[0].id)
-const groups = ref(groupsByPromotion[selectedPromotion.value] || [])
-const selectedGroup = ref<number | null>(groups.value[0]?.id ?? null)
+const selectedPromotion = ref<number | null>(null)
+const selectedGroup = ref<number | null>(null)
 const selectedSubgroup = ref<string>('A')
 
-watch(selectedPromotion, (val) => {
-  groups.value = groupsByPromotion[val] || []
-  selectedGroup.value = groups.value[0]?.id ?? null
-})
 const currentWeek = ref(1)
+
+const edtStore = useEdtStore()
+
+async function loadPromotionsForYear(yearId: number) {
+  try {
+    const res = await axios.get(`/api/promotions/${yearId}`)
+    promotions.value = Array.isArray(res.data) ? res.data : []
+    if (promotions.value.length > 0) {
+      // preserve previously selected promotion from store if compatible
+      if (edtStore.promotionId && promotions.value.find(p => p.id === edtStore.promotionId)) {
+        selectedPromotion.value = edtStore.promotionId
+      } else {
+        selectedPromotion.value = promotions.value[0].id
+      }
+    } else {
+      selectedPromotion.value = null
+      groups.value = []
+      selectedGroup.value = null
+    }
+  } catch (e) {
+    console.warn('Could not load promotions', e)
+  }
+}
+
+async function loadGroupsForPromotion(promoId: number | null) {
+  if (!promoId) {
+    groups.value = []
+    selectedGroup.value = null
+    return
+  }
+  try {
+    const res = await axios.get(`/api/groups/${promoId}`)
+    groups.value = Array.isArray(res.data) ? res.data : []
+    if (groups.value.length > 0) {
+      if (edtStore.groupId && groups.value.find(g => g.id === edtStore.groupId)) {
+        selectedGroup.value = edtStore.groupId
+      } else {
+        selectedGroup.value = groups.value[0].id
+      }
+    } else {
+      selectedGroup.value = null
+    }
+  } catch (e) {
+    console.warn('Could not load groups', e)
+  }
+}
+
+// Resolve year then load promotions/groups (mirrors other pages' logic)
+async function ensureDataLoaded() {
+  let yearId: number | null = null
+  if (typeof edtStore.year === 'number') yearId = edtStore.year
+  else if (typeof edtStore.year === 'string' && /^[0-9]+$/.test(edtStore.year)) yearId = parseInt(edtStore.year as string, 10)
+  if (!yearId) {
+    try {
+      const yrs = await axios.get('/api/years')
+      const arr = Array.isArray(yrs.data) ? yrs.data : []
+      if (arr.length > 0) yearId = arr[0].id
+    } catch (e) {
+      console.warn('Could not resolve year', e)
+    }
+  }
+
+  if (yearId) await loadPromotionsForYear(yearId)
+  if (selectedPromotion.value) await loadGroupsForPromotion(selectedPromotion.value)
+}
+
+onMounted(() => { ensureDataLoaded() })
+
+// keep store in sync
+watch(selectedPromotion, (val) => {
+  edtStore.setPromotion(val)
+  void loadGroupsForPromotion(val)
+})
+watch(selectedGroup, (val) => edtStore.setGroup(val))
+watch(selectedSubgroup, (val) => edtStore.setSubgroup(val))
+watch(currentWeek, (val) => edtStore.setWeek(val))
+
+// initialize store with current values (if any)
+edtStore.setPromotion(selectedPromotion.value)
+edtStore.setGroup(selectedGroup.value)
+edtStore.setWeek(currentWeek.value)
+edtStore.setSubgroup(selectedSubgroup.value)
 
 const SLOT_START = 8 * 60
 const SLOT_END = 19 * 60 + 30
@@ -67,15 +123,6 @@ function nextWeek() {
   currentWeek.value += 1
 }
 
-const edtStore = useEdtStore()
-watch(selectedPromotion, (val) => edtStore.setPromotion(val))
-watch(selectedGroup, (val) => edtStore.setGroup(val))
-watch(selectedSubgroup, (val) => edtStore.setSubgroup(val))
-watch(currentWeek, (val) => edtStore.setWeek(val))
-edtStore.setPromotion(selectedPromotion.value)
-edtStore.setGroup(selectedGroup.value)
-edtStore.setWeek(currentWeek.value)
-edtStore.setSubgroup(selectedSubgroup.value)
 
 </script>
 
