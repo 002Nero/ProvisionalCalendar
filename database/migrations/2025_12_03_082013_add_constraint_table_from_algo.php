@@ -74,6 +74,23 @@ return new class extends Migration
             $table->foreign('group_id')->references('id')->on('groups')->onDelete('cascade');
             $table->foreign('week_id')->references('id')->on('weeks')->onDelete('set null');
         });
+
+        Schema::create('slot_constraints', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('slot_id');
+            $table->string('constraint_type', 50);
+            $table->string('day_of_week', 20)->nullable();
+            $table->time('start_time')->nullable();
+            $table->time('end_time')->nullable();
+            $table->text('reason')->nullable();
+            $table->string('priority', 20)->default('hard');
+            $table->unsignedBigInteger('week_id')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamp('created_at')->useCurrent();
+
+            $table->foreign('slot_id')->references('id')->on('slots')->onDelete('cascade');
+            $table->foreign('week_id')->references('id')->on('weeks')->onDelete('set null');
+        });
     }
 
     /**
