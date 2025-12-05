@@ -82,12 +82,6 @@ const handleSuccessfullyEdited = (teacher: Teacher) => {
     fetchTeachers();
 };
 
-const handleSuccessfullyDeleted = (teacher: Teacher) => {
-    hideEditTeacherPopup();
-    emit("successfullyDeleted", teacher);
-    fetchTeachers();
-};
-
 const resetErrorMessage = () => (errorMessage.value = undefined);
 </script>
 
@@ -114,7 +108,6 @@ const resetErrorMessage = () => (errorMessage.value = undefined);
         :teacherId="teacherToEditId"
         :yearId
         @successfullyEdited="handleSuccessfullyEdited"
-        @successfullyDeleted="handleSuccessfullyDeleted"
         @cancel="hideEditTeacherPopup"
     />
 

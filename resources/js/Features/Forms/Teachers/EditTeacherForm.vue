@@ -16,7 +16,6 @@ const props = defineProps<{
 
 const emit = defineEmits([
     "successfullyEdited",
-    "successfullyDeleted",
     "edited",
 ]);
 
@@ -61,12 +60,6 @@ const handleEdit = async () => {
         .catch((error) => (errorMessage.value = error));
 };
 
-const handleDelete = async () => {
-    teacherService
-        .deleteTeacher(editedTeacher.value.id!)
-        .then(() => emit("successfullyDeleted", editedTeacher.value.id))
-        .catch((error) => (errorMessage.value = error));
-};
 
 const resetErrorMessage = () => (errorMessage.value = undefined);
 </script>
@@ -95,17 +88,7 @@ const resetErrorMessage = () => (errorMessage.value = undefined);
                 @click="handleEdit"
                 >Sauvegarder</FormButton
             >
-            <FormButton
-                class="bg-red-500 text-white w-full"
-                @click="showDeleteConfirmationPopup"
-                >Supprimer</FormButton
-            >
         </div>
-        <DeleteConfirmationPopup
-            v-if="isDeleteConfirmationPopupVisible"
-            @delete="handleDelete"
-            @cancel="hideDeleteConfirmationPopup"
-        />
         <ErrorPopup
             v-if="errorMessage"
             :message="errorMessage!"

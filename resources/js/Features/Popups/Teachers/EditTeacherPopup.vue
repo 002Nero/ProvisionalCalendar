@@ -13,7 +13,6 @@ const props = defineProps<{ yearId: number; teacherId: number }>();
 const emit = defineEmits([
     "cancel",
     "successfullyEdited",
-    "successfullyDeleted",
 ]);
 
 const userService = useUserService();
@@ -75,7 +74,6 @@ const handleHasBeenEdited = () => {
             :users
             :teacher
             @successfullyEdited="$emit('successfullyEdited')"
-            @successfullyDeleted="$emit('successfullyDeleted')"
             @edited="handleHasBeenEdited"
         />
         <div v-else class="w-full flex justify-center">
