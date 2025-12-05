@@ -54,7 +54,7 @@
                                 {{ user.username }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                {{ user.firstname }} {{ user.lastname }}
+                                {{ user.first_name }} {{ user.last_name }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {{ user.email }}
@@ -135,7 +135,7 @@
                         >
                         <input
                             type="text"
-                            v-model="form.firstname"
+                            v-model="form.first_name"
                             required
                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         />
@@ -147,7 +147,7 @@
                         >
                         <input
                             type="text"
-                            v-model="form.lastname"
+                            v-model="form.last_name"
                             required
                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         />
@@ -228,6 +228,18 @@
                     </button>
                 </div>
             </Popup>
+
+            <ErrorPopup
+                v-if="isErrorPopupVisible"
+                :message="errorMessage"
+                @close="() => { isErrorPopupVisible = false; errorMessage = ''; }"
+            />
+
+            <SuccessPopup
+                v-if="isSuccessPopupVisible"
+                :message="successMessage"
+                @close="() => { isSuccessPopupVisible = false; successMessage = ''; }"
+            />
         </div>
     </ConfigLayout>
 </template>
@@ -238,6 +250,8 @@ import ConfigLayout from "@/Layouts/ConfigLayout.vue";
 import Popup from "@/Components/Popup/PopupComponent.vue";
 import IconButton from "@/Components/IconButton.vue";
 import axios from "axios";
+import ErrorPopup from "@/Features/Popups/ErrorPopup.vue";
+import SuccessPopup from "@/Features/Popups/SuccessPopup.vue";
 
 const users = ref([]);
 const roles = ref([]);
@@ -246,10 +260,16 @@ const isDeleteModalOpen = ref(false);
 const editingUser = ref(null);
 const userToDelete = ref(null);
 
+const isErrorPopupVisible = ref(false);
+const errorMessage = ref("");
+
+const isSuccessPopupVisible = ref(false);
+const successMessage = ref("");
+
 const form = ref({
     username: "",
-    firstname: "",
-    lastname: "",
+    first_name: "",
+    last_name: "",
     email: "",
     role_id: "",
 });
@@ -279,8 +299,8 @@ const openCreateModal = () => {
     editingUser.value = null;
     form.value = {
         username: "",
-        firstname: "",
-        lastname: "",
+        first_name: "",
+        last_name: "",
         email: "",
         role_id: "",
     };
@@ -292,8 +312,8 @@ const openEditModal = (user) => {
     editingUser.value = user;
     form.value = {
         username: user.username,
-        firstname: user.firstname,
-        lastname: user.lastname,
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
         role_id: user.role_id,
     };
@@ -306,8 +326,8 @@ const closeModal = () => {
     editingUser.value = null;
     form.value = {
         username: "",
-        firstname: "",
-        lastname: "",
+        first_name: "",
+        last_name: "",
         email: "",
         role_id: "",
     };
@@ -346,7 +366,15 @@ const deleteUser = async () => {
         await axios.delete(`/api/users/${userToDelete.value.id}`);
         await loadUsers();
         closeDeleteModal();
-    } catch (error) {}
+        successMessage.value = "Utilisateur supprimé avec succès.";
+        isSuccessPopupVisible.value = true;
+    } catch (error) {
+        // Récupérer message d'erreur de l'API si disponible
+        const apiMessage = error?.response?.data?.message || error?.message || "Erreur lors de la suppression de l'utilisateur";
+        errorMessage.value = apiMessage;
+        isErrorPopupVisible.value = true;
+        // Optionnel: garder la modal de confirmation ouverte pour permettre une action corrective
+    }
 };
 
 // Réinitialiser le mot de passe
