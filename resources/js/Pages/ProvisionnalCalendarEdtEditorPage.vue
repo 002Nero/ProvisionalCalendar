@@ -549,69 +549,30 @@ async function saveEdt() {
     // Build placements with position info for edt_slot API
     const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
     
-    // Separate updates (id <= 1000) and creates (id > 1000)
+    // Only updates (id <= 1000, existing placements)
     const modifiedPlacements = placements.value.filter(p => p.id <= 1000)
-    const newPlacements = placements.value.filter(p => p.id > 1000)
     
-    if (modifiedPlacements.length === 0 && newPlacements.length === 0) {
-      alert('Aucun placement à sauvegarder.')
+    if (modifiedPlacements.length === 0) {
+      // No modifications, just redirect
+      window.location.href = '/calendrier-previsionnel/edt'
       return
     }
     
     // Send updates
-    if (modifiedPlacements.length > 0) {
-      const edtPayload = {
-        updates: modifiedPlacements.map(p => {
-          const startHour = formatTime(p.time)
-          const dayName = dayNames[(p.day || 1) - 1] || 'Lundi'
-
-          return {
-            edt_slot_id: p.id,
-            day_of_week: dayName,
-            start_hour: startHour,
-            room_id: p.roomId ?? defaultRoomId
-          }
-        })
-      }
-      await axios.post('/api/edt/bulk', edtPayload)
-    }
-
-    // Send creates
-    if (newPlacements.length > 0) {
-      console.log('Creating', newPlacements.length, 'new placements')
-      for (const p of newPlacements) {
+    const edtPayload = {
+      updates: modifiedPlacements.map(p => {
         const startHour = formatTime(p.time)
         const dayName = dayNames[(p.day || 1) - 1] || 'Lundi'
-        const durationHours = Number(((p.duration || SLOT_STEP) / 60).toFixed(1))
-        
-        const parseOrNull = (v: unknown): number | null => {
-          if (typeof v === 'number') return v
-          if (typeof v === 'string' && /^[0-9]+$/.test(v)) return parseInt(v, 10)
-          return null
-        }
-        const promotionId = parseOrNull(edtStore.promotionId)
-        const groupId = parseOrNull(edtStore.groupId)
-        const subgroupId = parseOrNull(edtStore.subgroup)
 
-        const createPayload = {
-          year_id: yearId,
-          week_number: edtStore.week,
-          teaching_id: p.courseId,
-          duration: durationHours,
-          type: (courses.value.find(c => c.id === p.courseId)?.type || 'TD'),
-          promotion_id: promotionId,
-          group_id: groupId,
-          subgroup_id: subgroupId,
+        return {
+          edt_slot_id: p.id,
           day_of_week: dayName,
           start_hour: startHour,
-          room_id: p.roomId ?? defaultRoomId,
-          teacher_id: p.teacherId ?? null
+          room_id: p.roomId ?? defaultRoomId
         }
-        
-        console.log('Creating placement:', createPayload)
-        await axios.post('/api/edt/create', createPayload)
-      }
+      })
     }
+    await axios.post('/api/edt/bulk', edtPayload)
 
     // On success, navigate back to main EDT page
     window.location.href = '/calendrier-previsionnel/edt'
