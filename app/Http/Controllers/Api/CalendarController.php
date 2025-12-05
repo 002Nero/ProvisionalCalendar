@@ -265,36 +265,168 @@ class CalendarController extends Controller
 
     /**
      * Retourne les edt_slot pour une année + numéro de semaine (avec données de slot jointes)
+     * Accepte des paramètres optionnels: promotion_id, group_id, subgroup pour filtrer les résultats.
      */
-    public function getEdtSlots($year_id, $week_number): JsonResponse
+    public function getEdtSlots(Request $request, $year_id, $week_number): JsonResponse
     {
         try {
-            $week = Week::where('year_id', $year_id)->where('week_number', $week_number)->first();
-            if (!$week) {
-                return response()->json(['error' => 'Semaine introuvable pour cette année'], 404);
+            // Read optional filters from query params
+            $promotionId = $request->query('promotion_id');
+            $groupId = $request->query('group_id');
+            $subgroup = $request->query('subgroup');
+            
+            // Prefer a direct join by weeks to find edt_slot rows for the given year and week_number.
+            // Build select list dynamically to avoid referencing columns that may not exist in all environments.
+            $hasStartHour = Schema::hasColumn('edt_slot', 'start_hour');
+            $hasStartTime = Schema::hasColumn('edt_slot', 'start_time');
+            $hasDayOfWeek = Schema::hasColumn('edt_slot', 'day_of_week');
+            $hasDay = Schema::hasColumn('edt_slot', 'day');
+
+            if ($hasStartHour && $hasStartTime) {
+                $startSelect = DB::raw("COALESCE(edt_slot.start_hour, edt_slot.start_time) as start_hour");
+                $startOrderExpr = "COALESCE(edt_slot.start_hour, edt_slot.start_time)";
+            } elseif ($hasStartHour) {
+                $startSelect = 'edt_slot.start_hour';
+                $startOrderExpr = 'edt_slot.start_hour';
+            } elseif ($hasStartTime) {
+                $startSelect = 'edt_slot.start_time';
+                $startOrderExpr = 'edt_slot.start_time';
+            } else {
+                $startSelect = DB::raw("NULL as start_hour");
+                $startOrderExpr = null;
             }
 
-            $rows = DB::table('edt_slot')
-                ->leftJoin('teachers', 'edt_slot.teacher_id', '=', 'teachers.id')
-                ->where('edt_slot.week_id', $week->id)
-                ->select(
-                    'edt_slot.id as id',
-                    'edt_slot.start_hour',
-                    'edt_slot.day_of_week',
-                    'edt_slot.room_id',
-                    'edt_slot.slot_id',
-                    'edt_slot.teaching_id',
-                    'edt_slot.duration',
-                    'edt_slot.promotion_id',
-                    'edt_slot.group_id',
-                    'edt_slot.subgroup_id',
-                    'edt_slot.type',
-                    'edt_slot.teacher_id',
-                    'teachers.acronym as teacher_code'
-                )
-                ->get();
+            if ($hasDayOfWeek && $hasDay) {
+                $daySelect = DB::raw("COALESCE(edt_slot.day_of_week, edt_slot.day) as day_of_week");
+                $dayOrderExpr = "COALESCE(edt_slot.day_of_week, edt_slot.day)";
+            } elseif ($hasDayOfWeek) {
+                $daySelect = 'edt_slot.day_of_week';
+                $dayOrderExpr = 'edt_slot.day_of_week';
+            } elseif ($hasDay) {
+                $daySelect = 'edt_slot.day';
+                $dayOrderExpr = 'edt_slot.day';
+            } else {
+                $daySelect = DB::raw("NULL as day_of_week");
+                $dayOrderExpr = null;
+            }
 
-            return response()->json($rows);
+            // Select basic edt_slot columns (use * to avoid referencing non-existent fields)
+            // Join slots first, then join weeks via slots.week_id (edt_slot does not have week_id column)
+            $query = DB::table('edt_slot')
+                ->leftJoin('slots', 'edt_slot.slot_id', '=', 'slots.id')
+                ->leftJoin('weeks', 'slots.week_id', '=', 'weeks.id')
+                ->leftJoin('rooms', 'edt_slot.room_id', '=', 'rooms.id')
+                ->where('weeks.year_id', $year_id)
+                ->where('weeks.week_number', $week_number)
+                ->select('edt_slot.*', 'rooms.name as room_name');
+
+            // apply ordering only when we have valid expressions
+            if (!empty($dayOrderExpr)) {
+                $query->orderByRaw($dayOrderExpr . ' asc');
+            }
+            if (!empty($startOrderExpr)) {
+                $query->orderByRaw($startOrderExpr . ' asc');
+            }
+
+            $rows = $query->get();
+
+            // Collect slot_ids referenced and load the authoritative slot data
+            $slotIds = collect($rows)->pluck('slot_id')->filter()->unique()->values()->all();
+            $slots = [];
+            if (!empty($slotIds)) {
+                $query = Slot::whereIn('id', $slotIds)->with(['teaching', 'Promotion', 'Group', 'Subgroup']);
+                
+                // Apply filters if provided - use OR logic to include parent/child relationships
+                // A slot can be for: promotion only (CM), group (TD), or subgroup (TP)
+                if ($promotionId || $groupId || $subgroup) {
+                    $query->where(function($q) use ($promotionId, $groupId, $subgroup) {
+                        if ($promotionId) {
+                            // Include slots for this promotion (CM level) or any group/subgroup in this promotion
+                            $q->orWhere('promotion_id', $promotionId);
+                        }
+                        if ($groupId) {
+                            // Include slots for this specific group (TD level)
+                            $q->orWhere('group_id', $groupId);
+                        }
+                        if ($subgroup) {
+                            // Include slots for this specific subgroup (TP level)
+                            $q->orWhere('subgroup_id', $subgroup);
+                        }
+                    });
+                }
+                
+                $slotModels = $query->get()->keyBy('id');
+                // load teachers from pivot table for these slots
+                $teachersRows = DB::table('slots_teachers')->whereIn('slot_id', $slotIds)->get();
+                $teachersBySlot = [];
+                foreach ($teachersRows as $tr) {
+                    if (!isset($teachersBySlot[$tr->slot_id])) $teachersBySlot[$tr->slot_id] = [];
+                    $teachersBySlot[$tr->slot_id][] = $tr->teacher_id;
+                }
+
+                foreach ($slotModels as $id => $s) {
+                    $slots[$id] = $s;
+                    $slots[$id]->teacher_ids = $teachersBySlot[$id] ?? [];
+                }
+            }
+
+            // Build response mapping edt_slot rows to enriched objects using slot data
+            $result = [];
+            foreach ($rows as $r) {
+                $slotInfo = null;
+                if (!empty($r->slot_id) && isset($slots[$r->slot_id])) {
+                    $slot = $slots[$r->slot_id];
+                    $teacherId = !empty($slot->teacher_ids) ? $slot->teacher_ids[0] : null;
+                    $teacher = $teacherId ? Teacher::with('user')->find($teacherId) : null;
+                    
+                    // Build teacher name: try first_name/last_name from teacher, then from user, then acronym
+                    $teacherName = null;
+                    if ($teacher) {
+                        $firstName = $teacher->first_name ?? null;
+                        $lastName = $teacher->last_name ?? null;
+                        
+                        // If teacher doesn't have first/last name, get from user
+                        if ((!$firstName || !$lastName) && $teacher->user) {
+                            $firstName = $firstName ?: ($teacher->user->first_name ?? null);
+                            $lastName = $lastName ?: ($teacher->user->last_name ?? null);
+                        }
+                        
+                        $teacherName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
+                        if (empty($teacherName)) {
+                            $teacherName = $teacher->acronym ?? null;
+                        }
+                    }
+                    
+                    $slotInfo = [
+                        'slot_id' => $slot->id,
+                        'duration' => $slot->duration,
+                        'teaching_id' => $slot->teaching_id,
+                        'teaching_label' => ($slot->teaching) ? $slot->teaching->label : null,
+                        'teaching_code' => ($slot->teaching && isset($slot->teaching->apogee_code)) ? $slot->teaching->apogee_code : null,
+                        'promotion_id' => $slot->promotion_id ?? null,
+                        'group_id' => $slot->group_id ?? null,
+                        'subgroup_id' => $slot->subgroup_id ?? null,
+                        'type_id' => $slot->type_id ?? null,
+                        'teacher_id' => $teacher ? $teacher->id : null,
+                        'teacher_code' => ($teacher && isset($teacher->acronym)) ? $teacher->acronym : null,
+                        'teacher_name' => $teacherName
+                    ];
+                }
+
+                // derive start and day values from edt_slot row
+                $start = property_exists($r, 'start_hour') ? $r->start_hour : (property_exists($r, 'start_time') ? $r->start_time : null);
+                $day = property_exists($r, 'day_of_week') ? $r->day_of_week : (property_exists($r, 'day') ? $r->day : null);
+
+                $result[] = array_merge([
+                    'id' => $r->id,
+                    'start_hour' => $start,
+                    'day_of_week' => $day,
+                    'room_id' => $r->room_id,
+                    'room_name' => $r->room_name ?? null,
+                ], is_array($slotInfo) ? $slotInfo : []);
+            }
+
+            return response()->json($result);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);
         }

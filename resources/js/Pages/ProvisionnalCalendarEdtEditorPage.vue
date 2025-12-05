@@ -156,7 +156,14 @@ function minutesFromTimeString(s: string | null | undefined): number {
 
 async function loadEdtSlots(yearId: number, weekNumber: number) {
   try {
-    const res = await axios.get(`/api/edt/${yearId}/${weekNumber}`)
+    // Build URL with filters to show only courses for selected promotion/group/subgroup
+    const params = new URLSearchParams()
+    if (edtStore.promotionId) params.append('promotion_id', String(edtStore.promotionId))
+    if (edtStore.groupId) params.append('group_id', String(edtStore.groupId))
+    if (edtStore.subgroup) params.append('subgroup', String(edtStore.subgroup))
+    const url = `/api/edt/${yearId}/${weekNumber}${params.toString() ? '?' + params.toString() : ''}`
+    
+    const res = await axios.get(url)
     const data = Array.isArray(res.data) ? res.data : []
     // map to placements used by editor
     placements.value = []

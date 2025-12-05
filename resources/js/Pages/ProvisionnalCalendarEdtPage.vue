@@ -16,6 +16,21 @@ const selectedSubgroup = ref<string>('A')
 
 const currentWeek = ref(1)
 
+// lessons loaded from edt_slot API
+type RawRow = Record<string, unknown>
+interface Lesson { 
+  id: number | null
+  day: number
+  start_min: number
+  duration_min: number
+  span: number  // number of 30-min slots
+  title: string
+  teacher: string
+  room: string
+  raw: RawRow
+}
+const lessons = ref<Lesson[]>([])
+
 const edtStore = useEdtStore()
 
 async function loadPromotionsForYear(yearId: number) {
@@ -76,20 +91,142 @@ async function ensureDataLoaded() {
       console.warn('Could not resolve year', e)
     }
   }
-
-  if (yearId) await loadPromotionsForYear(yearId)
+  if (yearId) {
+    // persist chosen year in store so other pages/components can use it
+    edtStore.setYear(yearId)
+    await loadPromotionsForYear(yearId)
+  }
   if (selectedPromotion.value) await loadGroupsForPromotion(selectedPromotion.value)
+  // DON'T call loadEdtSlotsForCurrent here - will be called from onMounted after this completes
 }
 
-onMounted(() => { ensureDataLoaded() })
-
-// keep store in sync
-watch(selectedPromotion, (val) => {
-  edtStore.setPromotion(val)
-  void loadGroupsForPromotion(val)
+onMounted(async () => { 
+  await ensureDataLoaded()
+  // After promotions/groups are loaded, load EDT slots with filters
+  if (edtStore.year && (edtStore.week || currentWeek.value)) {
+    await loadEdtSlotsForCurrent()
+  }
 })
-watch(selectedGroup, (val) => edtStore.setGroup(val))
-watch(selectedSubgroup, (val) => edtStore.setSubgroup(val))
+
+// load edt_slot lessons for current year/week
+async function loadEdtSlotsForCurrent() {
+  let yearId: number | null = null
+  if (typeof edtStore.year === 'number') yearId = edtStore.year
+  else if (typeof edtStore.year === 'string' && /^[0-9]+$/.test(edtStore.year)) yearId = parseInt(edtStore.year as string, 10)
+  if (!yearId) return
+  
+  const weekNumber = (typeof edtStore.week === 'number' && edtStore.week) ? edtStore.week : currentWeek.value
+  
+  try {
+    // Build URL with filters
+    const params = new URLSearchParams()
+    if (selectedPromotion.value) params.append('promotion_id', String(selectedPromotion.value))
+    if (selectedGroup.value) params.append('group_id', String(selectedGroup.value))
+    if (selectedSubgroup.value) params.append('subgroup', selectedSubgroup.value)
+    const url = `/api/edt/${yearId}/${weekNumber}${params.toString() ? '?' + params.toString() : ''}`
+    lastFetch.value.url = url
+    lastFetch.value.status = null
+    lastFetch.value.error = null
+    lastFetch.value.response = null
+    console.debug('[EDT] fetching edt slots', { url, yearId, weekNumber, filters: { promotion: selectedPromotion.value, group: selectedGroup.value, subgroup: selectedSubgroup.value } })
+    const res = await axios.get(url)
+    lastFetch.value.status = res.status ?? null
+    lastFetch.value.response = res.data ?? null
+    const arr = Array.isArray(res.data) ? res.data as RawRow[] : []
+    console.debug('[EDT] fetched', arr.length, 'rows', arr)
+    lessons.value = arr.map((r: RawRow) => {
+      // Map exactly like editor does
+      const dayRaw = r.day_of_week ?? r.day
+      const day = parseDay(dayRaw)
+      
+      // start_hour is HH:MM string
+      const startRaw = r.start_hour ?? r.start_time
+      let startMin = 0
+      if (typeof startRaw === 'string' && /^\d{1,2}:\d{2}/.test(startRaw)) {
+        const parts = startRaw.split(':')
+        startMin = Number(parts[0]) * 60 + Number(parts[1])
+      }
+      
+      // duration is in hours (decimal), convert to minutes
+      const durationHours = Number(r.duration ?? 0)
+      const durationMin = Math.round(durationHours * 60)
+      const span = Math.max(1, Math.ceil(durationMin / SLOT_STEP))
+      
+      // Course title with Apogee code (no label, just code)
+      const teachingCode = r.teaching_code ?? ''
+      const title = teachingCode || `Enseignement ${r.teaching_id ?? ''}`
+      
+      // Teacher - display full name if available, otherwise acronym, otherwise empty
+      const teacher = r.teacher_name ?? r.teacher_code ?? ''
+      
+      // room_name or room_id
+      const room = r.room_name ?? (r.room_id ? `Salle ${r.room_id}` : '')
+      
+      return {
+        id: Number(r.id ?? 0),
+        day: day as number,
+        start_min: startMin,
+        duration_min: durationMin,
+        span,
+        title,
+        teacher,
+        room,
+        raw: r,
+      } as Lesson
+    }).filter((l) => l.day && l.start_min != null && l.duration_min > 0)
+  } catch (e) {
+      console.warn('Could not load edt slots', e)
+      try {
+        const err = e as unknown as { response?: { status?: number; data?: unknown } }
+        if (err.response) {
+          lastFetch.value.status = err.response.status ?? null
+          lastFetch.value.response = err.response.data ?? null
+          lastFetch.value.error = typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data)
+        } else {
+          lastFetch.value.error = String(e)
+        }
+      } catch (_ee) {
+        lastFetch.value.error = String(e)
+      }
+    lessons.value = []
+  }
+}
+
+// reload when week, year, or filters change
+watch(currentWeek, () => { void loadEdtSlotsForCurrent() })
+watch(() => edtStore.year, async () => { 
+  await ensureDataLoaded()
+  void loadEdtSlotsForCurrent()
+})
+watch(selectedPromotion, async (val) => { 
+  edtStore.setPromotion(val)
+  await loadGroupsForPromotion(val)
+  void loadEdtSlotsForCurrent()
+})
+watch(selectedGroup, (val) => { 
+  edtStore.setGroup(val)
+  void loadEdtSlotsForCurrent()
+})
+watch(selectedSubgroup, (val) => { 
+  edtStore.setSubgroup(val)
+  void loadEdtSlotsForCurrent()
+})
+
+// debug state for diagnostics
+const debugVisible = ref(false)
+const lastFetch = ref<{ url: string | null; status: number | null; error: string | null; response: unknown | null }>({ url: null, status: null, error: null, response: null })
+
+// helper to get lessons that start at a specific day and minute (same as editor)
+function lessonsStartingAt(dayIndex: number, minute: number) {
+  return lessons.value.filter(l => l.day === dayIndex && l.start_min === minute)
+}
+
+// check if cell is covered by a lesson (for graying out covered slots)
+function isCovered(dayIndex: number, minute: number) {
+  return lessons.value.some(l => l.day === dayIndex && l.start_min <= minute && minute < l.start_min + l.span * SLOT_STEP)
+}
+
+// keep store in sync (removed duplicate watches, logic moved to reload watches above)
 watch(currentWeek, (val) => edtStore.setWeek(val))
 
 // initialize store with current values (if any)
@@ -110,6 +247,41 @@ function formatTime(mins: number) {
   const h = Math.floor(mins / 60)
   const m = mins % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+// parse various day representations (numbers, French names, English names)
+function parseDay(val: unknown): number | null {
+  if (val == null) return null
+  if (typeof val === 'number' && Number.isFinite(val)) {
+    const n = Number(val)
+    if (n >= 1 && n <= 6) return n
+    // sometimes day is 0-6 (0=Sunday) — convert Monday..Saturday to 1..6
+    if (n === 0) return null
+    if (n >= 1 && n <= 7) return n <= 6 ? n : null
+  }
+  if (typeof val === 'string') {
+    const s = val.trim().toLowerCase()
+    // numeric string
+    if (/^[0-9]+$/.test(s)) {
+      const n = parseInt(s, 10)
+      if (n >= 1 && n <= 6) return n
+    }
+    // remove accents for french matching
+    const accentsMap: Record<string, string> = { 'à':'a','â':'a','ä':'a','é':'e','è':'e','ê':'e','ë':'e','î':'i','ï':'i','ô':'o','ö':'o','ù':'u','û':'u','ü':'u','ç':'c' }
+    const normalized = s.replace(/[^a-z0-9]/g, ch => accentsMap[ch] ?? '')
+    const m: Record<string, number> = {
+      'lundi': 1, 'lun': 1, 'mardi': 2, 'mar': 2, 'mercredi': 3, 'mer': 3,
+      'jeudi': 4, 'jeu': 4, 'vendredi': 5, 'ven': 5, 'samedi': 6, 'sam': 6,
+      'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6,
+      'mon': 1, 'tue': 2, 'wed': 3, 'thu': 4, 'fri': 5, 'sat': 6
+    }
+    // try full match then prefix match
+    if (normalized in m) return m[normalized]
+    for (const k in m) {
+      if (normalized.startsWith(k)) return m[k]
+    }
+  }
+  return null
 }
 
 function isBlocked(mins: number) {
@@ -182,7 +354,18 @@ function nextWeek() {
                 v-for="d in 6"
                 :key="d"
                 :class="{ blocked: isBlocked(t) }"
-              ></div>
+              >
+                <div
+                  v-for="lesson in lessonsStartingAt(d, t)"
+                  :key="lesson.id || lesson.start_min + '-' + lesson.room"
+                  class="lesson-block"
+                  :style="{ height: `${lesson.span * 40 + (lesson.span - 1) * 4}px` }"
+                >
+                  <div class="lesson-title">{{ lesson.title }}</div>
+                  <div class="lesson-meta">{{ lesson.teacher }} · {{ lesson.room }}</div>
+                </div>
+                <div v-if="isCovered(d, t) && lessonsStartingAt(d, t).length === 0" class="covered-slot"></div>
+              </div>
             </div>
           </div>
         </section>
@@ -210,14 +393,38 @@ function nextWeek() {
 .calendar-header .day { text-align:center; padding:0.25rem 0.5rem; background:#f3f4f6; border-radius:4px; display:flex; align-items:center; justify-content:center; }
 .calendar-grid { display:grid; gap:0.25rem }
 .calendar-grid .row { display:grid; grid-template-columns:80px repeat(6,1fr); align-items:start }
-.calendar-grid .cell { min-height:40px; border:1px dashed #e5e7eb; background:#fff; }
-.calendar-grid .cell.time { padding:0.12rem 0.2rem; font-size:0.85rem; color:#6b7280; background:transparent; border:none; position:sticky; left:0; z-index:15; transform: translateY(-10px); }
+.calendar-grid .cell { height:40px; border:1px dashed #e5e7eb; background:#fff; position:relative; overflow:visible; }
+.calendar-grid .cell.time { padding:0.12rem 0.2rem; font-size:0.85rem; color:#6b7280; background:transparent; border:none; position:sticky; left:0; z-index:15; }
 
 .calendar-grid .cell.blocked {
   background: #ff9d9d;
   border-style: solid;
   border-color: #ff6262;
   opacity: 0.7;
+  pointer-events: none;
+}
+.lesson-block {
+  box-sizing: border-box;
+  padding: 0.25rem;
+  margin: 2px;
+  background: linear-gradient(180deg,#fef3c7,#fde68a);
+  border-radius: 6px;
+  border: 1px solid #f59e0b;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow: hidden;
+  position: absolute;
+  width: calc(100% - 4px);
+  z-index: 5;
+}
+.lesson-title { font-weight:600; color:#92400e }
+.lesson-meta { font-size:0.75rem; color:#7c2d12 }
+.covered-slot {
+  position: absolute;
+  inset: 0;
+  background: rgba(251, 191, 36, 0.1);
   pointer-events: none;
 }
 </style>
