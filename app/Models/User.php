@@ -20,6 +20,7 @@ class User extends Authenticatable
         'password',
         'personal_password',
         'acronym',
+        'suspended',
     ];
 
     protected $hidden = [
@@ -29,6 +30,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'password' => 'hashed',
+        'suspended' => 'boolean',
     ];
 
     protected $with = ['role'];

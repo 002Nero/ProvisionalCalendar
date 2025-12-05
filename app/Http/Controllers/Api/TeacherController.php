@@ -24,8 +24,11 @@ class TeacherController extends Controller
                 ], 404);
             }
 
-            // Récupère les enseignants avec leurs enseignements pour l'année spécifiée
-            $teachers = Teacher::with(['user'])
+            // Récupère les enseignants dont l'utilisateur n'est pas suspendu
+            $teachers = Teacher::whereHas('user', function ($q) {
+                    $q->where('suspended', false);
+                })
+                ->with(['user'])
                 ->get()
                 ->map(function ($teacher) {
                     return [
@@ -37,7 +40,7 @@ class TeacherController extends Controller
                     ];
                 });
 
-            return response()->json($teachers);
+             return response()->json($teachers);
 
         } catch (\Exception $e) {
             return response()->json([

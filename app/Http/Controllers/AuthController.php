@@ -27,10 +27,17 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('username', $credentials['username'])->first();
-        
+
         if (!$user) {
             return redirect()->route('login')->withErrors([
                 'username' => 'Identifiants incorrects.',
+            ]);
+        }
+
+        // Refuser la connexion si l'utilisateur est suspendu
+        if (isset($user->suspended) && $user->suspended) {
+            return redirect()->route('login')->withErrors([
+                'username' => 'Compte suspendu. Contactez un administrateur.',
             ]);
         }
 
@@ -102,7 +109,7 @@ class AuthController extends Controller
         ]);
 
         $user = Auth::user();
-        
+
         DB::table('users')
             ->where('id', $user->id)
             ->update([

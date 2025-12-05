@@ -109,6 +109,7 @@ class UserControllerApi extends Controller
     {
         try {
             $users = User::with('role')
+                ->where('suspended', false)
                 ->select('id', 'username', 'first_name', 'last_name', 'email', 'role_id', 'password')
                 ->get()
                 ->map(function ($user) {
@@ -132,12 +133,16 @@ class UserControllerApi extends Controller
     public function destroy($id)
     {
         try {
-            $user = User::findOrFail($id);
-            $user->delete();
+            $user = User::with('teacher')->findOrFail($id);
+
+            // Marquer l'utilisateur comme suspendu (soft-delete logique)
+            $user->suspended = true;
+            $user->save();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Utilisateur supprimé avec succès',
+                'message' => 'Utilisateur suspendu avec succès',
+                'user' => $user
             ], 200);
 
         } catch (\Exception $e) {
