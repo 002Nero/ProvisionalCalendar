@@ -364,9 +364,11 @@ class CalendarController extends Controller
                     $teachersBySlot[$tr->slot_id][] = $tr->teacher_id;
                 }
 
-                foreach ($slotModels as $id => $s) {
-                    $slots[$id] = $s;
-                    $slots[$id]->teacher_ids = $teachersBySlot[$id] ?? [];
+                if ($slotModels && count($slotModels) > 0) {
+                    foreach ($slotModels as $id => $s) {
+                        $slots[$id] = $s;
+                        $slots[$id]->teacher_ids = $teachersBySlot[$id] ?? [];
+                    }
                 }
             }
 
@@ -433,135 +435,70 @@ class CalendarController extends Controller
     }
 
     /**
-     * Crée en masse des slots + edt_slot (positionnement dans la semaine)
-     * Attendu: { year_id, week_number, placements: [ { teaching_id, duration, type, promotion_id?, group_id?, subgroup_id?, substitute_teacher_id?, is_neutralized?, day_of_week, start_hour, room_id } ] }
+     * Sauvegarde des placements edt_slot
+     * Si edt_slot_id est fourni, update le jour/heure
      */
     public function storeEdtSlotsBulk(Request $request): JsonResponse
     {
         try {
             $validator = Validator::make($request->all(), [
-                'year_id' => 'required|exists:years,id',
-                'week_number' => 'required|integer',
                 'placements' => 'required|array|min:1',
-                'placements.*.teaching_id' => 'required|exists:teachings,id',
-                'placements.*.duration' => 'required|numeric|min:0',
-                'placements.*.type' => 'required|in:CM,TD,TP',
+                'placements.*.edt_slot_id' => 'nullable|integer',
                 'placements.*.day_of_week' => 'required|string',
                 'placements.*.start_hour' => ['required','regex:/^\d{2}:\d{2}$/'],
                 'placements.*.room_id' => 'required|exists:rooms,id',
-                'placements.*.teacher_id' => 'nullable|exists:teachers,id'
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['error' => 'Données invalides', 'messages' => $validator->errors()], 422);
             }
 
-            $week = Week::where('year_id', $request->year_id)->where('week_number', $request->week_number)->first();
-            if (!$week) {
-                return response()->json(['error' => 'Semaine introuvable pour cette année'], 404);
-            }
-
-            $created = [];
+            $updated = [];
             $errors = [];
 
             foreach ($request->placements as $idx => $p) {
-                $teaching = Teaching::find($p['teaching_id']);
-                if (!$teaching) {
-                    $errors[] = "Enseignement introuvable: {$p['teaching_id']} (index {$idx})";
-                    continue;
-                }
-
-                // Prefer teacher_id provided in placement, otherwise fallback to teaching's assigned teacher
-                $teacher = null;
-                if (!empty($p['teacher_id'])) {
-                    $teacher = Teacher::find($p['teacher_id']);
-                    if (!$teacher) {
-                        $errors[] = "Enseignant introuvable id={$p['teacher_id']} (index {$idx})";
-                        continue;
-                    }
-                } else {
-                    $teacher = $teaching->teachers->first();
-                    if (!$teacher) {
-                        $errors[] = "Aucun enseignant assigné pour l'enseignement {$teaching->id} (index {$idx})";
-                        continue;
+                $edtSlotId = $p['edt_slot_id'] ?? null;
+                
+                if (!empty($edtSlotId)) {
+                    // UPDATE existing edt_slot
+                    $updateData = [
+                        'day' => $p['day_of_week'],
+                        'start_hour' => $p['start_hour'],
+                        'room_id' => $p['room_id'],
+                        'updated_at' => now()
+                    ];
+                    
+                    $result = DB::table('edt_slot')->where('id', $edtSlotId)->update($updateData);
+                    if ($result) {
+                        $updated[] = $edtSlotId;
+                    } else {
+                        $errors[] = "Impossible de mettre à jour edt_slot {$edtSlotId}";
                     }
                 }
-
-                // Determine room_amount from room if available
-                $roomAmount = 1;
-                if (!empty($p['room_id'])) {
-                    $roomRow = DB::table('rooms')->where('id', $p['room_id'])->first();
-                    if ($roomRow) {
-                        $roomAmount = $roomRow->seat_capacity ?? 1;
-                    }
-                }
-
-                // Find slot_type id by acronym (CM/TD/TP) or fallback to first
-                $typeAcr = strtoupper(trim($p['type'] ?? ''));
-                $slotTypeRow = DB::table('slot_types')->whereRaw('UPPER(acronym) = ?', [$typeAcr])->first();
-                if (!$slotTypeRow) {
-                    $slotTypeRow = DB::table('slot_types')->first();
-                }
-                $typeId = $slotTypeRow->id ?? null;
-
-                // Build slot data with required fields present in current schema
-                $slotData = [
-                    'duration' => $p['duration'],
-                    'teaching_id' => $teaching->id,
-                    'promotion_id' => $p['promotion_id'] ?? null,
-                    'group_id' => $p['group_id'] ?? null,
-                    'subgroup_id' => $p['subgroup_id'] ?? null,
-                    'room_amount' => $roomAmount,
-                    'is_neutralized' => $p['is_neutralized'] ?? false,
-                    'week_id' => $week->id,
-                    'type_id' => $typeId,
-                    'is_exam' => false
-                ];
-
-                // Create Slot (required by current schema) and attach teacher via pivot
-                $slot = Slot::create($slotData);
-                // attach teacher in slots_teachers pivot
-                DB::table('slots_teachers')->insert([
-                    'slot_id' => $slot->id,
-                    'teacher_id' => $teacher->id,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-
-                // create edt_slot referencing the new slot
-                $insert = [
-                    'start_hour' => $p['start_hour'],
-                    'slot_id' => $slot->id,
-                    'room_id' => $p['room_id'],
-                    'day_of_week' => $p['day_of_week'],
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ];
-
-                // Map day_of_week -> day if database uses 'day' column
-                if (isset($insert['day_of_week']) && Schema::hasColumn('edt_slot', 'day') && !Schema::hasColumn('edt_slot', 'day_of_week')) {
-                    $insert['day'] = $insert['day_of_week'];
-                }
-
-                // Also ensure start_hour -> start_time mapping if needed
-                if (isset($insert['start_hour']) && Schema::hasColumn('edt_slot', 'start_time') && !Schema::hasColumn('edt_slot', 'start_hour')) {
-                    $insert['start_time'] = $insert['start_hour'];
-                }
-
-                // Remove any keys that don't exist in the current edt_slot schema to avoid SQL errors
-                foreach (array_keys($insert) as $col) {
-                    if (!Schema::hasColumn('edt_slot', $col)) {
-                        unset($insert[$col]);
-                    }
-                }
-
-                $edtId = DB::table('edt_slot')->insertGetId($insert);
-                $created[] = ['edt_id' => $edtId, 'slot_id' => $slot->id];
             }
 
-            $status = empty($errors) ? 201 : 207;
-            return response()->json(['message' => empty($errors) ? 'EDT slots créés' : 'Création partielle', 'created' => $created, 'errors' => $errors], $status);
+            $status = empty($errors) ? 200 : 207;
+            $message = count($updated) . ' placement(s) mis à jour';
+            return response()->json(['message' => $message, 'updated' => $updated, 'errors' => $errors], $status);
 
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Supprime un placement edt_slot
+     */
+    public function deleteEdtSlot(Request $request, $id): JsonResponse
+    {
+        try {
+            $result = DB::table('edt_slot')->where('id', $id)->delete();
+            
+            if ($result) {
+                return response()->json(['message' => 'Placement supprimé'], 200);
+            } else {
+                return response()->json(['error' => 'Placement introuvable'], 404);
+            }
         } catch (\Exception $e) {
             return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);
         }

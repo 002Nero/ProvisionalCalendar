@@ -393,13 +393,29 @@ function formatDuration(mins: number) {
 }
 
 function onPlacementClick(id: number) {
-  if (confirm('Supprimer ce placement ?')) removePlacementById(id)
+  if (confirm('Supprimer ce placement ?')) {
+    removePlacementById(id)
+  }
 }
 
-function removePlacementById(id: number) {
+async function removePlacementById(id: number) {
   const idx = placements.value.findIndex(p => p.id === id)
   if (idx !== -1) {
     const p = placements.value.splice(idx, 1)[0]
+    
+    // If it's from DB (id <= 1000), delete it immediately
+    if (id <= 1000) {
+      try {
+        await axios.delete(`/api/edt/${id}`)
+      } catch (err) {
+        console.error('Erreur suppression placement', err)
+        alert('Erreur lors de la suppression du placement')
+        // Re-add to placements if delete failed
+        placements.value.splice(idx, 0, p)
+        return
+      }
+    }
+    
     // restore remaining minutes to the course
     const c = courses.value.find(x => x.id === p.courseId)
     if (c && typeof c.remainingMinutes === 'number') {
@@ -469,37 +485,28 @@ async function saveEdt() {
       return
     }
 
-    // Build placements with position info for edt_slot API (start_hour as HH:MM, day_of_week as string)
+    // Build placements with position info for edt_slot API
+    // Filter to only send placements that have been modified (edt_slot_id provided)
     const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+    
+    // Only include placements that have an edt_slot_id (i.e., they were loaded from DB)
+    const modifiedPlacements = placements.value.filter(p => p.id <= 1000)
+    
+    if (modifiedPlacements.length === 0) {
+      alert('Aucun placement à modifier.')
+      return
+    }
+    
     const edtPayload = {
-      year_id: yearId,
-      week_number: edtStore.week,
-      placements: placements.value.map(p => {
+      placements: modifiedPlacements.map(p => {
         const startHour = formatTime(p.time)
         const dayName = dayNames[(p.day || 1) - 1] || 'Lundi'
-        const durationHours = Number(((p.duration || SLOT_STEP) / 60).toFixed(1))
-        // coerce store ids to numbers where possible (some values may be strings like 'A')
-        const parseOrNull = (v: unknown): number | null => {
-          if (typeof v === 'number') return v
-          if (typeof v === 'string' && /^[0-9]+$/.test(v)) return parseInt(v, 10)
-          return null
-        }
-        const promotionId = parseOrNull(edtStore.promotionId)
-        const groupId = parseOrNull(edtStore.groupId)
-        const subgroupId = parseOrNull(edtStore.subgroup)
 
         return {
-          teaching_id: p.courseId,
-          duration: durationHours,
-          type: (courses.value.find(c => c.id === p.courseId)?.type || 'TD'),
-          promotion_id: promotionId,
-          group_id: groupId,
-          subgroup_id: subgroupId,
-          is_neutralized: false,
+          edt_slot_id: p.id,
           day_of_week: dayName,
           start_hour: startHour,
-          room_id: p.roomId ?? defaultRoomId,
-          teacher_id: p.teacherId ?? null
+          room_id: p.roomId ?? defaultRoomId
         }
       })
     }
