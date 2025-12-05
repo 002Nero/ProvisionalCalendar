@@ -28,6 +28,19 @@ if [ ! -f "/var/www/html/.env" ] && [ -f "/var/www/html/.env.example" ]; then
   cp /var/www/html/.env.example /var/www/html/.env
 fi
 
+# --- Step 4.5: Ensure APP_KEY exists (idempotent) ---
+# If APP_KEY is missing or empty in .env, generate it via artisan
+if [ -f "/var/www/html/.env" ]; then
+  APP_KEY_VAL=$(grep '^APP_KEY=' /var/www/html/.env | cut -d'=' -f2- || true)
+  if [ -z "${APP_KEY_VAL}" ]; then
+    echo "Generating application key (APP_KEY) ..."
+    # php artisan key:generate will update the .env file
+    php artisan key:generate --force || echo "Warning: APP_KEY generation failed"
+  else
+    echo "APP_KEY already set, skipping key generation"
+  fi
+fi
+
 # --- Step 5: Wait for the database ---
 #echo "Waiting for database to be ready..."
 #until php -r "try { new PDO('mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'), getenv('DB_USERNAME'), getenv('DB_PASSWORD')); } catch (Exception \$e) { exit(1); }"; do
