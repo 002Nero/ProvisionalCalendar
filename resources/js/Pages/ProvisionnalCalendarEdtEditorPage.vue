@@ -352,12 +352,73 @@ function onCellDrop(e: DragEvent, day: number, time: number) {
   const placementRoomRaw = course?.room ?? null
   const placementTeacherId = typeof placementTeacherRaw === 'number' ? placementTeacherRaw : (typeof placementTeacherRaw === 'string' && /^[0-9]+$/.test(placementTeacherRaw) ? parseInt(placementTeacherRaw, 10) : null)
   const placementRoomId = typeof placementRoomRaw === 'number' ? placementRoomRaw : (typeof placementRoomRaw === 'string' && /^[0-9]+$/.test(placementRoomRaw) ? parseInt(placementRoomRaw, 10) : null)
-  placements.value.push({ id: nextPlacementId++, courseId, day, time, span, duration, teacherId: placementTeacherId, roomId: placementRoomId })
+  
+  // Insert directly in database
+  insertPlacementInDb(courseId, day, time, duration, placementTeacherId, placementRoomId)
+  
+  const newPlacementId = nextPlacementId++
+  placements.value.push({ id: newPlacementId, courseId, day, time, span, duration, teacherId: placementTeacherId, roomId: placementRoomId })
   // subtract remaining minutes for that course
   if (course) {
     if (typeof course.remainingMinutes === 'number') course.remainingMinutes = Math.max(0, course.remainingMinutes - duration)
   }
   currentDrop.value = { day: null, time: null }
+}
+
+async function insertPlacementInDb(courseId: number, day: number, time: number, duration: number, teacherId: number | null, roomId: number | null) {
+  try {
+    const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+    const dayName = dayNames[day - 1] || 'Lundi'
+    const startHour = formatTime(time)
+    const durationHours = Number(((duration || SLOT_STEP) / 60).toFixed(1))
+    
+    // Get default room if not provided
+    let finalRoomId = roomId
+    if (!finalRoomId) {
+      try {
+        const roomsRes = await axios.get('/api/rooms')
+        const arr = Array.isArray(roomsRes.data) ? roomsRes.data : []
+        if (arr.length > 0) finalRoomId = arr[0].id
+      } catch (e) {
+        console.warn('Could not load rooms', e)
+      }
+    }
+    
+    if (!finalRoomId) {
+      alert('Aucune salle disponible')
+      return
+    }
+
+    const course = courses.value.find(c => c.id === courseId)
+    const type = course?.type || 'TD'
+    
+    const parseOrNull = (v: unknown): number | null => {
+      if (typeof v === 'number') return v
+      if (typeof v === 'string' && /^[0-9]+$/.test(v)) return parseInt(v, 10)
+      return null
+    }
+
+    const payload = {
+      year_id: edtStore.year,
+      week_number: edtStore.week,
+      teaching_id: courseId,
+      duration: durationHours,
+      type: type,
+      promotion_id: parseOrNull(edtStore.promotionId),
+      group_id: parseOrNull(edtStore.groupId),
+      subgroup_id: parseOrNull(edtStore.subgroup),
+      day_of_week: dayName,
+      start_hour: startHour,
+      room_id: finalRoomId,
+      teacher_id: teacherId
+    }
+    
+    const res = await axios.post('/api/edt/create', payload)
+    console.log('Placement créé:', res.data)
+  } catch (err) {
+    console.error('Erreur insertion placement:', err)
+    alert('Erreur lors de la sauvegarde du placement')
+  }
 }
 
 // placementsFor removed (unused) — use placementsStartingAt instead
@@ -486,37 +547,75 @@ async function saveEdt() {
     }
 
     // Build placements with position info for edt_slot API
-    // Filter to only send placements that have been modified (edt_slot_id provided)
     const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
     
-    // Only include placements that have an edt_slot_id (i.e., they were loaded from DB)
+    // Separate updates (id <= 1000) and creates (id > 1000)
     const modifiedPlacements = placements.value.filter(p => p.id <= 1000)
+    const newPlacements = placements.value.filter(p => p.id > 1000)
     
-    if (modifiedPlacements.length === 0) {
-      alert('Aucun placement à modifier.')
+    if (modifiedPlacements.length === 0 && newPlacements.length === 0) {
+      alert('Aucun placement à sauvegarder.')
       return
     }
     
-    const edtPayload = {
-      placements: modifiedPlacements.map(p => {
+    // Send updates
+    if (modifiedPlacements.length > 0) {
+      const edtPayload = {
+        updates: modifiedPlacements.map(p => {
+          const startHour = formatTime(p.time)
+          const dayName = dayNames[(p.day || 1) - 1] || 'Lundi'
+
+          return {
+            edt_slot_id: p.id,
+            day_of_week: dayName,
+            start_hour: startHour,
+            room_id: p.roomId ?? defaultRoomId
+          }
+        })
+      }
+      await axios.post('/api/edt/bulk', edtPayload)
+    }
+
+    // Send creates
+    if (newPlacements.length > 0) {
+      console.log('Creating', newPlacements.length, 'new placements')
+      for (const p of newPlacements) {
         const startHour = formatTime(p.time)
         const dayName = dayNames[(p.day || 1) - 1] || 'Lundi'
+        const durationHours = Number(((p.duration || SLOT_STEP) / 60).toFixed(1))
+        
+        const parseOrNull = (v: unknown): number | null => {
+          if (typeof v === 'number') return v
+          if (typeof v === 'string' && /^[0-9]+$/.test(v)) return parseInt(v, 10)
+          return null
+        }
+        const promotionId = parseOrNull(edtStore.promotionId)
+        const groupId = parseOrNull(edtStore.groupId)
+        const subgroupId = parseOrNull(edtStore.subgroup)
 
-        return {
-          edt_slot_id: p.id,
+        const createPayload = {
+          year_id: yearId,
+          week_number: edtStore.week,
+          teaching_id: p.courseId,
+          duration: durationHours,
+          type: (courses.value.find(c => c.id === p.courseId)?.type || 'TD'),
+          promotion_id: promotionId,
+          group_id: groupId,
+          subgroup_id: subgroupId,
           day_of_week: dayName,
           start_hour: startHour,
-          room_id: p.roomId ?? defaultRoomId
+          room_id: p.roomId ?? defaultRoomId,
+          teacher_id: p.teacherId ?? null
         }
-      })
+        
+        console.log('Creating placement:', createPayload)
+        await axios.post('/api/edt/create', createPayload)
+      }
     }
 
-    const res = await axios.post('/api/edt/bulk', edtPayload)
-    // on success (or partial success), navigate back to main EDT page
-    if (res.status >= 200 && res.status < 300) {
-      window.location.href = '/calendrier-previsionnel/edt'
-      return
-    }
+    // On success, navigate back to main EDT page
+    window.location.href = '/calendrier-previsionnel/edt'
+    return
   } catch (err: unknown) {
     console.error(err)
     let msg = 'Erreur lors de la sauvegarde'

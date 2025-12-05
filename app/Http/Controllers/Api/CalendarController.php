@@ -435,18 +435,17 @@ class CalendarController extends Controller
     }
 
     /**
-     * Sauvegarde des placements edt_slot
-     * Si edt_slot_id est fourni, update le jour/heure
+     * Sauvegarde des placements edt_slot (updates uniquement)
      */
     public function storeEdtSlotsBulk(Request $request): JsonResponse
     {
         try {
             $validator = Validator::make($request->all(), [
-                'placements' => 'required|array|min:1',
-                'placements.*.edt_slot_id' => 'nullable|integer',
-                'placements.*.day_of_week' => 'required|string',
-                'placements.*.start_hour' => ['required','regex:/^\d{2}:\d{2}$/'],
-                'placements.*.room_id' => 'required|exists:rooms,id',
+                'updates' => 'nullable|array',
+                'updates.*.edt_slot_id' => 'required|integer',
+                'updates.*.day_of_week' => 'required|string',
+                'updates.*.start_hour' => ['required','regex:/^\d{2}:\d{2}$/'],
+                'updates.*.room_id' => 'required|exists:rooms,id',
             ]);
 
             if ($validator->fails()) {
@@ -456,11 +455,12 @@ class CalendarController extends Controller
             $updated = [];
             $errors = [];
 
-            foreach ($request->placements as $idx => $p) {
+            // Handle updates
+            $updates = $request->input('updates', []);
+            foreach ($updates as $p) {
                 $edtSlotId = $p['edt_slot_id'] ?? null;
                 
                 if (!empty($edtSlotId)) {
-                    // UPDATE existing edt_slot
                     $updateData = [
                         'day' => $p['day_of_week'],
                         'start_hour' => $p['start_hour'],
@@ -478,8 +478,106 @@ class CalendarController extends Controller
             }
 
             $status = empty($errors) ? 200 : 207;
-            $message = count($updated) . ' placement(s) mis à jour';
+            $message = count($updated) . ' mise(s) à jour';
             return response()->json(['message' => $message, 'updated' => $updated, 'errors' => $errors], $status);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Crée un nouveau placement edt_slot
+     */
+    public function createEdtSlot(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'year_id' => 'required|exists:years,id',
+                'week_number' => 'required|integer',
+                'teaching_id' => 'required|exists:teachings,id',
+                'duration' => 'required|numeric|min:0',
+                'type' => 'required|in:CM,TD,TP',
+                'day_of_week' => 'required|string',
+                'start_hour' => ['required','regex:/^\d{2}:\d{2}$/'],
+                'room_id' => 'required|exists:rooms,id',
+                'teacher_id' => 'nullable|exists:teachers,id'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['error' => 'Données invalides', 'messages' => $validator->errors()], 422);
+            }
+
+            $week = Week::where('year_id', $request->year_id)->where('week_number', $request->week_number)->first();
+            if (!$week) {
+                return response()->json(['error' => 'Semaine introuvable'], 404);
+            }
+
+            $teaching = Teaching::find($request->teaching_id);
+            if (!$teaching) {
+                return response()->json(['error' => 'Enseignement introuvable'], 404);
+            }
+
+            // Get teacher
+            $teacher = null;
+            if (!empty($request->teacher_id)) {
+                $teacher = Teacher::find($request->teacher_id);
+            } else {
+                $teacher = $teaching->teachers->first();
+            }
+            
+            if (!$teacher) {
+                return response()->json(['error' => 'Aucun enseignant trouvé'], 404);
+            }
+
+            // Find slot type
+            $typeAcr = strtoupper(trim($request->type ?? ''));
+            $slotTypeRow = DB::table('slot_types')->whereRaw('UPPER(acronym) = ?', [$typeAcr])->first();
+            if (!$slotTypeRow) {
+                $slotTypeRow = DB::table('slot_types')->first();
+            }
+            $typeId = $slotTypeRow->id ?? null;
+
+            // Get room amount
+            $roomAmount = 1;
+            $roomRow = DB::table('rooms')->where('id', $request->room_id)->first();
+            if ($roomRow) {
+                $roomAmount = $roomRow->seat_capacity ?? 1;
+            }
+
+            // Create slot
+            $slot = Slot::create([
+                'duration' => $request->duration,
+                'teaching_id' => $teaching->id,
+                'promotion_id' => $request->promotion_id ?? null,
+                'group_id' => $request->group_id ?? null,
+                'subgroup_id' => $request->subgroup_id ?? null,
+                'room_amount' => $roomAmount,
+                'is_neutralized' => $request->is_neutralized ?? false,
+                'week_id' => $week->id,
+                'type_id' => $typeId,
+                'is_exam' => false
+            ]);
+
+            // Create pivot
+            DB::table('slots_teachers')->insert([
+                'slot_id' => $slot->id,
+                'teacher_id' => $teacher->id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            // Create edt_slot
+            $edtId = DB::table('edt_slot')->insertGetId([
+                'day' => $request->day_of_week,
+                'start_hour' => $request->start_hour,
+                'slot_id' => $slot->id,
+                'room_id' => $request->room_id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            return response()->json(['message' => 'Placement créé', 'edt_id' => $edtId], 201);
 
         } catch (\Exception $e) {
             return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);
