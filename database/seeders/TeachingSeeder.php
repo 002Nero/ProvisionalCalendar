@@ -1078,7 +1078,17 @@ class TeachingSeeder extends Seeder
         ];
 
         foreach ($teachings as $teaching) {
-            Teaching::create($teaching);
-        }
-    }
-}
+            if (!empty($teaching['apogee_code'])) {
+                Teaching::updateOrCreate(
+                    ['apogee_code' => $teaching['apogee_code']],
+                    $teaching
+                );
+            } else {
+                Teaching::updateOrCreate(
+                    ['title' => $teaching['title']],
+                    $teaching
+                );
+            }
+         }
+     }
+ }
