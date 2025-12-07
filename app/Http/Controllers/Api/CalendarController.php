@@ -342,15 +342,26 @@ class CalendarController extends Controller
                     $query->where(function($q) use ($promotionId, $groupId, $subgroup) {
                         if ($promotionId) {
                             // Include slots for this promotion (CM level) or any group/subgroup in this promotion
-                            $q->orWhere('promotion_id', $promotionId);
+                            $q->Where('promotion_id', $promotionId);
                         }
                         if ($groupId) {
                             // Include slots for this specific group (TD level)
-                            $q->orWhere('group_id', $groupId);
+                                $q->Where(function($q2) use ($groupId) {
+                                $q2->where('group_id', $groupId)
+                                    ->orWhereNull('group_id');
+                            });
                         }
                         if ($subgroup) {
-                            // Include slots for this specific subgroup (TP level)
-                            $q->orWhere('subgroup_id', $subgroup);
+                            // Convertir A/B → id
+                            $subgroupMap = ["A" => 1, "B" => 2];
+                            $subgroupId = $subgroupMap[$subgroup] ?? null;
+
+                            if ($subgroupId) {
+                                $q->where(function ($q2) use ($subgroupId) {
+                                    $q2->where('subgroup_id', $subgroupId)
+                                    ->orWhereNull('subgroup_id');
+                                });
+                            }
                         }
                     });
                 }
@@ -418,7 +429,7 @@ class CalendarController extends Controller
                 // derive start and day values from edt_slot row
                 $start = property_exists($r, 'start_hour') ? $r->start_hour : (property_exists($r, 'start_time') ? $r->start_time : null);
                 $day = property_exists($r, 'day_of_week') ? $r->day_of_week : (property_exists($r, 'day') ? $r->day : null);
-
+                      
                 $result[] = array_merge([
                     'id' => $r->id,
                     'start_hour' => $start,
