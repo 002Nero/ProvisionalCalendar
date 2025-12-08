@@ -101,9 +101,13 @@ async function ensureDataLoaded() {
 }
 
 onMounted(async () => { 
+  // sync week from store if already set
+  if (typeof edtStore.week === 'number' && edtStore.week > 0) {
+    currentWeek.value = edtStore.week
+  }
   await ensureDataLoaded()
   // After promotions/groups are loaded, load EDT slots with filters
-  if (edtStore.year && (edtStore.week || currentWeek.value)) {
+  if (edtStore.year && currentWeek.value) {
     await loadEdtSlotsForCurrent()
   }
 })
@@ -115,7 +119,8 @@ async function loadEdtSlotsForCurrent() {
   else if (typeof edtStore.year === 'string' && /^[0-9]+$/.test(edtStore.year)) yearId = parseInt(edtStore.year as string, 10)
   if (!yearId) return
   
-  const weekNumber = (typeof edtStore.week === 'number' && edtStore.week) ? edtStore.week : currentWeek.value
+  const weekNumber = currentWeek.value
+  edtStore.setWeek(weekNumber)
   
   try {
     // Build URL with filters
@@ -185,7 +190,7 @@ async function loadEdtSlotsForCurrent() {
         } else {
           lastFetch.value.error = String(e)
         }
-      } catch (_ee) {
+      } catch {
         lastFetch.value.error = String(e)
       }
     lessons.value = []
@@ -213,7 +218,7 @@ watch(selectedSubgroup, (val) => {
 })
 
 // debug state for diagnostics
-const debugVisible = ref(false)
+const debugVisible = ref(false) // reserved for future debug toggle
 const lastFetch = ref<{ url: string | null; status: number | null; error: string | null; response: unknown | null }>({ url: null, status: null, error: null, response: null })
 
 // helper to get lessons that start at a specific day and minute (same as editor)
@@ -225,9 +230,6 @@ function lessonsStartingAt(dayIndex: number, minute: number) {
 function isCovered(dayIndex: number, minute: number) {
   return lessons.value.some(l => l.day === dayIndex && l.start_min <= minute && minute < l.start_min + l.span * SLOT_STEP)
 }
-
-// keep store in sync (removed duplicate watches, logic moved to reload watches above)
-watch(currentWeek, (val) => edtStore.setWeek(val))
 
 // initialize store with current values (if any)
 edtStore.setPromotion(selectedPromotion.value)
