@@ -473,7 +473,7 @@ class CalendarController extends Controller
                 
                 if (!empty($edtSlotId)) {
                     $updateData = [
-                        'day' => $p['day_of_week'],
+                        'day_of_week' => $p['day_of_week'],
                         'start_hour' => $p['start_hour'],
                         'room_id' => $p['room_id'],
                         'updated_at' => now()
@@ -580,7 +580,7 @@ class CalendarController extends Controller
 
             // Create edt_slot
             $edtId = DB::table('edt_slot')->insertGetId([
-                'day' => $request->day_of_week,
+                'day_of_week' => $request->day_of_week,
                 'start_hour' => $request->start_hour,
                 'slot_id' => $slot->id,
                 'room_id' => $request->room_id,

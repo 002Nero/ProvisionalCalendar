@@ -176,11 +176,13 @@ async function loadEdtSlots(yearId: number, weekNumber: number) {
       const span = Math.max(1, Math.ceil((durationMinutes) / SLOT_STEP))
       // edt_slot id is r.id
       if(!courseId || !day || !time || !durationMinutes) return 
-      placements.value.push({ id: Number(r.id), courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null })
+      placements.value.push({ id: Number(r.id), courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null, fromDb: true })
       // reduce remaining minutes for this course if present
       const c = courses.value.find(x => x.id === courseId)
       if (c && typeof c.remainingMinutes === 'number') c.remainingMinutes = Math.max(0, (c.remainingMinutes || 0) - (durationMinutes || 0))
     })
+    const maxId = placements.value.reduce((max, p) => Math.max(max, p.id), 0)
+    nextPlacementId = Math.max(nextPlacementId, maxId + 1)
   } catch (e) {
     console.warn('Could not load edt slots', e)
   }
@@ -248,7 +250,7 @@ async function loadTeachers(yearId: number) {
   }
 }
 
-type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null }
+type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null; fromDb?: boolean }
 const placements = ref<Placement[]>([])
 let nextPlacementId = 1
 
@@ -286,7 +288,7 @@ function durationOptionsForCourse(c: Course) {
   return arr
 }
 
-function onCellDrop(e: DragEvent, day: number, time: number) {
+async function onCellDrop(e: DragEvent, day: number, time: number) {
   e.preventDefault()
   const placementIdStr = e.dataTransfer?.getData('text/placement-id')
   if (placementIdStr) {
@@ -354,11 +356,11 @@ function onCellDrop(e: DragEvent, day: number, time: number) {
   const placementTeacherId = typeof placementTeacherRaw === 'number' ? placementTeacherRaw : (typeof placementTeacherRaw === 'string' && /^[0-9]+$/.test(placementTeacherRaw) ? parseInt(placementTeacherRaw, 10) : null)
   const placementRoomId = typeof placementRoomRaw === 'number' ? placementRoomRaw : (typeof placementRoomRaw === 'string' && /^[0-9]+$/.test(placementRoomRaw) ? parseInt(placementRoomRaw, 10) : null)
   
-  // Insert directly in database
-  insertPlacementInDb(courseId, day, time, duration, placementTeacherId, placementRoomId)
-  
-  const newPlacementId = nextPlacementId++
-  placements.value.push({ id: newPlacementId, courseId, day, time, span, duration, teacherId: placementTeacherId, roomId: placementRoomId })
+  // Insert directly in database and capture returned id if possible
+  const dbId = await insertPlacementInDb(courseId, day, time, duration, placementTeacherId, placementRoomId)
+
+  const newPlacementId = dbId ?? nextPlacementId++
+  placements.value.push({ id: newPlacementId, courseId, day, time, span, duration, teacherId: placementTeacherId, roomId: placementRoomId, fromDb: dbId !== null })
   // subtract remaining minutes for that course
   if (course) {
     if (typeof course.remainingMinutes === 'number') course.remainingMinutes = Math.max(0, course.remainingMinutes - duration)
@@ -366,7 +368,7 @@ function onCellDrop(e: DragEvent, day: number, time: number) {
   currentDrop.value = { day: null, time: null }
 }
 
-async function insertPlacementInDb(courseId: number, day: number, time: number, duration: number, teacherId: number | null, roomId: number | null) {
+async function insertPlacementInDb(courseId: number, day: number, time: number, duration: number, teacherId: number | null, roomId: number | null): Promise<number | null> {
   try {
     const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
     const dayName = dayNames[day - 1] || 'Lundi'
@@ -387,7 +389,7 @@ async function insertPlacementInDb(courseId: number, day: number, time: number, 
     
     if (!finalRoomId) {
       alert('Aucune salle disponible')
-      return
+      return null
     }
 
     const course = courses.value.find(c => c.id === courseId)
@@ -416,9 +418,12 @@ async function insertPlacementInDb(courseId: number, day: number, time: number, 
     
     const res = await axios.post('/api/edt/create', payload)
     console.log('Placement créé:', res.data)
+    const newId = res?.data?.id ?? res?.data?.edt_slot_id ?? res?.data?.slot_id ?? null
+    return typeof newId === 'number' ? newId : null
   } catch (err) {
     console.error('Erreur insertion placement:', err)
     alert('Erreur lors de la sauvegarde du placement')
+    return null
   }
 }
 
@@ -465,8 +470,8 @@ async function removePlacementById(id: number) {
   if (idx !== -1) {
     const p = placements.value.splice(idx, 1)[0]
     
-    // If it's from DB (id <= 1000), delete it immediately
-    if (id <= 1000) {
+    // If it's from DB, delete it immediately
+    if (p.fromDb) {
       try {
         await axios.delete(`/api/edt/${id}`)
       } catch (err) {
@@ -500,7 +505,6 @@ async function saveEdt() {
   // Client-side validation: ensure each placement has required fields to avoid DB errors
   const clientErrors: string[] = []
   placements.value.forEach((p, idx) => {
-    if (!p.teacherId) clientErrors.push(`Placement ${idx + 1}: aucun enseignant sélectionné`)
     if (!p.roomId) clientErrors.push(`Placement ${idx + 1}: aucune salle sélectionnée`)
     if (!p.day) clientErrors.push(`Placement ${idx + 1}: jour manquant`)
     if (p.time === null || typeof p.time === 'undefined') clientErrors.push(`Placement ${idx + 1}: heure de début manquante`)
@@ -550,8 +554,8 @@ async function saveEdt() {
     // Build placements with position info for edt_slot API
     const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
     
-    // Only updates (id <= 1000, existing placements)
-    const modifiedPlacements = placements.value.filter(p => p.id <= 1000)
+    // Only updates for placements that already exist in DB
+    const modifiedPlacements = placements.value.filter(p => p.fromDb)
     
     if (modifiedPlacements.length === 0) {
       // No modifications, just redirect
