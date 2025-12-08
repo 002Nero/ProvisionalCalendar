@@ -333,6 +333,7 @@ class CalendarController extends Controller
             // Collect slot_ids referenced and load the authoritative slot data
             $slotIds = collect($rows)->pluck('slot_id')->filter()->unique()->values()->all();
             $slots = [];
+            $slotTypesColors = [];
             if (!empty($slotIds)) {
                 $query = Slot::whereIn('id', $slotIds)->with(['teaching', 'Promotion', 'Group', 'Subgroup']);
                 
@@ -367,6 +368,15 @@ class CalendarController extends Controller
                 }
                 
                 $slotModels = $query->get()->keyBy('id');
+
+                // load colors for slot types
+                $typeIds = $slotModels->pluck('type_id')->filter()->unique()->values()->all();
+                if (!empty($typeIds)) {
+                    $slotTypesColors = DB::table('slot_types')->whereIn('id', $typeIds)->pluck('color', 'id')->toArray();
+                    $slotTypesAcronyms = DB::table('slot_types')->whereIn('id', $typeIds)->pluck('acronym', 'id')->toArray();
+                } else {
+                    $slotTypesAcronyms = [];
+                }
                 // load teachers from pivot table for these slots
                 $teachersRows = DB::table('slots_teachers')->whereIn('slot_id', $slotIds)->get();
                 $teachersBySlot = [];
@@ -420,6 +430,8 @@ class CalendarController extends Controller
                         'group_id' => $slot->group_id ?? null,
                         'subgroup_id' => $slot->subgroup_id ?? null,
                         'type_id' => $slot->type_id ?? null,
+                        'type_acronym' => $slot->type_id && isset($slotTypesAcronyms[$slot->type_id]) ? $slotTypesAcronyms[$slot->type_id] : null,
+                        'type_color' => $slot->type_id && isset($slotTypesColors[$slot->type_id]) ? $slotTypesColors[$slot->type_id] : null,
                         'teacher_id' => $teacher ? $teacher->id : null,
                         'teacher_code' => ($teacher && isset($teacher->acronym)) ? $teacher->acronym : null,
                         'teacher_name' => $teacherName

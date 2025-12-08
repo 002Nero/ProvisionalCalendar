@@ -27,6 +27,7 @@ interface Lesson {
   title: string
   teacher: string
   room: string
+  color?: string | null
   raw: RawRow
 }
 const lessons = ref<Lesson[]>([])
@@ -167,6 +168,11 @@ async function loadEdtSlotsForCurrent() {
       // room_name or room_id
       const room = r.room_name ?? (r.room_id ? `Salle ${r.room_id}` : '')
       
+      // prefer backend-provided slot type color; otherwise fallback per acronym
+      const typeAcr = (r.type_acronym ?? r.teaching_type ?? r.type ?? '').toString().toUpperCase()
+      const fallbackColors: Record<string,string> = { CM: '#fde74c', TD: '#fddd2d', TP: '#809bce', SAE: '#20bf55', EX: '#a26769' }
+      const color = (r as { type_color?: string }).type_color || fallbackColors[typeAcr] || '#fef3c7'
+
       return {
         id: Number(r.id ?? 0),
         day: day as number,
@@ -176,6 +182,7 @@ async function loadEdtSlotsForCurrent() {
         title,
         teacher,
         room,
+        color,
         raw: r,
       } as Lesson
     }).filter((l) => l.day && l.start_min != null && l.duration_min > 0)
@@ -218,7 +225,6 @@ watch(selectedSubgroup, (val) => {
 })
 
 // debug state for diagnostics
-const debugVisible = ref(false) // reserved for future debug toggle
 const lastFetch = ref<{ url: string | null; status: number | null; error: string | null; response: unknown | null }>({ url: null, status: null, error: null, response: null })
 
 // helper to get lessons that start at a specific day and minute (same as editor)
@@ -361,7 +367,7 @@ function nextWeek() {
                   v-for="lesson in lessonsStartingAt(d, t)"
                   :key="lesson.id || lesson.start_min + '-' + lesson.room"
                   class="lesson-block"
-                  :style="{ height: `${lesson.span * 40 + (lesson.span - 1) * 4}px` }"
+                  :style="{ height: `${lesson.span * 40 + (lesson.span - 1) * 4}px`, background: lesson.color || 'linear-gradient(180deg,#fef3c7,#fde68a)', borderColor: lesson.color || '#f59e0b' }"
                 >
                   <div class="lesson-title">{{ lesson.title }}</div>
                   <div class="lesson-meta">{{ lesson.teacher }} · {{ lesson.room }}</div>
