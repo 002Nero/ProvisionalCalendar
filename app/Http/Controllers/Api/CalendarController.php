@@ -529,16 +529,10 @@ class CalendarController extends Controller
                 return response()->json(['error' => 'Enseignement introuvable'], 404);
             }
 
-            // Get teacher
+            // Get teacher (optional). If none is supplied, we allow creating the slot without a teacher.
             $teacher = null;
             if (!empty($request->teacher_id)) {
                 $teacher = Teacher::find($request->teacher_id);
-            } else {
-                $teacher = $teaching->teachers->first();
-            }
-            
-            if (!$teacher) {
-                return response()->json(['error' => 'Aucun enseignant trouvé'], 404);
             }
 
             // Find slot type
@@ -570,13 +564,15 @@ class CalendarController extends Controller
                 'is_exam' => false
             ]);
 
-            // Create pivot
-            DB::table('slots_teachers')->insert([
-                'slot_id' => $slot->id,
-                'teacher_id' => $teacher->id,
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
+            // Create pivot only if a teacher is provided
+            if ($teacher) {
+                DB::table('slots_teachers')->insert([
+                    'slot_id' => $slot->id,
+                    'teacher_id' => $teacher->id,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
 
             // Create edt_slot
             $edtId = DB::table('edt_slot')->insertGetId([
