@@ -175,6 +175,7 @@ async function loadEdtSlots(yearId: number, weekNumber: number) {
       const durationMinutes = Number(r.duration) * 60 // duration stored in hours
       const span = Math.max(1, Math.ceil((durationMinutes) / SLOT_STEP))
       // edt_slot id is r.id
+      if(!courseId || !day || !time || !durationMinutes) return 
       placements.value.push({ id: Number(r.id), courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null })
       // reduce remaining minutes for this course if present
       const c = courses.value.find(x => x.id === courseId)
