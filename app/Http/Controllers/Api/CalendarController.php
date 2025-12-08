@@ -371,11 +371,18 @@ class CalendarController extends Controller
 
                 // load colors for slot types
                 $typeIds = $slotModels->pluck('type_id')->filter()->unique()->values()->all();
+                $examTypeId = null;
                 if (!empty($typeIds)) {
                     $slotTypesColors = DB::table('slot_types')->whereIn('id', $typeIds)->pluck('color', 'id')->toArray();
                     $slotTypesAcronyms = DB::table('slot_types')->whereIn('id', $typeIds)->pluck('acronym', 'id')->toArray();
                 } else {
                     $slotTypesAcronyms = [];
+                }
+                // load exam slot type color
+                $examTypeRow = DB::table('slot_types')->where('acronym', 'EX')->first();
+                if ($examTypeRow) {
+                    $examTypeId = $examTypeRow->id;
+                    $slotTypesColors[$examTypeId] = $examTypeRow->color;
                 }
                 // load teachers from pivot table for these slots
                 $teachersRows = DB::table('slots_teachers')->whereIn('slot_id', $slotIds)->get();
@@ -420,6 +427,14 @@ class CalendarController extends Controller
                         }
                     }
                     
+                    // Determine final color: use exam color if is_exam=1, else use type color
+                    $finalColor = null;
+                    if ($slot->is_exam && $examTypeId && isset($slotTypesColors[$examTypeId])) {
+                        $finalColor = $slotTypesColors[$examTypeId];
+                    } elseif ($slot->type_id && isset($slotTypesColors[$slot->type_id])) {
+                        $finalColor = $slotTypesColors[$slot->type_id];
+                    }
+
                     $slotInfo = [
                         'slot_id' => $slot->id,
                         'duration' => $slot->duration,
@@ -431,7 +446,8 @@ class CalendarController extends Controller
                         'subgroup_id' => $slot->subgroup_id ?? null,
                         'type_id' => $slot->type_id ?? null,
                         'type_acronym' => $slot->type_id && isset($slotTypesAcronyms[$slot->type_id]) ? $slotTypesAcronyms[$slot->type_id] : null,
-                        'type_color' => $slot->type_id && isset($slotTypesColors[$slot->type_id]) ? $slotTypesColors[$slot->type_id] : null,
+                        'type_color' => $finalColor,
+                        'is_exam' => $slot->is_exam ?? false,
                         'teacher_id' => $teacher ? $teacher->id : null,
                         'teacher_code' => ($teacher && isset($teacher->acronym)) ? $teacher->acronym : null,
                         'teacher_name' => $teacherName

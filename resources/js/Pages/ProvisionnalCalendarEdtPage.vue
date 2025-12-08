@@ -28,6 +28,7 @@ interface Lesson {
   teacher: string
   room: string
   color?: string | null
+  isExam?: boolean
   raw: RawRow
 }
 const lessons = ref<Lesson[]>([])
@@ -172,6 +173,7 @@ async function loadEdtSlotsForCurrent() {
       const typeAcr = (r.type_acronym ?? r.teaching_type ?? r.type ?? '').toString().toUpperCase()
       const fallbackColors: Record<string,string> = { CM: '#fde74c', TD: '#fddd2d', TP: '#809bce', SAE: '#20bf55', EX: '#a26769' }
       const color = (r as { type_color?: string }).type_color || fallbackColors[typeAcr] || '#fef3c7'
+      const isExam = (r as { is_exam?: boolean | number }).is_exam === 1 || (r as { is_exam?: boolean | number }).is_exam === true
 
       return {
         id: Number(r.id ?? 0),
@@ -183,6 +185,7 @@ async function loadEdtSlotsForCurrent() {
         teacher,
         room,
         color,
+        isExam,
         raw: r,
       } as Lesson
     }).filter((l) => l.day && l.start_min != null && l.duration_min > 0)
@@ -367,6 +370,7 @@ function nextWeek() {
                   v-for="lesson in lessonsStartingAt(d, t)"
                   :key="lesson.id || lesson.start_min + '-' + lesson.room"
                   class="lesson-block"
+                  :class="{ 'lesson-exam': lesson.isExam }"
                   :style="{ height: `${lesson.span * 40 + (lesson.span - 1) * 4}px`, background: lesson.color || 'linear-gradient(180deg,#fef3c7,#fde68a)', borderColor: lesson.color || '#f59e0b' }"
                 >
                   <div class="lesson-title">{{ lesson.title }}</div>
@@ -426,6 +430,10 @@ function nextWeek() {
   position: absolute;
   width: calc(100% - 4px);
   z-index: 5;
+}
+.lesson-block.lesson-exam {
+  border-width: 2px;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
 }
 .lesson-title { font-weight:600; color:#92400e }
 .lesson-meta { font-size:0.75rem; color:#7c2d12 }
