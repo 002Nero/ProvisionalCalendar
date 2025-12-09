@@ -12,7 +12,6 @@ const teachers = ref<{id:number;name:string}[]>([])
 const promotions = ref<{id:number;name:string}[]>([])
 const groups = ref<{id:number;name:string;promotionId:number}[]>([])
 const subgroupsByGroup: Record<number, string[]> = {
-  // will be populated from API when available; keep fallback
   0: ['A','B']
 }
 
@@ -58,7 +57,6 @@ async function loadGroupsForPromotion(promoId: number | undefined) {
   try {
     const res = await axios.get(`/api/groups/${promoId}`)
     groups.value = Array.isArray(res.data) ? res.data.map((g: any) => ({ id: g.id, name: g.name, promotionId: promoId })) : []
-    // build a simple subgroup map if API has subgroups endpoint later
     groups.value.forEach(g => { if (!subgroupsByGroup[g.id]) subgroupsByGroup[g.id] = ['A','B'] })
     if (groups.value.length > 0 && !newGroupGroupId.value) newGroupGroupId.value = groups.value[0].id
   } catch (e) {
@@ -70,7 +68,6 @@ async function loadTeachers(yearId: number) {
   try {
     const res = await axios.get(`/api/teachers/${yearId}`)
     const data = Array.isArray(res.data) ? res.data : []
-    // map to objects with id and display name
     teachers.value = data.map((t: any) => ({ id: t.id, name: (`${t.last_name ?? ''} ${t.first_name ?? ''}`.trim() || t.code || `T${t.id}`) }))
     if (teachers.value.length > 0 && !newTeacherSel.value) newTeacherSel.value = teachers.value[0].id
   } catch (e) {
@@ -79,7 +76,6 @@ async function loadTeachers(yearId: number) {
 }
 
 async function ensureDataLoaded() {
-  // resolve year id from store, fallback to first year via /api/years
   let yearId: number | null = null
   if (typeof edt.year === 'number') yearId = edt.year
   else if (typeof edt.year === 'string' && /^[0-9]+$/.test(edt.year)) yearId = parseInt(edt.year,10)
@@ -93,21 +89,17 @@ async function ensureDataLoaded() {
     }
   }
 
-  // parallel loads
   await Promise.all([
     loadRooms(),
     yearId ? loadPromotions(yearId) : Promise.resolve(),
     yearId ? loadTeachers(yearId) : Promise.resolve()
   ])
-  // if we have a promotion, load groups
   if (newGroupPromo.value) await loadGroupsForPromotion(newGroupPromo.value)
-  // load constraints after base data
   await loadConstraints()
 }
 
 onMounted(() => { ensureDataLoaded() })
 
-// Load constraints from DB
 async function loadConstraints() {
   try {
     const [rRes, tRes, gRes] = await Promise.all([
@@ -247,7 +239,6 @@ function removeConstraint(list: Ref<Constraint[]> | Constraint[], id: number) {
   if (idx === -1) return
   ;(async () => {
     try {
-      // attempt remote delete according to which list
       if (arr === roomConstraints.value) {
         await axios.delete(`/api/room-constraints/${id}`)
       } else if (arr === teacherConstraints.value) {
@@ -381,7 +372,7 @@ function saveTeacherEdit(id: number) {
       c.endTime = editTeacherEnd.value
       c.repeatWeekly = editTeacherRepeat.value
       editingTeacherId.value = null
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to update teacher constraint', e?.response?.data ?? e)
       const msg = e?.response?.data?.message || e?.response?.data || e?.message || 'Erreur serveur'
       alert('Échec mise à jour contrainte professeur: ' + msg)
@@ -536,7 +527,7 @@ watch(newGroupGroupId, (val) => {
       </nav>
 
       <section class="tab-content">
-        <div v-if="activeTab === 'salles'">
+        <div v-if="activeTab === 'salles'" class="tab-section">
           <form @submit.prevent="addRoomConstraint" class="add-form">
             <input v-model="newRoomText" placeholder="Nouvelle contrainte (ex: salle indisponible)" class="input" />
             <select v-model="newRoomSel" class="input small">
@@ -552,7 +543,7 @@ watch(newGroupGroupId, (val) => {
             <label style="display:flex;align-items:center;gap:0.3rem"><input type="checkbox" v-model="newRoomRepeat" /> Répéter chaque semaine</label>
             <button class="btn primary" type="submit">Ajouter</button>
           </form>
-
+          <div class="list-container">
           <ul class="list">
             <li v-for="c in filteredRoomConstraints" :key="c.id" class="list-item">
               <div class="li-main">
@@ -596,9 +587,10 @@ watch(newGroupGroupId, (val) => {
               </div>
             </li>
           </ul>
+          </div>
         </div>
 
-        <div v-if="activeTab === 'profs'">
+        <div v-if="activeTab === 'profs'" class="tab-section">
           <form @submit.prevent="addTeacherConstraint" class="add-form">
             <input v-model="newTeacherText" placeholder="Nouvelle contrainte (ex: indisponible)" class="input" />
             <select v-model="newTeacherSel" class="input small">
@@ -615,6 +607,7 @@ watch(newGroupGroupId, (val) => {
             <button class="btn primary" type="submit">Ajouter</button>
           </form>
 
+          <div class="list-container">
           <ul class="list">
             <li v-for="c in filteredTeacherConstraints" :key="c.id" class="list-item">
               <div class="li-main">
@@ -658,9 +651,10 @@ watch(newGroupGroupId, (val) => {
               </div>
             </li>
           </ul>
+          </div>
         </div>
 
-        <div v-if="activeTab === 'groupes'">
+        <div v-if="activeTab === 'groupes'" class="tab-section">
           <form @submit.prevent="addGroupConstraint" class="add-form">
             <input v-model="newGroupText" placeholder="Nouvelle contrainte (ex: pas de cours)" class="input" />
             <select v-model="newGroupPromo" class="input small">
@@ -744,15 +738,20 @@ watch(newGroupGroupId, (val) => {
 </template>
 
 <style scoped>
-.constraints-wrap { padding:1rem }
+.constraints-wrap { padding:1rem ; padding-bottom: 10rem;}
 .constraints-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem }
 .input { padding:0.45rem; border-radius:6px; border:1px solid #e5e7eb }
-.controls .input { min-width:220px }
+.controls .input { min-width:300px }
 .tabs { display:flex; gap:0.5rem; margin-bottom:1rem }
 .tab { padding:0.45rem 0.7rem; border-radius:8px; background:#fff; border:1px solid #e5e7eb; cursor:pointer }
 .tab.active { background:#FFD8E4 }
 .add-form { display:flex; gap:0.5rem; margin-bottom:0.75rem; align-items:center; flex-wrap:wrap }
  .input.small { padding:0.35rem; min-width:120px }
+.list-container { max-height:calc(100vh - 350px); overflow-y:auto; padding-right:0.5rem; padding-bottom:1rem }
+.list-container::-webkit-scrollbar { width:10px }
+.list-container::-webkit-scrollbar-track { background:#f1f5f9; border-radius:4px }
+.list-container::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px }
+.list-container::-webkit-scrollbar-thumb:hover { background:#94a3b8 }
 .list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:0.5rem }
  .list-item { display:flex; justify-content:space-between; align-items:flex-start; padding:0.6rem; background:#fff; border-radius:8px; border:1px solid #eef2f7 }
  .li-main { display:flex; gap:1rem; align-items:center; flex-wrap:wrap }
