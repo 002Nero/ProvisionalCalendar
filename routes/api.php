@@ -199,6 +199,45 @@ Route::middleware(['api.logger'])->group(function () {
             \Illuminate\Support\Facades\DB::table('group_constraints')->where('id',$id)->delete();
             return response()->json([], 204);
         });
+
+        Route::get('/slot-constraints', function() {
+            return \Illuminate\Support\Facades\DB::table('slot_constraints')->get();
+        });
+        Route::post('/slot-constraints', function(\Illuminate\Http\Request $request) {
+            $id = \Illuminate\Support\Facades\DB::table('slot_constraints')->insertGetId([
+                'slot_id' => $request->input('slot_id'),
+                'constraint_type' => $request->input('constraint_type','unavailable'),
+                'day_of_week' => $request->input('day_of_week'),
+                'start_time' => $request->input('start_time'),
+                'end_time' => $request->input('end_time'),
+                'reason' => $request->input('reason'),
+                'priority' => $request->input('priority','hard'),
+                'week_id' => $request->input('week_id'),
+                'active' => $request->input('active', true),
+                'created_at' => now()
+            ]);
+            return response()->json(['id' => $id], 201);
+        });
+        Route::put('/slot-constraints/{id}', function(\Illuminate\Http\Request $request, $id) {
+            $data = [
+                'slot_id' => $request->input('slot_id'),
+                'constraint_type' => $request->input('constraint_type','unavailable'),
+                'day_of_week' => $request->input('day_of_week'),
+                'start_time' => $request->input('start_time'),
+                'end_time' => $request->input('end_time'),
+                'reason' => $request->input('reason'),
+                'priority' => $request->input('priority','hard'),
+                'week_id' => $request->input('week_id'),
+                'active' => $request->input('active', true)
+            ];
+            \Illuminate\Support\Facades\DB::table('slot_constraints')->where('id', $id)->update($data);
+            return response()->json(['ok' => true], 200);
+        });
+        Route::delete('/slot-constraints/{id}', function($id) {
+            \Illuminate\Support\Facades\DB::table('slot_constraints')->where('id',$id)->delete();
+            return response()->json([], 204);
+        });
+
             // Update endpoints for room and teacher constraints
             Route::put('/room-constraints/{id}', function(\Illuminate\Http\Request $request, $id) {
                 $data = [

@@ -165,7 +165,21 @@ async function loadEdtSlots(yearId: number, weekNumber: number) {
     
     const res = await axios.get(url)
     const data = Array.isArray(res.data) ? res.data : []
-    // map to placements used by editor
+    
+    let slotConstraints: Map<number, number> = new Map() // Map slot_id -> constraint_id
+    try {
+      const constraintsRes = await axios.get('/api/slot-constraints')
+      const constraints = Array.isArray(constraintsRes.data) ? constraintsRes.data : []
+      const weekId = edtStore.week
+      constraints
+        .filter((c: any) => c.constraint_type === 'blocked' && c.week_id === weekId)
+        .forEach((c: any) => {
+          slotConstraints.set(Number(c.slot_id), Number(c.id))
+        })
+    } catch (e) {
+      console.warn('Could not load slot constraints', e)
+    }
+    
     placements.value = []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data.forEach((r: any) => {
@@ -176,7 +190,10 @@ async function loadEdtSlots(yearId: number, weekNumber: number) {
       const span = Math.max(1, Math.ceil((durationMinutes) / SLOT_STEP))
       // edt_slot id is r.id
       if(!courseId || !day || !time || !durationMinutes) return 
-      placements.value.push({ id: Number(r.id), courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null, fromDb: true })
+      const slotId = Number(r.id)
+      const isLocked = slotConstraints.has(slotId)
+      const constraintId = isLocked ? slotConstraints.get(slotId) : undefined
+      placements.value.push({ id: slotId, courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null, fromDb: true, locked: isLocked, constraintId })
       // reduce remaining minutes for this course if present
       const c = courses.value.find(x => x.id === courseId)
       if (c && typeof c.remainingMinutes === 'number') c.remainingMinutes = Math.max(0, (c.remainingMinutes || 0) - (durationMinutes || 0))
@@ -250,7 +267,7 @@ async function loadTeachers(yearId: number) {
   }
 }
 
-type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null; fromDb?: boolean }
+type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null; fromDb?: boolean; locked?: boolean; constraintId?: number }
 const placements = ref<Placement[]>([])
 let nextPlacementId = 1
 
@@ -261,6 +278,11 @@ function onCourseDragStart(e: DragEvent, courseId: number) {
 }
 
 function onPlacementDragStart(e: DragEvent, placementId: number) {
+  const placement = placements.value.find(p => p.id === placementId)
+  if (placement?.locked) {
+    e.preventDefault()
+    return
+  }
   e.dataTransfer?.setData('text/placement-id', String(placementId))
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
@@ -295,7 +317,16 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
     const placementId = Number(placementIdStr)
     const idx = placements.value.findIndex(p => p.id === placementId)
     if (idx === -1) return
-    const old = placements.value.splice(idx, 1)[0]
+    const old = placements.value[idx]
+    
+    // Prevent moving locked placements
+    if (old.locked) {
+      alert('Impossible de déplacer un cours bloqué')
+      currentDrop.value = { day: null, time: null }
+      return
+    }
+    
+    placements.value.splice(idx, 1)
     const span = old.span
     const lastSlotStart = SLOT_END
     const endTime = time + (span - 1) * SLOT_STEP
@@ -470,6 +501,14 @@ async function removePlacementById(id: number) {
   if (idx !== -1) {
     const p = placements.value.splice(idx, 1)[0]
     
+    if (p.locked && p.constraintId) {
+      try {
+        await axios.delete(`/api/slot-constraints/${p.constraintId}`)
+      } catch (err) {
+        console.error('Erreur suppression contrainte slot', err)
+      }
+    }
+    
     // If it's from DB, delete it immediately
     if (p.fromDb) {
       try {
@@ -488,6 +527,46 @@ async function removePlacementById(id: number) {
     if (c && typeof c.remainingMinutes === 'number') {
       c.remainingMinutes = Math.max(0, (c.remainingMinutes || 0) + (p.duration || 0))
     }
+  }
+}
+
+async function blockSlot(placementId: number) {
+  const placement = placements.value.find(p => p.id === placementId)
+  if (!placement) return
+
+  try {
+    const dayNames = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+    const dayName = dayNames[placement.day - 1] || 'Lundi'
+    const startHour = formatTime(placement.time)
+    const endTime = placement.time + (placement.span - 1) * SLOT_STEP + SLOT_STEP
+    const endHour = formatTime(endTime)
+    const durationMinutes = placement.duration
+    const durationHours = durationMinutes / 60
+
+    const weekId = edtStore.week
+
+    const payload = {
+      slot_id: placement.id,
+      constraint_type: 'blocked',
+      day_of_week: dayName,
+      start_time: startHour,
+      end_time: endHour,
+      reason: '',
+      priority: 'hard',
+      week_id: weekId ? Number(weekId) : null,
+      active: true
+    }
+
+    const res = await axios.post('/api/slot-constraints', payload)
+    console.log('Contrainte de slot créée:', res.data)
+    
+    placement.locked = true
+    placement.constraintId = res.data.id
+    
+    alert('Slot bloqué avec succès')
+  } catch (err: any) {
+    console.error('Erreur création contrainte slot', err)
+    alert('Erreur lors du blocage du slot: ' + (err?.response?.data?.message || err?.message || 'Erreur serveur'))
   }
 }
 
@@ -694,7 +773,13 @@ async function saveEdt() {
                 @dragleave="onCellDragLeave"
                 @drop.prevent="(e) => onCellDrop(e, d, t)"
               >
-                <div v-for="p in placementsStartingAt(d, t)" :key="p.id" :class="['placed-course', courseKindClass(p.courseId)]" :style="{ height: computePlacedHeight(p.span) }" draggable="true" @dragstart="(e) => onPlacementDragStart(e, p.id)" @click="() => onPlacementClick(p.id)">
+                <div v-for="p in placementsStartingAt(d, t)" :key="p.id" :class="['placed-course', courseKindClass(p.courseId), { locked: p.locked }]" :style="{ height: computePlacedHeight(p.span) }" draggable="true" @dragstart="(e) => onPlacementDragStart(e, p.id)" @click="() => onPlacementClick(p.id)">
+                  <button v-if="!p.locked" class="placed-lock" @click.stop="() => blockSlot(p.id)" title="Bloquer" aria-label="Bloquer le cours">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <rect x="5" y="11" width="14" height="8" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                      <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
                   <button class="placed-trash" @click.stop="() => removePlacementById(p.id)" title="Supprimer" aria-label="Supprimer le cours">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                       <path d="M3 6h18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -766,9 +851,13 @@ async function saveEdt() {
 
 .droptarget { outline: 2px dashed #60a5fa; background: #eef8ff }
 .placed-course { background:#f0f9ff; border:1px solid #bfdbfe; padding:0.15rem 0.3rem; border-radius:6px; font-size:0.9rem; display:flex; flex-direction:column; justify-content:center; gap:0.12rem; position:absolute; top:0; left:0; right:0; z-index:12 }
+.placed-course.locked { background:#fef2f2; border:1px solid #fecaca; opacity:0.8; cursor:not-allowed }
 .placed-title { font-weight:600; color:#0f172a }
 .placed-meta { font-size:0.8rem; color:#4b5563 }
 .covered-slot { position:absolute; inset:0; background: rgba(99,102,241,0.06); border-radius:4px; z-index:8 }
+.placed-lock { position:absolute; top:4px; left:6px; background:transparent; border:none; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; width:26px; height:26px; background:rgba(0,0,0,0.04); border-radius:6px; border:1px solid rgba(15,23,42,0.04); color:#374151 }
+.placed-lock:hover { background:rgba(0,0,0,0.06); transform:translateY(-1px) }
+.placed-lock svg { display:block }
 .placed-trash { position:absolute; top:4px; right:6px; background:transparent; border:none; cursor:pointer; font-size:0.9rem }
 .placed-trash { display:flex; align-items:center; justify-content:center; width:26px; height:26px; background:rgba(0,0,0,0.04); border-radius:6px; border:1px solid rgba(15,23,42,0.04); color:#374151 }
 .placed-trash:hover { background:rgba(0,0,0,0.06); transform:translateY(-1px) }
