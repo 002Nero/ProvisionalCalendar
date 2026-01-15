@@ -338,6 +338,34 @@ function hasTeacherConflict(teacherId: number | null | undefined, day: number, t
   return false
 }
 
+// Vérifie si une salle est déjà occupée au même créneau horaire
+function hasRoomConflict(roomId: number | null | undefined, day: number, time: number, span: number, excludePlacementId?: number): boolean {
+  if (!roomId) return false // Si pas de salle assignée, pas de conflit
+  
+  // Parcourir tous les créneaux que le nouveau placement occuperait
+  for (let i = 0; i < span; i++) {
+    const t = time + i * SLOT_STEP
+    
+    // Vérifier si la salle est déjà occupée qui chevauche ce créneau
+    const conflict = placements.value.some(p => {
+      // Ignorer le placement qu'on est en train de déplacer
+      if (excludePlacementId !== undefined && p.id === excludePlacementId) return false
+      
+      // Vérifier si c'est la même salle et le même jour
+      if (p.roomId === roomId && p.day === day) {
+        // Vérifier si les créneaux se chevauchent
+        const placementEndTime = p.time + p.span * SLOT_STEP
+        return t >= p.time && t < placementEndTime
+      }
+      return false
+    })
+    
+    if (conflict) return true
+  }
+  
+  return false
+}
+
 async function onCellDrop(e: DragEvent, day: number, time: number) {
   e.preventDefault()
   const placementIdStr = e.dataTransfer?.getData('text/placement-id')
@@ -378,6 +406,14 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
       placements.value.splice(idx, 0, old)
       const teacherName = teachers.value.find(t => t.id === old.teacherId)?.name || 'Cet enseignant'
       alert(`${teacherName} a déjà un cours à ce créneau horaire`)
+      currentDrop.value = { day: null, time: null }
+      return
+    }
+    // Vérifier les conflits de salle
+    if (hasRoomConflict(old.roomId, day, time, span, old.id)) {
+      placements.value.splice(idx, 0, old)
+      const roomName = rooms.value.find(r => r.id === old.roomId)?.name || 'Cette salle'
+      alert(`${roomName} est déjà occupée à ce créneau horaire`)
       currentDrop.value = { day: null, time: null }
       return
     }
@@ -427,6 +463,13 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
   if (hasTeacherConflict(placementTeacherId, day, time, span)) {
     const teacherName = teachers.value.find(t => t.id === placementTeacherId)?.name || 'Cet enseignant'
     alert(`${teacherName} a déjà un cours à ce créneau horaire`)
+    currentDrop.value = { day: null, time: null }
+    return
+  }
+  // Vérifier les conflits de salle
+  if (hasRoomConflict(placementRoomId, day, time, span)) {
+    const roomName = rooms.value.find(r => r.id === placementRoomId)?.name || 'Cette salle'
+    alert(`${roomName} est déjà occupée à ce créneau horaire`)
     currentDrop.value = { day: null, time: null }
     return
   }

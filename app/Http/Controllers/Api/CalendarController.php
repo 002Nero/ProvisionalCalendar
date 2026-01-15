@@ -553,6 +553,35 @@ class CalendarController extends Controller
                                 continue;
                             }
                         }
+                        
+                        // Check for room conflict (room cannot be used by multiple slots at same time)
+                        $newRoomId = $p['room_id'];
+                        $roomConflicts = DB::table('edt_slot as es')
+                            ->join('slots as s', 'es.slot_id', '=', 's.id')
+                            ->where('es.room_id', $newRoomId)
+                            ->where('es.day_of_week', $newDayOfWeek)
+                            ->where('s.week_id', $week->id)
+                            ->where('es.id', '!=', $edtSlotId) // Exclude current slot
+                            ->select('es.start_hour', 's.duration')
+                            ->get();
+                        
+                        $hasRoomConflict = false;
+                        foreach ($roomConflicts as $existing) {
+                            $existingTimeParts = explode(':', $existing->start_hour);
+                            $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
+                            $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
+                            
+                            // Check for overlap
+                            if (!($newEndMinutes <= $existingStartMinutes || $newStartMinutes >= $existingEndMinutes)) {
+                                $hasRoomConflict = true;
+                                break;
+                            }
+                        }
+                        
+                        if ($hasRoomConflict) {
+                            $errors[] = "Conflit de salle : cette salle est déjà occupée à ce créneau horaire pour edt_slot {$edtSlotId}";
+                            continue;
+                        }
                     }
                     
                     $updateData = [
@@ -652,6 +681,35 @@ class CalendarController extends Controller
                             'error' => 'Conflit d\'emploi du temps : cet enseignant a déjà un cours à ce créneau'
                         ], 422);
                     }
+                }
+            }
+
+            // Vérifier les conflits de salle : une salle ne peut pas être utilisée par deux groupes au même moment
+            $timeParts = explode(':', $request->start_hour);
+            $startMinutes = intval($timeParts[0]) * 60 + intval($timeParts[1]);
+            $endMinutes = $startMinutes + ($request->duration * 60);
+            $dayOfWeek = trim($request->day_of_week);
+            $roomId = $request->room_id;
+            
+            $roomConflict = DB::table('edt_slot as es')
+                ->join('slots as s', 'es.slot_id', '=', 's.id')
+                ->where('es.room_id', $roomId)
+                ->where('es.day_of_week', $dayOfWeek)
+                ->where('s.week_id', $week->id)
+                ->select('es.start_hour', 's.duration')
+                ->get();
+            
+            // Check for time overlap for room
+            foreach ($roomConflict as $existing) {
+                $existingTimeParts = explode(':', $existing->start_hour);
+                $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
+                $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
+                
+                // Check if there's an overlap
+                if (!($endMinutes <= $existingStartMinutes || $startMinutes >= $existingEndMinutes)) {
+                    return response()->json([
+                        'error' => 'Conflit de salle : cette salle est déjà occupée à ce créneau horaire'
+                    ], 422);
                 }
             }
 
