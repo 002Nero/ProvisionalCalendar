@@ -310,6 +310,34 @@ function durationOptionsForCourse(c: Course) {
   return arr
 }
 
+// Vérifie si un enseignant a déjà un cours au même créneau horaire
+function hasTeacherConflict(teacherId: number | null | undefined, day: number, time: number, span: number, excludePlacementId?: number): boolean {
+  if (!teacherId) return false // Si pas d'enseignant assigné, pas de conflit
+  
+  // Parcourir tous les créneaux que le nouveau placement occuperait
+  for (let i = 0; i < span; i++) {
+    const t = time + i * SLOT_STEP
+    
+    // Vérifier si l'enseignant a déjà un cours qui chevauche ce créneau
+    const conflict = placements.value.some(p => {
+      // Ignorer le placement qu'on est en train de déplacer
+      if (excludePlacementId !== undefined && p.id === excludePlacementId) return false
+      
+      // Vérifier si c'est le même enseignant et le même jour
+      if (p.teacherId === teacherId && p.day === day) {
+        // Vérifier si les créneaux se chevauchent
+        const placementEndTime = p.time + p.span * SLOT_STEP
+        return t >= p.time && t < placementEndTime
+      }
+      return false
+    })
+    
+    if (conflict) return true
+  }
+  
+  return false
+}
+
 async function onCellDrop(e: DragEvent, day: number, time: number) {
   e.preventDefault()
   const placementIdStr = e.dataTransfer?.getData('text/placement-id')
@@ -344,6 +372,14 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
         currentDrop.value = { day: null, time: null }
         return
       }
+    }
+    // Vérifier les conflits d'enseignant
+    if (hasTeacherConflict(old.teacherId, day, time, span, old.id)) {
+      placements.value.splice(idx, 0, old)
+      const teacherName = teachers.value.find(t => t.id === old.teacherId)?.name || 'Cet enseignant'
+      alert(`${teacherName} a déjà un cours à ce créneau horaire`)
+      currentDrop.value = { day: null, time: null }
+      return
     }
     old.day = day
     old.time = time
@@ -386,6 +422,14 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
   const placementRoomRaw = course?.room ?? null
   const placementTeacherId = typeof placementTeacherRaw === 'number' ? placementTeacherRaw : (typeof placementTeacherRaw === 'string' && /^[0-9]+$/.test(placementTeacherRaw) ? parseInt(placementTeacherRaw, 10) : null)
   const placementRoomId = typeof placementRoomRaw === 'number' ? placementRoomRaw : (typeof placementRoomRaw === 'string' && /^[0-9]+$/.test(placementRoomRaw) ? parseInt(placementRoomRaw, 10) : null)
+  
+  // Vérifier les conflits d'enseignant
+  if (hasTeacherConflict(placementTeacherId, day, time, span)) {
+    const teacherName = teachers.value.find(t => t.id === placementTeacherId)?.name || 'Cet enseignant'
+    alert(`${teacherName} a déjà un cours à ce créneau horaire`)
+    currentDrop.value = { day: null, time: null }
+    return
+  }
   
   // Insert directly in database and capture returned id if possible
   const dbId = await insertPlacementInDb(courseId, day, time, duration, placementTeacherId, placementRoomId)
@@ -656,7 +700,14 @@ async function saveEdt() {
         }
       })
     }
-    await axios.post('/api/edt/bulk', edtPayload)
+    const saveRes = await axios.post('/api/edt/bulk', edtPayload)
+    
+    // Check if there were any errors in the response (status 207 = multi-status)
+    if (saveRes.status === 207 && saveRes.data?.errors && saveRes.data.errors.length > 0) {
+      const errorMessages = saveRes.data.errors.join('\n')
+      alert(`Certains placements n'ont pas pu être sauvegardés :\n${errorMessages}`)
+      return
+    }
 
     // On success, navigate back to main EDT page
     window.location.href = '/calendrier-previsionnel/edt'
@@ -672,6 +723,9 @@ async function saveEdt() {
         const messages = e.response.data.messages
         // Flatten messages object into a string
         msg = Object.keys(messages).map(k => `${k}: ${messages[k].join ? messages[k].join(', ') : messages[k]}`).join('\n')
+      } else if (e?.response?.status === 422 && e?.response?.data?.error) {
+        // Single error message
+        msg = e.response.data.error
       } else {
         msg = e?.response?.data?.message || e?.message || msg
       }

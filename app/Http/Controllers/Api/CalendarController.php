@@ -500,6 +500,61 @@ class CalendarController extends Controller
                 $edtSlotId = $p['edt_slot_id'] ?? null;
                 
                 if (!empty($edtSlotId)) {
+                    // Load the current edt_slot to get the associated slot and week info
+                    $edtSlot = DB::table('edt_slot')->where('id', $edtSlotId)->first();
+                    if (!$edtSlot) {
+                        $errors[] = "edt_slot {$edtSlotId} non trouvé";
+                        continue;
+                    }
+                    
+                    // Get slot info to find teacher info
+                    $slot = DB::table('slots')->where('id', $edtSlot->slot_id)->first();
+                    if ($slot) {
+                        // Get teacher for this slot from pivot table
+                        $teacherRow = DB::table('slots_teachers')->where('slot_id', $slot->id)->first();
+                        $teacherId = $teacherRow ? $teacherRow->teacher_id : null;
+                        
+                        // If teacher exists, check for conflicts
+                        if ($teacherId) {
+                            $week = DB::table('weeks')->where('id', $slot->week_id)->first();
+                            
+                            // Parse times
+                            $timeParts = explode(':', $p['start_hour']);
+                            $newStartMinutes = intval($timeParts[0]) * 60 + intval($timeParts[1]);
+                            $newEndMinutes = $newStartMinutes + ($slot->duration * 60);
+                            $newDayOfWeek = trim($p['day_of_week']);
+                            
+                            // Check for conflicts with other placements for this teacher
+                            $conflicts = DB::table('edt_slot as es')
+                                ->join('slots as s', 'es.slot_id', '=', 's.id')
+                                ->join('slots_teachers as st', 's.id', '=', 'st.slot_id')
+                                ->where('st.teacher_id', $teacherId)
+                                ->where('es.day_of_week', $newDayOfWeek)
+                                ->where('s.week_id', $week->id) // Check by slot.week_id
+                                ->where('es.id', '!=', $edtSlotId) // Exclude current slot
+                                ->select('es.start_hour', 's.duration')
+                                ->get();
+                            
+                            $hasConflict = false;
+                            foreach ($conflicts as $existing) {
+                                $existingTimeParts = explode(':', $existing->start_hour);
+                                $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
+                                $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
+                                
+                                // Check for overlap
+                                if (!($newEndMinutes <= $existingStartMinutes || $newStartMinutes >= $existingEndMinutes)) {
+                                    $hasConflict = true;
+                                    break;
+                                }
+                            }
+                            
+                            if ($hasConflict) {
+                                $errors[] = "Conflit d'emploi du temps : l'enseignant a déjà un cours à ce créneau pour edt_slot {$edtSlotId}";
+                                continue;
+                            }
+                        }
+                    }
+                    
                     $updateData = [
                         'day_of_week' => $p['day_of_week'],
                         'start_hour' => $p['start_hour'],
@@ -559,8 +614,45 @@ class CalendarController extends Controller
 
             // Get teacher (optional). If none is supplied, we allow creating the slot without a teacher.
             $teacher = null;
+            $teacherId = null;
             if (!empty($request->teacher_id)) {
                 $teacher = Teacher::find($request->teacher_id);
+                $teacherId = $request->teacher_id;
+            }
+
+            // Vérifier les conflits d'enseignant : l'enseignant ne peut pas avoir deux cours le même jour au même créneau
+            if ($teacherId) {
+                // Parse start_hour to get time in minutes
+                $timeParts = explode(':', $request->start_hour);
+                $startMinutes = intval($timeParts[0]) * 60 + intval($timeParts[1]);
+                $endMinutes = $startMinutes + ($request->duration * 60);
+                
+                // Get day_of_week as string
+                $dayOfWeek = trim($request->day_of_week);
+                
+                // Find all existing edt_slot placements for this teacher on the same day
+                $conflict = DB::table('edt_slot as es')
+                    ->join('slots as s', 'es.slot_id', '=', 's.id')
+                    ->join('slots_teachers as st', 's.id', '=', 'st.slot_id')
+                    ->where('st.teacher_id', $teacherId)
+                    ->where('es.day_of_week', $dayOfWeek)
+                    ->where('s.week_id', $week->id) // Check by slot.week_id (edt_slot doesn't have week_id)
+                    ->select('es.start_hour', 's.duration')
+                    ->get();
+                
+                // Check for time overlap
+                foreach ($conflict as $existing) {
+                    $existingTimeParts = explode(':', $existing->start_hour);
+                    $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
+                    $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
+                    
+                    // Check if there's an overlap
+                    if (!($endMinutes <= $existingStartMinutes || $startMinutes >= $existingEndMinutes)) {
+                        return response()->json([
+                            'error' => 'Conflit d\'emploi du temps : cet enseignant a déjà un cours à ce créneau'
+                        ], 422);
+                    }
+                }
             }
 
             // Find slot type
