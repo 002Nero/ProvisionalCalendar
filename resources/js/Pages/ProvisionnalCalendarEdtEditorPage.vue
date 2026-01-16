@@ -200,6 +200,25 @@ async function loadEdtSlots(yearId: number, weekNumber: number) {
     })
     const maxId = placements.value.reduce((max, p) => Math.max(max, p.id), 0)
     nextPlacementId = Math.max(nextPlacementId, maxId + 1)
+
+    // Load all slots (no group filter) to know teacher/room busy times
+    busySlots.value = []
+    try {
+      const allRes = await axios.get(`/api/edt/${yearId}/${weekNumber}`)
+      const allData = Array.isArray(allRes.data) ? allRes.data : []
+      busySlots.value = allData
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((r: any) => {
+          const day = dayNameToIndex(r.day_of_week)
+          const start = minutesFromTimeString(r.start_hour)
+          const durationMinutes = Number(r.duration) * 60
+          const end = start + durationMinutes
+          return { day, start, end, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null, sourceId: Number(r.id) }
+        })
+        .filter(s => s.day && s.start >= 0 && s.end > s.start)
+    } catch (e) {
+      console.warn('Could not load global busy slots', e)
+    }
   } catch (e) {
     console.warn('Could not load edt slots', e)
   }
@@ -269,12 +288,69 @@ async function loadTeachers(yearId: number) {
 
 type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null; fromDb?: boolean; locked?: boolean; constraintId?: number }
 const placements = ref<Placement[]>([])
+// Keep a lightweight list of busy slots across all groups to detect teacher/room conflicts
+type BusySlot = { day: number; start: number; end: number; teacherId?: number | null; roomId?: number | null; sourceId?: number }
+const busySlots = ref<BusySlot[]>([])
 let nextPlacementId = 1
 
 const currentDrop = ref<{ day: number | null; time: number | null }>({ day: null, time: null })
 
+// Track the course/placement being dragged for highlighting available slots
+const draggingCourse = ref<{ courseId?: number; placementId?: number; span: number; teacherId?: number | null; roomId?: number | null } | null>(null)
+
+// Generic overlap detector for a given time range
+function hasPlacementOverlap(day: number, startTime: number, span: number, excludePlacementId?: number) {
+  const newStart = startTime
+  const newEnd = startTime + span * SLOT_STEP
+  return placements.value.some(p => {
+    if (excludePlacementId !== undefined && p.id === excludePlacementId) return false
+    if (p.day !== day) return false
+    const existingStart = p.time
+    const existingEnd = p.time + p.span * SLOT_STEP
+    return newStart < existingEnd && newEnd > existingStart
+  })
+}
+
+// Check if a slot is available for the course being dragged
+function isSlotAvailable(day: number, time: number): boolean {
+  if (!draggingCourse.value) return false
+  
+  const { span, teacherId, roomId, placementId } = draggingCourse.value
+  
+  // Check if placement would exceed time bounds
+  const endTime = time + span * SLOT_STEP
+  if (endTime > SLOT_END) return false
+  
+  // Check if any slot is blocked (lunch break)
+  for (let i = 0; i < span; i++) {
+    const t = time + i * SLOT_STEP
+    if (isBlocked(t)) return false
+  }
+  
+  if (hasPlacementOverlap(day, time, span, placementId)) return false
+  
+  // Check teacher conflict for the entire span at once
+  if (teacherId && hasTeacherConflict(teacherId, day, time, span, placementId)) return false
+  
+  // Check room conflict for the entire span at once
+  if (roomId && hasRoomConflict(roomId, day, time, span, placementId)) return false
+  
+  return true
+}
+
 function onCourseDragStart(e: DragEvent, courseId: number) {
   e.dataTransfer?.setData('text/course-id', String(courseId))
+  
+  // Set up highlighting for available slots
+  const course = courses.value.find(c => c.id === courseId)
+  if (course) {
+    const selectedDuration = course?.selectedDuration ?? course?.duration ?? SLOT_STEP
+    const span = Math.max(1, Math.ceil(selectedDuration / SLOT_STEP))
+    const teacherId = typeof course.teacher === 'number' ? course.teacher : (typeof course.teacher === 'string' && /^[0-9]+$/.test(course.teacher) ? parseInt(course.teacher, 10) : null)
+    const roomId = typeof course.room === 'number' ? course.room : (typeof course.room === 'string' && /^[0-9]+$/.test(course.room) ? parseInt(course.room, 10) : null)
+    
+    draggingCourse.value = { courseId, span, teacherId, roomId }
+  }
 }
 
 function onPlacementDragStart(e: DragEvent, placementId: number) {
@@ -285,6 +361,20 @@ function onPlacementDragStart(e: DragEvent, placementId: number) {
   }
   e.dataTransfer?.setData('text/placement-id', String(placementId))
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  
+  // Set up highlighting for available slots when moving a placement
+  if (placement) {
+    draggingCourse.value = {
+      placementId,
+      span: placement.span,
+      teacherId: placement.teacherId,
+      roomId: placement.roomId
+    }
+  }
+}
+
+function onDragEnd() {
+  draggingCourse.value = null
 }
 
 function onCellDragOver(e: DragEvent) {
@@ -310,6 +400,58 @@ function durationOptionsForCourse(c: Course) {
   return arr
 }
 
+// Vérifie si un enseignant a déjà un cours au même créneau horaire
+function hasTeacherConflict(teacherId: number | null | undefined, day: number, time: number, span: number, excludePlacementId?: number): boolean {
+  if (!teacherId) return false // Si pas d'enseignant assigné, pas de conflit
+  const newStart = time
+  const newEnd = time + span * SLOT_STEP
+
+  // Check visible placements
+  const conflictVisible = placements.value.some(p => {
+    if (excludePlacementId !== undefined && p.id === excludePlacementId) return false
+    if (p.teacherId !== teacherId) return false
+    if (p.day !== day) return false
+    const placementEndTime = p.time + p.span * SLOT_STEP
+    return newStart < placementEndTime && newEnd > p.time
+  })
+  if (conflictVisible) return true
+
+  // Check global busy slots (other groups)
+  const conflictBusy = busySlots.value.some(s => {
+    if (!s.teacherId || s.teacherId !== teacherId) return false
+    if (excludePlacementId !== undefined && s.sourceId === excludePlacementId) return false
+    if (s.day !== day) return false
+    return newStart < s.end && newEnd > s.start
+  })
+
+  return conflictBusy
+}
+
+// Vérifie si une salle est déjà occupée au même créneau horaire
+function hasRoomConflict(roomId: number | null | undefined, day: number, time: number, span: number, excludePlacementId?: number): boolean {
+  if (!roomId) return false // Si pas de salle assignée, pas de conflit
+  const newStart = time
+  const newEnd = time + span * SLOT_STEP
+
+  const conflictVisible = placements.value.some(p => {
+    if (excludePlacementId !== undefined && p.id === excludePlacementId) return false
+    if (p.roomId !== roomId) return false
+    if (p.day !== day) return false
+    const placementEndTime = p.time + p.span * SLOT_STEP
+    return newStart < placementEndTime && newEnd > p.time
+  })
+  if (conflictVisible) return true
+
+  const conflictBusy = busySlots.value.some(s => {
+    if (!s.roomId || s.roomId !== roomId) return false
+    if (excludePlacementId !== undefined && s.sourceId === excludePlacementId) return false
+    if (s.day !== day) return false
+    return newStart < s.end && newEnd > s.start
+  })
+
+  return conflictBusy
+}
+
 async function onCellDrop(e: DragEvent, day: number, time: number) {
   e.preventDefault()
   const placementIdStr = e.dataTransfer?.getData('text/placement-id')
@@ -328,22 +470,47 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
     
     placements.value.splice(idx, 1)
     const span = old.span
-    const lastSlotStart = SLOT_END
-    const endTime = time + (span - 1) * SLOT_STEP
-    if (endTime > lastSlotStart) {
+    const endTime = time + span * SLOT_STEP
+    if (endTime > SLOT_END) {
       placements.value.splice(idx, 0, old)
       alert('Placement impossible : dépasse la plage horaire')
       currentDrop.value = { day: null, time: null }
       return
     }
+    
+    // Vérifier les zones bloquées et les chevauchements
     for (let i = 0; i < span; i++) {
       const t = time + i * SLOT_STEP
-      if (isBlocked(t) || placements.value.some(p => p.day === day && p.time <= t && t < p.time + p.span * SLOT_STEP)) {
+      if (isBlocked(t)) {
         placements.value.splice(idx, 0, old)
-        alert('Chevauchement ou zone bloquée lors du déplacement — emplacement inchangé')
+        alert('Zone bloquée lors du déplacement — emplacement inchangé')
         currentDrop.value = { day: null, time: null }
         return
       }
+    }
+    
+    // Vérifier les chevauchements avec d'autres cours
+    if (hasPlacementOverlap(day, time, span, old.id)) {
+      placements.value.splice(idx, 0, old)
+      alert('Chevauchement avec un cours existant — emplacement inchangé')
+      currentDrop.value = { day: null, time: null }
+      return
+    }
+    // Vérifier les conflits d'enseignant
+    if (hasTeacherConflict(old.teacherId, day, time, span, old.id)) {
+      placements.value.splice(idx, 0, old)
+      const teacherName = teachers.value.find(t => t.id === old.teacherId)?.name || 'Cet enseignant'
+      alert(`${teacherName} a déjà un cours à ce créneau horaire`)
+      currentDrop.value = { day: null, time: null }
+      return
+    }
+    // Vérifier les conflits de salle
+    if (hasRoomConflict(old.roomId, day, time, span, old.id)) {
+      placements.value.splice(idx, 0, old)
+      const roomName = rooms.value.find(r => r.id === old.roomId)?.name || 'Cette salle'
+      alert(`${roomName} est déjà occupée à ce créneau horaire`)
+      currentDrop.value = { day: null, time: null }
+      return
     }
     old.day = day
     old.time = time
@@ -365,20 +532,27 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
     return
   }
   const span = Math.max(1, Math.ceil(selectedDuration / SLOT_STEP))
-  const lastSlotStart = SLOT_END
-  const endTime = time + (span - 1) * SLOT_STEP
-  if (endTime > lastSlotStart) {
+  const endTime = time + span * SLOT_STEP
+  if (endTime > SLOT_END) {
     alert('Placement impossible : dépasse la plage horaire')
     currentDrop.value = { day: null, time: null }
     return
   }
+  
+  // Vérifier les zones bloquées
   for (let i = 0; i < span; i++) {
     const t = time + i * SLOT_STEP
-    if (isBlocked(t) || placements.value.some(p => p.day === day && p.time <= t && t < p.time + p.span * SLOT_STEP)) {
-      alert('Chevauchement avec un cours existant ou zone bloquée — choisissez un autre créneau')
+    if (isBlocked(t)) {
+      alert('Zone bloquée — choisissez un autre créneau')
       currentDrop.value = { day: null, time: null }
       return
     }
+  }
+  
+  if (hasPlacementOverlap(day, time, span)) {
+    alert('Chevauchement avec un cours existant — choisissez un autre créneau')
+    currentDrop.value = { day: null, time: null }
+    return
   }
   const duration = selectedDuration
   // If the course has a selected teacher/room in the left panel, propagate them to the placement
@@ -386,6 +560,21 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
   const placementRoomRaw = course?.room ?? null
   const placementTeacherId = typeof placementTeacherRaw === 'number' ? placementTeacherRaw : (typeof placementTeacherRaw === 'string' && /^[0-9]+$/.test(placementTeacherRaw) ? parseInt(placementTeacherRaw, 10) : null)
   const placementRoomId = typeof placementRoomRaw === 'number' ? placementRoomRaw : (typeof placementRoomRaw === 'string' && /^[0-9]+$/.test(placementRoomRaw) ? parseInt(placementRoomRaw, 10) : null)
+  
+  // Vérifier les conflits d'enseignant
+  if (hasTeacherConflict(placementTeacherId, day, time, span)) {
+    const teacherName = teachers.value.find(t => t.id === placementTeacherId)?.name || 'Cet enseignant'
+    alert(`${teacherName} a déjà un cours à ce créneau horaire`)
+    currentDrop.value = { day: null, time: null }
+    return
+  }
+  // Vérifier les conflits de salle
+  if (hasRoomConflict(placementRoomId, day, time, span)) {
+    const roomName = rooms.value.find(r => r.id === placementRoomId)?.name || 'Cette salle'
+    alert(`${roomName} est déjà occupée à ce créneau horaire`)
+    currentDrop.value = { day: null, time: null }
+    return
+  }
   
   // Insert directly in database and capture returned id if possible
   const dbId = await insertPlacementInDb(courseId, day, time, duration, placementTeacherId, placementRoomId)
@@ -656,7 +845,14 @@ async function saveEdt() {
         }
       })
     }
-    await axios.post('/api/edt/bulk', edtPayload)
+    const saveRes = await axios.post('/api/edt/bulk', edtPayload)
+    
+    // Check if there were any errors in the response (status 207 = multi-status)
+    if (saveRes.status === 207 && saveRes.data?.errors && saveRes.data.errors.length > 0) {
+      const errorMessages = saveRes.data.errors.join('\n')
+      alert(`Certains placements n'ont pas pu être sauvegardés :\n${errorMessages}`)
+      return
+    }
 
     // On success, navigate back to main EDT page
     window.location.href = '/calendrier-previsionnel/edt'
@@ -672,6 +868,9 @@ async function saveEdt() {
         const messages = e.response.data.messages
         // Flatten messages object into a string
         msg = Object.keys(messages).map(k => `${k}: ${messages[k].join ? messages[k].join(', ') : messages[k]}`).join('\n')
+      } else if (e?.response?.status === 422 && e?.response?.data?.error) {
+        // Single error message
+        msg = e.response.data.error
       } else {
         msg = e?.response?.data?.message || e?.message || msg
       }
@@ -720,6 +919,7 @@ async function saveEdt() {
                     :key="c.id"
                     draggable="true"
                     @dragstart="(e) => onCourseDragStart(e, c.id)"
+                    @dragend="onDragEnd"
                   >
                           <div class="course-top">
                                     <span class="course-badge" :class="courseKindClass(c.id)" aria-hidden="true"></span>
@@ -767,13 +967,17 @@ async function saveEdt() {
                 class="cell"
                 v-for="d in 6"
                 :key="d"
-                :class="{ blocked: isBlocked(t), droptarget: currentDrop.day === d && currentDrop.time === t }"
+                :class="{ 
+                  blocked: isBlocked(t), 
+                  droptarget: currentDrop.day === d && currentDrop.time === t,
+                  available: isSlotAvailable(d, t)
+                }"
                 @dragover.prevent="onCellDragOver"
                 @dragenter.prevent="(e) => onCellDragEnter(e, d, t)"
                 @dragleave="onCellDragLeave"
                 @drop.prevent="(e) => onCellDrop(e, d, t)"
               >
-                <div v-for="p in placementsStartingAt(d, t)" :key="p.id" :class="['placed-course', courseKindClass(p.courseId), { locked: p.locked }]" :style="{ height: computePlacedHeight(p.span) }" draggable="true" @dragstart="(e) => onPlacementDragStart(e, p.id)" @click="() => onPlacementClick(p.id)">
+                <div v-for="p in placementsStartingAt(d, t)" :key="p.id" :class="['placed-course', courseKindClass(p.courseId), { locked: p.locked }]" :style="{ height: computePlacedHeight(p.span) }" draggable="true" @dragstart="(e) => onPlacementDragStart(e, p.id)" @dragend="onDragEnd" @click="() => onPlacementClick(p.id)">
                   <button v-if="!p.locked" class="placed-lock" @click.stop="() => blockSlot(p.id)" title="Bloquer" aria-label="Bloquer le cours">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                       <rect x="5" y="11" width="14" height="8" rx="2" stroke="currentColor" stroke-width="1.6"/>
@@ -829,6 +1033,23 @@ async function saveEdt() {
   border-color: #ff6262;
   opacity: 0.7;
   pointer-events: none;
+}
+
+.calendar-grid .cell.available {
+  background: #d1fae5;
+  border: 2px solid #34d399;
+  box-shadow: inset 0 0 8px rgba(52, 211, 153, 0.3);
+  animation: pulse-available 2s ease-in-out infinite;
+  z-index: 5;
+}
+
+@keyframes pulse-available {
+  0%, 100% {
+    background: #d1fae5;
+  }
+  50% {
+    background: #a7f3d0;
+  }
 }
 
 .course-list { margin-top:0.5rem; display:flex; flex-direction:column; gap:0.5rem; max-height: calc(100vh - 380px); overflow:auto }
