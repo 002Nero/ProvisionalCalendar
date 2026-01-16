@@ -369,7 +369,7 @@ function generatePDF() {
         // Capturer le calendrier avec couleurs
         // Important: capturer tout l'élément, même ce qui n'est pas visible à l'écran
         html2canvas(calendarArea, {
-          scale: 2,
+          scale: 1,
           backgroundColor: '#ffffff',
           useCORS: true,
           logging: false,
@@ -402,11 +402,12 @@ function generatePDF() {
             }
             
             const pdf = new jsPDF('p', 'mm', 'a4')  // 'p' = portrait
-            const imgData = canvas.toDataURL('image/png')
+            // Utiliser JPEG au lieu de PNG avec compression pour réduire la taille
+            const imgData = canvas.toDataURL('image/jpeg', 0.85)  // Qualité 85%
             
             // Centrer horizontalement
             const margin = (210 - pdfWidth) / 2
-            pdf.addImage(imgData, 'PNG', margin, 12, pdfWidth, pdfHeight)
+            pdf.addImage(imgData, 'JPEG', margin, 12, pdfWidth, pdfHeight)
             
             const title = 'EDT Semaine ' + currentWeek.value
             const promo = selectedPromotion.value ? (promotions.value.find(p => p.id === selectedPromotion.value)?.name || '') : ''
