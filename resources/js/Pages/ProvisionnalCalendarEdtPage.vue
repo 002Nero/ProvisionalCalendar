@@ -680,7 +680,18 @@ function generatePDF() {
 .lesson-meta-h { font-size:0.75rem; font-weight:400; opacity:0.95; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#7c2d12; }
 .calendar-header { display:grid; grid-template-columns: 80px repeat(6,1fr); gap:0.5rem; margin-bottom:0.5rem; position:sticky; top:0; z-index:20; background:transparent }
 .calendar-header .time-header { height: 100%; }
-.calendar-header .day { text-align:center; padding:0.25rem 0.5rem; background:#f3f4f6; border-radius:4px; display:flex; align-items:center; justify-content:center; }
+.calendar-header .day {
+  text-align: center;
+  background: transparent; /* enlever le fond gris */
+  border-radius: 0;        /* enlever les coins arrondis */
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0;
+  font-weight: 600;
+}
 .calendar-grid { display:grid; gap:0.25rem }
 .calendar-grid .row { display:grid; grid-template-columns:80px repeat(6,1fr); align-items:start }
 .calendar-grid .cell { height:40px; border:1px dashed #e5e7eb; background:#fff; position:relative; overflow:visible; }
