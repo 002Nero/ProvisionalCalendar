@@ -9,6 +9,7 @@ import IconButton from '@/Components/IconButton.vue'
 // promotions/groups loaded from API (dependent on year)
 const promotions = ref<{ id: number; name: string }[]>([])
 const groups = ref<{ id: number; name: string }[]>([])
+const groupsWithSubgroups = ref<{ id: number; name: string; subgroups: string[]; displayName: string }[]>([])
 
 const selectedPromotion = ref<number | null>(null)
 const selectedGroup = ref<number | null>(null)
@@ -29,6 +30,9 @@ interface Lesson {
   room: string
   color?: string | null
   isExam?: boolean
+  type: string  
+  groupId?: number  
+  subgroup?: string 
   raw: RawRow
 }
 const lessons = ref<Lesson[]>([])
@@ -60,11 +64,19 @@ async function loadGroupsForPromotion(promoId: number | null) {
   if (!promoId) {
     groups.value = []
     selectedGroup.value = null
+    groupsWithSubgroups.value = []
     return
   }
   try {
     const res = await axios.get(`/api/groups/${promoId}`)
     groups.value = Array.isArray(res.data) ? res.data : []
+    const withSubs = groups.value.map(group => ({
+      id: group.id,
+      name: group.name,
+      subgroups: ['A', 'B'], 
+      displayName: group.name
+    }))
+    groupsWithSubgroups.value = withSubs
     if (groups.value.length > 0) {
       if (edtStore.groupId && groups.value.find(g => g.id === edtStore.groupId)) {
         selectedGroup.value = edtStore.groupId
@@ -129,7 +141,7 @@ async function loadEdtSlotsForCurrent() {
     const params = new URLSearchParams()
     if (selectedPromotion.value) params.append('promotion_id', String(selectedPromotion.value))
     if (selectedGroup.value) params.append('group_id', String(selectedGroup.value))
-    if (selectedSubgroup.value) params.append('subgroup', selectedSubgroup.value)
+    if (selectedGroup.value && selectedSubgroup.value) params.append('subgroup', selectedSubgroup.value)
     const url = `/api/edt/${yearId}/${weekNumber}${params.toString() ? '?' + params.toString() : ''}`
     lastFetch.value.url = url
     lastFetch.value.status = null
@@ -186,6 +198,9 @@ async function loadEdtSlotsForCurrent() {
         room,
         color,
         isExam,
+        type: typeAcr,
+        groupId: r.group_id ? Number(r.group_id) : undefined,
+        subgroup: r.subgroup ? String(r.subgroup) : undefined,
         raw: r,
       } as Lesson
     }).filter((l) => l.day && l.start_min != null && l.duration_min > 0)
@@ -235,6 +250,30 @@ function lessonsStartingAt(dayIndex: number, minute: number) {
   return lessons.value.filter(l => l.day === dayIndex && l.start_min === minute)
 }
 
+function shouldDisplayLessonInCell(lesson: Lesson, groupIdx: number, subIdx: number, currentGroupsWithSubgroups: any[]): boolean {
+  if (lesson.type === 'CM') {
+    return groupIdx === 0 && subIdx === 0
+  } else if (lesson.type === 'TD') {
+    const group = currentGroupsWithSubgroups[groupIdx]
+    return group && lesson.groupId === group.id && subIdx === 0
+  } else if (lesson.type === 'TP') {
+    const group = currentGroupsWithSubgroups[groupIdx]
+    return group && lesson.subgroup === group.subgroups[subIdx]
+  }
+  return groupIdx === 0 && subIdx === 0
+}
+
+function getRowSpan(lesson: Lesson, currentGroupsWithSubgroups: any[], groupIdx: number, subIdx: number): number {
+  if (lesson.type === 'CM') {
+    return currentGroupsWithSubgroups.reduce((sum, g) => sum + g.subgroups.length, 0)
+  } else if (lesson.type === 'TD' && lesson.groupId) {
+    const group = currentGroupsWithSubgroups.find(g => g.id === lesson.groupId)
+    return group ? group.subgroups.length : 1
+  }
+
+  return 1
+}
+
 // check if cell is covered by a lesson (for graying out covered slots)
 function isCovered(dayIndex: number, minute: number) {
   return lessons.value.some(l => l.day === dayIndex && l.start_min <= minute && minute < l.start_min + l.span * SLOT_STEP)
@@ -247,7 +286,7 @@ edtStore.setWeek(currentWeek.value)
 edtStore.setSubgroup(selectedSubgroup.value)
 
 const SLOT_START = 8 * 60
-const SLOT_END = 19 * 60 + 30
+const SLOT_END = 19 * 60
 const SLOT_STEP = 30
 const timeSlots: number[] = []
 for (let t = SLOT_START; t <= SLOT_END; t += SLOT_STEP) {
@@ -326,10 +365,11 @@ function nextWeek() {
             <label>
               Groupe
               <select v-model="selectedGroup">
+                <option :value="null">Tous</option>
                 <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
               </select>
             </label>
-            <label style="display:flex; align-items:center; gap:0.4rem;">
+            <label v-if="selectedGroup !== null" style="display:flex; align-items:center; gap:0.4rem;">
               Sous-groupe
               <select v-model="selectedSubgroup" style="width:64px;">
                 <option value="A">A</option>
@@ -351,7 +391,8 @@ function nextWeek() {
       </header>
 
       <main class="edt-main">
-        <section class="calendar-area">
+        <!-- Layout Vertical (groupe spécifique sélectionné) -->
+        <section v-if="selectedGroup !== null" class="calendar-area">
           <div class="calendar-header">
             <div class="time-header"></div>
             <div class="day" v-for="d in ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']" :key="d">{{ d }}</div>
@@ -381,25 +422,150 @@ function nextWeek() {
             </div>
           </div>
         </section>
+
+        <section v-else class="calendar-area-horizontal">
+          <div class="horizontal-wrapper">
+            <div class="header-row">
+              <div class="hour-header-placeholder" style="width:80px;"></div>
+              <div class="hour-header-placeholder" style="width:80px;"></div>
+              <div class="hour-header-placeholder" style="width:50px;"></div>
+              <div class="hours-container">
+                <div class="hour-header" v-for="t in timeSlots" :key="t">{{ formatTime(t) }}</div>
+              </div>
+            </div>
+
+            <div class="content-wrapper">
+              <div class="scrollable-content">
+                <div class="day-section" v-for="dayIdx in 6" :key="dayIdx">
+                  <div class="day-label-column">
+                    <div class="day-name-cell" v-if="dayIdx === 1">Lundi</div>
+                    <div class="day-name-cell" v-else-if="dayIdx === 2">Mardi</div>
+                    <div class="day-name-cell" v-else-if="dayIdx === 3">Mercredi</div>
+                    <div class="day-name-cell" v-else-if="dayIdx === 4">Jeudi</div>
+                    <div class="day-name-cell" v-else-if="dayIdx === 5">Vendredi</div>
+                    <div class="day-name-cell" v-else>Samedi</div>
+                  </div>
+
+                  <div class="groups-label-column">
+                    <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
+                      <div 
+                        class="group-label-item" 
+                        v-if="groupItem.subgroups.length > 0"
+                        :style="{ 
+                          height: `${groupItem.subgroups.length * 30}px`,
+                          borderBottom: '1px dashed #e5e7eb'
+                        }"
+                      >
+                        {{ groupItem.name }}
+                      </div>
+                    </template>
+                  </div>
+
+                  <div class="subgroups-label-column">
+                    <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
+                      <div 
+                        class="subgroup-label-item" 
+                        v-for="(sub, subIdx) in groupItem.subgroups" 
+                        :key="sub"
+                        :style="{ borderBottom: '1px dashed #e5e7eb' }"
+                      >
+                        {{ sub }}
+                      </div>
+                    </template>
+                  </div>
+
+                  <div class="day-grid-column">
+                    <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
+                      <div 
+                        class="subgroup-row" 
+                        v-for="(sub, subIdx) in groupItem.subgroups" 
+                        :key="sub"
+                        :style="{ borderBottom: '1px dashed #e5e7eb' }"
+                      >
+                        <div
+                          class="cell-slot"
+                          v-for="t in timeSlots"
+                          :key="t"
+                          :class="{ blocked: isBlocked(t) }"
+                        >
+                          <div
+                            v-for="lesson in lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups))"
+                            :key="lesson.id || lesson.start_min + '-' + lesson.room"
+                            class="lesson-block-horizontal"
+                            :class="{ 'lesson-exam': lesson.isExam }"
+                            :style="{ 
+                              width: `calc(${lesson.span} * 60px - 4px)`,
+                              height: `${Math.min(getRowSpan(lesson, groupsWithSubgroups, gIdx, subIdx), groupsWithSubgroups.reduce((sum, g, idx) => idx >= gIdx ? sum + g.subgroups.length : sum, 0)) * 30 - 4}px`,
+                              background: lesson.color || 'linear-gradient(180deg,#fef3c7,#fde68a)', 
+                              borderColor: lesson.color || '#f59e0b' 
+                            }"
+                          >
+                            <div class="lesson-content-h">
+                              <div class="lesson-title-h">{{ lesson.title }}</div>
+                              <div class="lesson-meta-h">{{ lesson.teacher }}</div>
+                              <div class="lesson-meta-h">{{ lesson.room }}</div>
+                            </div>
+                          </div>
+                          <div v-if="isCovered(dayIdx, t) && lessonsStartingAt(dayIdx, t).length === 0" class="covered-slot"></div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   </AdminLayout>
 </template>
 
 <style scoped>
-.edt-container { padding: 1rem; }
-.edt-toolbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem }
+.edt-container { padding: 0.5rem; }
+.edt-toolbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:0.5rem; flex-wrap:wrap; }
 .edt-toolbar .title { margin:0; font-size:1.25rem }
-.controls { display:flex; gap:0.75rem; margin-left:1rem; align-items:center }
+.controls { display:flex; gap:0.75rem; margin-left:1rem; align-items:center; flex-wrap:wrap; }
 .controls select { margin-left:0.4rem }
-.right { display:flex; gap:0.5rem; align-items:center }
+.right { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
 .arrow.button { display: flex; justify-content: center; align-items: center; cursor: pointer; background:#FFD8E4; color: black; filter: brightness(100%); transition: filter 0.3s; padding: 0.5rem; border-radius: 50%; }
 .arrow.button:hover { filter: brightness(75%); }
-.btn { padding:0.4rem 0.6rem; border:1px solid #d1d5db; background:#fff; border-radius:6px; cursor:pointer }
+.btn { padding:0.4rem 0.6rem; border:1px solid #d1d5db; background:#fff; border-radius:6px; cursor:pointer; font-size:0.9rem; }
 .btn.primary { background:#FFD8E4; color:#000000; border-color:transparent }
-.edt-main { display:flex; gap:1rem }
+.edt-main { display:flex; gap:1rem; height: calc(100vh - 230px); }
 .filters { width:200px; border:1px solid #e5e7eb; padding:0.75rem; border-radius:6px; }
-.calendar-area { flex:1; overflow:auto; max-height: calc(100vh - 220px); }
+.calendar-area { flex:1; overflow:auto; padding-bottom:3rem; }
+.calendar-area-horizontal { flex:1; display:flex; flex-direction:column; overflow:hidden; padding-bottom:3rem; }
+.horizontal-wrapper { display:flex; flex-direction:column; height:100%; }
+.header-row { display:flex; position:sticky; top:0; z-index:30; background:white; border-bottom:1px dashed #e5e7eb; }
+.hour-header-placeholder { min-width:auto; background:#f3f4f6; border-right:1px dashed #e5e7eb; flex-shrink:0; }
+.hours-container { display:flex; overflow-x:auto; flex:1; }
+.hour-header { min-width:60px; width:60px; height:50px; background:#f3f4f6; border-right:1px dashed #e5e7eb; display:flex; align-items:center; justify-content:flex-start; padding-left:4px; font-size:0.7rem; font-weight:600; flex-shrink:0; }
+.content-wrapper { flex:1; overflow:auto; width: 100%; }
+.scrollable-content { display:flex; flex-direction:column; gap:0; }
+.day-section { display:flex; gap:0; border-bottom:1px dashed #e5e7eb; padding-bottom:4px; }
+.day-label-column { width:80px; min-width:80px; display:flex; flex-direction:column; border-right:1px dashed #e5e7eb; flex-shrink:0; }
+.day-name-cell { height:30px; background:#f3f4f6; font-weight:700; font-size:0.9rem; display:flex; align-items:center; justify-content:center; border-bottom:none; border-radius:4px; }
+.groups-label-column { width:80px; min-width:80px; display:flex; flex-direction:column; border-right:1px dashed #e5e7eb; flex-shrink:0; }
+.group-label-item { background:#f5f5f5; font-weight:600; font-size:0.8rem; display:flex; align-items:center; justify-content:center; }
+.subgroups-label-column { width:50px; min-width:50px; display:flex; flex-direction:column; border-right:1px dashed #e5e7eb; flex-shrink:0; }
+.subgroup-label-item { height:30px; background:#fafafa; font-size:0.75rem; display:flex; align-items:center; justify-content:center; font-weight:600; }
+.day-grid-column { display:flex; flex-direction:column; flex-shrink:0; }
+.group-row-main { display:flex; height:30px; border-bottom:1px solid #ddd; }
+.subgroup-row { display:flex; height:30px; position:relative; }
+.cell-slot { min-width:60px; width:60px; border-right:1px dashed #e5e7eb; position:relative; background:#fff; flex-shrink:0; }
+.cell-slot.blocked {
+  background: #ff9d9d;
+  border-style: solid;
+  border-color: #ff6262;
+  opacity: 0.7;
+  pointer-events: none;
+}
+.lesson-block-horizontal { position:absolute; left:2px; top:2px; box-sizing:border-box; padding:0.25rem; font-size:0.85rem; border:1px solid; border-radius:6px; overflow:hidden; z-index:5; display:flex; flex-direction:column; gap:0.15rem; }
+.lesson-block-horizontal.lesson-exam { border-width:2px; box-shadow:0 0 6px rgba(0, 0, 0, 0.2); }
+.lesson-content-h { display:flex; flex-direction:column; gap:0.1rem; overflow:hidden; }
+.lesson-title-h { font-weight:600; font-size:0.8rem; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#92400e; }
+.lesson-meta-h { font-size:0.75rem; font-weight:400; opacity:0.95; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#7c2d12; }
 .calendar-header { display:grid; grid-template-columns: 80px repeat(6,1fr); gap:0.5rem; margin-bottom:0.5rem; position:sticky; top:0; z-index:20; background:transparent }
 .calendar-header .time-header { height: 100%; }
 .calendar-header .day { text-align:center; padding:0.25rem 0.5rem; background:#f3f4f6; border-radius:4px; display:flex; align-items:center; justify-content:center; }
@@ -407,7 +573,6 @@ function nextWeek() {
 .calendar-grid .row { display:grid; grid-template-columns:80px repeat(6,1fr); align-items:start }
 .calendar-grid .cell { height:40px; border:1px dashed #e5e7eb; background:#fff; position:relative; overflow:visible; }
 .calendar-grid .cell.time { padding:0.12rem 0.2rem; font-size:0.85rem; color:#6b7280; background:transparent; border:none; position:sticky; left:0; z-index:15; }
-
 .calendar-grid .cell.blocked {
   background: #ff9d9d;
   border-style: solid;
