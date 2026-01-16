@@ -515,6 +515,15 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
     old.day = day
     old.time = time
     placements.value.push(old)
+    
+    // Update busySlots to reflect the new position
+    const busyIdx = busySlots.value.findIndex(s => s.sourceId === old.id)
+    if (busyIdx !== -1) {
+      busySlots.value[busyIdx].day = day
+      busySlots.value[busyIdx].start = time
+      busySlots.value[busyIdx].end = time + old.span * SLOT_STEP
+    }
+    
     currentDrop.value = { day: null, time: null }
     return
   }
@@ -581,6 +590,19 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
 
   const newPlacementId = dbId ?? nextPlacementId++
   placements.value.push({ id: newPlacementId, courseId, day, time, span, duration, teacherId: placementTeacherId, roomId: placementRoomId, fromDb: dbId !== null })
+  
+  // Add to busySlots if we got a DB id
+  if (dbId !== null) {
+    busySlots.value.push({
+      day,
+      start: time,
+      end: time + span * SLOT_STEP,
+      teacherId: placementTeacherId,
+      roomId: placementRoomId,
+      sourceId: dbId
+    })
+  }
+  
   // subtract remaining minutes for that course
   if (course) {
     if (typeof course.remainingMinutes === 'number') course.remainingMinutes = Math.max(0, course.remainingMinutes - duration)
@@ -702,6 +724,12 @@ async function removePlacementById(id: number) {
     if (p.fromDb) {
       try {
         await axios.delete(`/api/edt/${id}`)
+        
+        // Remove from busySlots
+        const busyIdx = busySlots.value.findIndex(s => s.sourceId === id)
+        if (busyIdx !== -1) {
+          busySlots.value.splice(busyIdx, 1)
+        }
       } catch (err) {
         console.error('Erreur suppression placement', err)
         alert('Erreur lors de la suppression du placement')
