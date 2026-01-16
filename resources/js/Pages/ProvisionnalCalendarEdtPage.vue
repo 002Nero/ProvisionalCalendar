@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import axios from 'axios'
 import { useEdtStore } from '@/stores/edtStore'
 
@@ -345,6 +345,102 @@ function nextWeek() {
   currentWeek.value += 1
 }
 
+function generatePDF() {
+  try {
+    const calendarArea = document.querySelector('.calendar-area')
+    if (!calendarArea) {
+      alert('Impossible de trouver l\'emploi du temps à exporter')
+      return
+    }
+
+    // Charger html2canvas
+    const script1 = document.createElement('script')
+    script1.src = 'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js'
+    script1.onload = function() {
+      // Charger jsPDF
+      const script2 = document.createElement('script')
+      script2.src = 'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
+      script2.onload = function() {
+        // @ts-ignore
+        const jsPDF = window.jspdf.jsPDF
+        // @ts-ignore  
+        const html2canvas = window.html2canvas
+
+        // Capturer le calendrier avec couleurs
+        // Important: capturer tout l'élément, même ce qui n'est pas visible à l'écran
+        html2canvas(calendarArea, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          logging: false,
+          allowTaint: true,
+          windowHeight: Math.max(calendarArea.scrollHeight, 2000),  // Forcer capture complète
+          windowWidth: calendarArea.scrollWidth,
+          onclone: function(doc: Document) {
+            // Forcer l'affichage complet dans le clone
+            const clonedElement = doc.querySelector('.calendar-area') as HTMLElement
+            if (clonedElement) {
+              clonedElement.style.overflow = 'visible'
+              clonedElement.style.height = 'auto'
+            }
+          }
+        }).then((canvas: HTMLCanvasElement) => {
+          try {
+            // Créer PDF en portrait (vertical) A4
+            const width = canvas.width
+            const height = canvas.height
+            const ratio = width / height
+            
+            // Dimensions A4 portrait: 210x297mm
+            let pdfWidth = 200
+            let pdfHeight = 200 / ratio
+            
+            // Limiter à page complète si nécessaire
+            if (pdfHeight > 280) {
+              pdfHeight = 280
+              pdfWidth = 280 * ratio
+            }
+            
+            const pdf = new jsPDF('p', 'mm', 'a4')  // 'p' = portrait
+            const imgData = canvas.toDataURL('image/png')
+            
+            // Centrer horizontalement
+            const margin = (210 - pdfWidth) / 2
+            pdf.addImage(imgData, 'PNG', margin, 12, pdfWidth, pdfHeight)
+            
+            const title = 'EDT Semaine ' + currentWeek.value
+            const promo = selectedPromotion.value ? (promotions.value.find(p => p.id === selectedPromotion.value)?.name || '') : ''
+            const grp = selectedGroup.value ? (groups.value.find(g => g.id === selectedGroup.value)?.name || '') : ''
+            const subgrp = selectedSubgroup.value ? ' - ' + selectedSubgroup.value : ''
+            const fullTitle = title + (promo ? ' - ' + promo : '') + (grp ? ' - ' + grp : '') + subgrp
+            
+            pdf.setFontSize(11)
+            pdf.text(fullTitle, 105, 7, { align: 'center' })
+            
+            pdf.save(fullTitle + '.pdf')
+          } catch (err) {
+            console.error('Erreur PDF:', err)
+            alert('Erreur lors de la création du PDF')
+          }
+        }).catch((error: Error) => {
+          console.error('Erreur capture:', error)
+          alert('Erreur: ' + error.message)
+        })
+      }
+      script2.onerror = function() {
+        alert('Erreur: Impossible de charger jsPDF')
+      }
+      document.head.appendChild(script2)
+    }
+    script1.onerror = function() {
+      alert('Erreur: Impossible de charger html2canvas')
+    }
+    document.head.appendChild(script1)
+  } catch (error) {
+    console.error('Erreur:', error)
+    alert('Erreur lors de la génération du PDF')
+  }
+}
 
 </script>
 
@@ -385,7 +481,7 @@ function nextWeek() {
           <IconButton iconClass="ChevronRight" bgColor="#FFD8E4" small @click="nextWeek" />
           <button class="btn primary">Générer</button>
           <button class="btn primary" @click="$inertia.visit('/calendrier-previsionnel/edt/modifier')">Modifier</button>
-          <button class="btn primary">PDF</button>
+          <button class="btn primary" @click="generatePDF">PDF</button>
 
         </div>
       </header>
