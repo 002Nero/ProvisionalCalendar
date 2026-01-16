@@ -875,15 +875,9 @@ async function saveEdt() {
     }
     const saveRes = await axios.post('/api/edt/bulk', edtPayload)
     
-    // Check if there were any errors in the response (status 207 = multi-status)
-    if (saveRes.status === 207 && saveRes.data?.errors && saveRes.data.errors.length > 0) {
-      const errorMessages = saveRes.data.errors.join('\n')
-      alert(`Certains placements n'ont pas pu être sauvegardés :\n${errorMessages}`)
-      return
-    }
-
     // On success, navigate back to main EDT page
     window.location.href = '/calendrier-previsionnel/edt'
+    return
     return
   } catch (err: unknown) {
     console.error(err)
