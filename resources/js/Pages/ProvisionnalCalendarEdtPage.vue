@@ -286,7 +286,7 @@ edtStore.setWeek(currentWeek.value)
 edtStore.setSubgroup(selectedSubgroup.value)
 
 const SLOT_START = 8 * 60
-const SLOT_END = 19 * 60
+const SLOT_END = 19 * 60 + 30
 const SLOT_STEP = 30
 const timeSlots: number[] = []
 for (let t = SLOT_START; t <= SLOT_END; t += SLOT_STEP) {
@@ -369,45 +369,60 @@ function generatePDF() {
         // Capturer le calendrier avec couleurs
         // Important: capturer tout l'élément, même ce qui n'est pas visible à l'écran
         html2canvas(calendarArea, {
-          scale: 1,
+          scale: 1.8,
           backgroundColor: '#ffffff',
           useCORS: true,
           logging: false,
           allowTaint: true,
-          windowHeight: Math.max(calendarArea.scrollHeight, 2000),  // Forcer capture complète
+          // Capturer toute la zone, pas seulement la partie visible
+          windowHeight: calendarArea.scrollHeight,
           windowWidth: calendarArea.scrollWidth,
+          height: calendarArea.scrollHeight,
+          width: calendarArea.scrollWidth,
           onclone: function(doc: Document) {
             // Forcer l'affichage complet dans le clone
             const clonedElement = doc.querySelector('.calendar-area') as HTMLElement
             if (clonedElement) {
               clonedElement.style.overflow = 'visible'
-              clonedElement.style.height = 'auto'
+              clonedElement.style.height = calendarArea.scrollHeight + 'px'
+              clonedElement.style.width = calendarArea.scrollWidth + 'px'
+            }
+            const clonedMain = doc.querySelector('.edt-main') as HTMLElement
+            if (clonedMain) {
+              clonedMain.style.height = 'auto'
+              clonedMain.style.overflow = 'visible'
             }
           }
         }).then((canvas: HTMLCanvasElement) => {
           try {
-            // Créer PDF en portrait (vertical) A4
-            const width = canvas.width
-            const height = canvas.height
-            const ratio = width / height
+            const pdf = new jsPDF('l', 'mm', 'a4')  // 'l' = landscape
             
-            // Dimensions A4 portrait: 210x297mm
-            let pdfWidth = 200
-            let pdfHeight = 200 / ratio
+            // Dimensions totales A4 paysage
+            const pageWidth = 297
+            const pageHeight = 210
+            const sideMargin = 2  // marges latérales
+            const topTitleSpace = 12 // espace réservé au titre en haut
+            const bottomMargin = 2
+            const maxWidth = pageWidth - (2 * sideMargin)
+            const maxHeight = pageHeight - topTitleSpace - bottomMargin
             
-            // Limiter à page complète si nécessaire
-            if (pdfHeight > 280) {
-              pdfHeight = 280
-              pdfWidth = 280 * ratio
+            // Redimensionner l'image pour qu'elle rentre dans le PDF - MAXIMUM
+            const canvasRatio = canvas.width / canvas.height
+            let imgWidth = maxWidth
+            let imgHeight = imgWidth / canvasRatio
+            
+            if (imgHeight > maxHeight) {
+              imgHeight = maxHeight
+              imgWidth = imgHeight * canvasRatio
             }
             
-            const pdf = new jsPDF('p', 'mm', 'a4')  // 'p' = portrait
-            // Utiliser JPEG au lieu de PNG avec compression pour réduire la taille
-            const imgData = canvas.toDataURL('image/jpeg', 0.85)  // Qualité 85%
+            // Positionner l'image: centrée horizontalement, sous le titre
+            const x = (pageWidth - imgWidth) / 2
+            const y = topTitleSpace
             
-            // Centrer horizontalement
-            const margin = (210 - pdfWidth) / 2
-            pdf.addImage(imgData, 'JPEG', margin, 12, pdfWidth, pdfHeight)
+            // Convertir en image JPEG avec bonne qualité
+            const imgData = canvas.toDataURL('image/jpeg', 0.90)
+            pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight)
             
             const title = 'EDT Semaine ' + currentWeek.value
             const promo = selectedPromotion.value ? (promotions.value.find(p => p.id === selectedPromotion.value)?.name || '') : ''
@@ -415,8 +430,8 @@ function generatePDF() {
             const subgrp = selectedSubgroup.value ? ' - ' + selectedSubgroup.value : ''
             const fullTitle = title + (promo ? ' - ' + promo : '') + (grp ? ' - ' + grp : '') + subgrp
             
-            pdf.setFontSize(11)
-            pdf.text(fullTitle, 105, 7, { align: 'center' })
+            pdf.setFontSize(13)
+            pdf.text(fullTitle, pageWidth / 2, 8, { align: 'center' })
             
             pdf.save(fullTitle + '.pdf')
           } catch (err) {
