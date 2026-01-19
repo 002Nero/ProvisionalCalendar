@@ -193,7 +193,7 @@ async function loadEdtSlots(yearId: number, weekNumber: number) {
       const slotId = Number(r.id)
       const isLocked = slotConstraints.has(slotId)
       const constraintId = isLocked ? slotConstraints.get(slotId) : undefined
-      placements.value.push({ id: slotId, courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null, fromDb: true, locked: isLocked, constraintId })
+      placements.value.push({ id: slotId, courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null, fromDb: true, locked: isLocked, constraintId, editing: false })
       // reduce remaining minutes for this course if present
       const c = courses.value.find(x => x.id === courseId)
       if (c && typeof c.remainingMinutes === 'number') c.remainingMinutes = Math.max(0, (c.remainingMinutes || 0) - (durationMinutes || 0))
@@ -286,7 +286,7 @@ async function loadTeachers(yearId: number) {
   }
 }
 
-type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null; fromDb?: boolean; locked?: boolean; constraintId?: number }
+type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null; fromDb?: boolean; locked?: boolean; constraintId?: number; editing?: boolean }
 const placements = ref<Placement[]>([])
 // Keep a lightweight list of busy slots across all groups to detect teacher/room conflicts
 type BusySlot = { day: number; start: number; end: number; teacherId?: number | null; roomId?: number | null; sourceId?: number }
@@ -589,7 +589,7 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
   const dbId = await insertPlacementInDb(courseId, day, time, duration, placementTeacherId, placementRoomId)
 
   const newPlacementId = dbId ?? nextPlacementId++
-  placements.value.push({ id: newPlacementId, courseId, day, time, span, duration, teacherId: placementTeacherId, roomId: placementRoomId, fromDb: dbId !== null })
+  placements.value.push({ id: newPlacementId, courseId, day, time, span, duration, teacherId: placementTeacherId, roomId: placementRoomId, fromDb: dbId !== null, editing: false })
   
   // Add to busySlots if we got a DB id
   if (dbId !== null) {
@@ -784,6 +784,64 @@ async function blockSlot(placementId: number) {
   } catch (err: any) {
     console.error('Erreur création contrainte slot', err)
     alert('Erreur lors du blocage du slot: ' + (err?.response?.data?.message || err?.message || 'Erreur serveur'))
+  }
+}
+
+function isTeacherAvailableForPlacement(teacherId: number | null, placement: Placement): boolean {
+  if (!teacherId) return true
+  return !hasTeacherConflict(teacherId, placement.day, placement.time, placement.span, placement.id)
+}
+
+function isRoomAvailableForPlacement(roomId: number | null, placement: Placement): boolean {
+  if (!roomId) return true
+  return !hasRoomConflict(roomId, placement.day, placement.time, placement.span, placement.id)
+}
+
+const availableTeachers = computed(() => {
+  return (p: Placement) => {
+    return teachers.value.filter(t => isTeacherAvailableForPlacement(t.id, p))
+  }
+})
+
+const availableRooms = computed(() => {
+  return (p: Placement) => {
+    return rooms.value.filter(r => isRoomAvailableForPlacement(r.id, p))
+  }
+})
+
+function togglePlacementEdit(placementId: number) {
+  const p = placements.value.find(x => x.id === placementId)
+  if (p) {
+    p.editing = !p.editing
+  }
+}
+
+async function savePlacementChanges(placementId: number) {
+  const p = placements.value.find(x => x.id === placementId)
+  if (!p || !p.fromDb) return
+
+  try {
+    const payload = {
+      edt_slot_id: p.id,
+      teacher_id: p.teacherId,
+      room_id: p.roomId
+    }
+    
+    await axios.put(`/api/edt/${p.id}`, payload)
+    
+    // Update busySlots to reflect new teacher/room
+    const busyIdx = busySlots.value.findIndex(s => s.sourceId === p.id)
+    if (busyIdx !== -1) {
+      busySlots.value[busyIdx].teacherId = p.teacherId
+      busySlots.value[busyIdx].roomId = p.roomId
+    }
+    
+    p.editing = false
+    alert('Modifications enregistrées')
+  } catch (err: any) {
+    console.error('Erreur sauvegarde placement', err)
+    const msg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Erreur serveur'
+    alert('Erreur lors de la sauvegarde: ' + msg)
   }
 }
 
@@ -999,14 +1057,20 @@ async function saveEdt() {
                 @dragleave="onCellDragLeave"
                 @drop.prevent="(e) => onCellDrop(e, d, t)"
               >
-                <div v-for="p in placementsStartingAt(d, t)" :key="p.id" :class="['placed-course', courseKindClass(p.courseId), { locked: p.locked }]" :style="{ height: computePlacedHeight(p.span) }" draggable="true" @dragstart="(e) => onPlacementDragStart(e, p.id)" @dragend="onDragEnd" @click="() => onPlacementClick(p.id)">
-                  <button v-if="!p.locked" class="placed-lock" @click.stop="() => blockSlot(p.id)" title="Bloquer" aria-label="Bloquer le cours">
+                <div v-for="p in placementsStartingAt(d, t)" :key="p.id" :class="['placed-course', courseKindClass(p.courseId), { locked: p.locked, editing: p.editing }]" :style="{ height: computePlacedHeight(p.span) }" :draggable="!p.editing" @dragstart="(e) => onPlacementDragStart(e, p.id)" @dragend="onDragEnd" @click="() => !p.editing && onPlacementClick(p.id)">
+                  <button v-if="!p.locked && !p.editing" class="placed-lock" @click.stop="() => blockSlot(p.id)" title="Bloquer" aria-label="Bloquer le cours">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                       <rect x="5" y="11" width="14" height="8" rx="2" stroke="currentColor" stroke-width="1.6"/>
                       <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                   </button>
-                  <button class="placed-trash" @click.stop="() => removePlacementById(p.id)" title="Supprimer" aria-label="Supprimer le cours">
+                  <button v-if="!p.editing" class="placed-edit" @click.stop="() => togglePlacementEdit(p.id)" title="Modifier" aria-label="Modifier le cours">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                  <button v-if="!p.editing" class="placed-trash" @click.stop="() => removePlacementById(p.id)" title="Supprimer" aria-label="Supprimer le cours">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                       <path d="M3 6h18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
                       <path d="M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1015,8 +1079,28 @@ async function saveEdt() {
                       <path d="M9 3h6l-1 3H10L9 3z" fill="currentColor"/>
                     </svg>
                   </button>
-                  <div class="placed-title">{{ courses.find(c => c.id === p.courseId)?.title || 'Cours' }}</div>
-                  <div class="placed-meta">{{ formatDuration(p.duration) }} • {{ (p.roomId ? (rooms.find(r => r.id === p.roomId)?.name) : (courses.find(c => c.id === p.courseId)?.room)) || '-' }}</div>
+                  <div v-if="!p.editing" class="placed-title">{{ courses.find(c => c.id === p.courseId)?.title || 'Cours' }}</div>
+                  <div v-if="!p.editing" class="placed-meta">{{ formatDuration(p.duration) }} • {{ (p.roomId ? (rooms.find(r => r.id === p.roomId)?.name) : (courses.find(c => c.id === p.courseId)?.room)) || '-' }}</div>
+                  <div v-if="p.editing" class="placed-edit-form">
+                    <div class="placed-title">{{ courses.find(c => c.id === p.courseId)?.title || 'Cours' }}</div>
+                    <select v-model.number="p.roomId" class="edit-select" @click.stop>
+                      <option v-for="r in availableRooms(p)" :key="r.id" :value="r.id">{{ r.name }}</option>
+                      <optgroup label="Occupées" v-if="rooms.filter(r => !isRoomAvailableForPlacement(r.id, p)).length > 0">
+                        <option v-for="r in rooms.filter(r => !isRoomAvailableForPlacement(r.id, p))" :key="r.id" :value="r.id" disabled class="option-unavailable">{{ r.name }} (occupée)</option>
+                      </optgroup>
+                    </select>
+                    <select v-model.number="p.teacherId" class="edit-select" @click.stop>
+                      <option :value="null">Pas de prof</option>
+                      <option v-for="t in availableTeachers(p)" :key="t.id" :value="t.id">{{ t.name }}</option>
+                      <optgroup label="Indisponibles" v-if="teachers.filter(t => !isTeacherAvailableForPlacement(t.id, p)).length > 0">
+                        <option v-for="t in teachers.filter(t => !isTeacherAvailableForPlacement(t.id, p))" :key="t.id" :value="t.id" disabled class="option-unavailable">{{ t.name }} (occupé)</option>
+                      </optgroup>
+                    </select>
+                    <div class="edit-actions">
+                      <button class="btn-edit-save" @click.stop="() => savePlacementChanges(p.id)">✓</button>
+                      <button class="btn-edit-cancel" @click.stop="() => togglePlacementEdit(p.id)">✗</button>
+                    </div>
+                  </div>
                 </div>
                 <div v-if="isCovered(d, t) && placementsStartingAt(d, t).length === 0" class="covered-slot"></div>
               </div>
@@ -1095,16 +1179,29 @@ async function saveEdt() {
 .droptarget { outline: 2px dashed #60a5fa; background: #eef8ff }
 .placed-course { background:#f0f9ff; border:1px solid #bfdbfe; padding:0.15rem 0.3rem; border-radius:6px; font-size:0.9rem; display:flex; flex-direction:column; justify-content:center; gap:0.12rem; position:absolute; top:0; left:0; right:0; z-index:12 }
 .placed-course.locked { background:#fef2f2; border:1px solid #fecaca; opacity:0.8; cursor:not-allowed }
+.placed-course.editing { background:#fff7ed; border:2px solid #fb923c; z-index:20; padding:0.25rem 0.4rem }
 .placed-title { font-weight:600; color:#0f172a }
 .placed-meta { font-size:0.8rem; color:#4b5563 }
 .covered-slot { position:absolute; inset:0; background: rgba(99,102,241,0.06); border-radius:4px; z-index:8 }
 .placed-lock { position:absolute; top:4px; left:6px; background:transparent; border:none; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; width:26px; height:26px; background:rgba(0,0,0,0.04); border-radius:6px; border:1px solid rgba(15,23,42,0.04); color:#374151 }
 .placed-lock:hover { background:rgba(0,0,0,0.06); transform:translateY(-1px) }
 .placed-lock svg { display:block }
+.placed-edit { position:absolute; top:4px; right:38px; background:transparent; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; width:26px; height:26px; background:rgba(0,0,0,0.04); border-radius:6px; border:1px solid rgba(15,23,42,0.04); color:#374151 }
+.placed-edit:hover { background:rgba(0,0,0,0.06); transform:translateY(-1px) }
+.placed-edit svg { display:block }
 .placed-trash { position:absolute; top:4px; right:6px; background:transparent; border:none; cursor:pointer; font-size:0.9rem }
 .placed-trash { display:flex; align-items:center; justify-content:center; width:26px; height:26px; background:rgba(0,0,0,0.04); border-radius:6px; border:1px solid rgba(15,23,42,0.04); color:#374151 }
 .placed-trash:hover { background:rgba(0,0,0,0.06); transform:translateY(-1px) }
 .placed-trash svg { display:block }
+.placed-edit-form { display:flex; flex-direction:column; gap:0.3rem; padding-top:0.2rem }
+.edit-select { padding:0.25rem 0.3rem; border:1px solid #e5e7eb; border-radius:4px; font-size:0.85rem; background:#fff }
+.option-unavailable { color:#9ca3af; font-style:italic }
+.edit-actions { display:flex; gap:0.3rem; margin-top:0.2rem }
+.btn-edit-save, .btn-edit-cancel { padding:0.3rem 0.5rem; border:none; border-radius:4px; cursor:pointer; font-weight:600; font-size:0.85rem }
+.btn-edit-save { background:#34d399; color:#fff }
+.btn-edit-save:hover { background:#10b981 }
+.btn-edit-cancel { background:#f87171; color:#fff }
+.btn-edit-cancel:hover { background:#ef4444 }
 
 /* Course badge colors (also used by placed blocks via class) */
 .course-badge.placed-sae { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,0.08) }

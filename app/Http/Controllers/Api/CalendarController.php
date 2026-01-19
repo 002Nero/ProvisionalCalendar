@@ -823,6 +823,57 @@ class CalendarController extends Controller
     }
 
     /**
+     * Met à jour le professeur et/ou la salle d'un placement edt_slot existant
+     */
+    public function updateEdtSlot(Request $request, $id): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'teacher_id' => 'nullable|exists:teachers,id',
+                'room_id' => 'nullable|exists:rooms,id'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['error' => 'Données invalides', 'messages' => $validator->errors()], 422);
+            }
+
+            // Find edt_slot
+            $edtSlot = DB::table('edt_slot')->where('id', $id)->first();
+            if (!$edtSlot) {
+                return response()->json(['error' => 'Placement introuvable'], 404);
+            }
+
+            // Update room if provided
+            if ($request->has('room_id') && $request->room_id !== null) {
+                DB::table('edt_slot')->where('id', $id)->update(['room_id' => $request->room_id]);
+            }
+
+            // Update teacher if provided (via slots_teachers pivot)
+            if ($request->has('teacher_id')) {
+                $slotId = $edtSlot->slot_id;
+                
+                // Remove existing teacher associations
+                DB::table('slots_teachers')->where('slot_id', $slotId)->delete();
+                
+                // Add new teacher if not null
+                if ($request->teacher_id !== null) {
+                    DB::table('slots_teachers')->insert([
+                        'slot_id' => $slotId,
+                        'teacher_id' => $request->teacher_id,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+
+            return response()->json(['message' => 'Placement mis à jour'], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Supprime un placement edt_slot
      */
     public function deleteEdtSlot(Request $request, $id): JsonResponse

@@ -110,6 +110,7 @@ Route::middleware(['api.logger'])->group(function () {
             Route::get('/edt/{year}/{week}', [CalendarController::class, 'getEdtSlots']);
             Route::post('/edt/bulk', [CalendarController::class, 'storeEdtSlotsBulk']);
             Route::post('/edt/create', [CalendarController::class, 'createEdtSlot']);
+            Route::put('/edt/{id}', [CalendarController::class, 'updateEdtSlot']);
             Route::delete('/edt/{id}', [CalendarController::class, 'deleteEdtSlot']);
 
         // Constraints endpoints (minimal closures using DB)
