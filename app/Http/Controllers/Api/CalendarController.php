@@ -121,6 +121,31 @@ class CalendarController extends Controller
                     continue;
                 }
 
+                // Semester quota check per teaching/promotion/group/subgroup
+                $totalQuotaHours = 
+                    ($teaching->tp_hours_initial ?? 0) +
+                    ($teaching->tp_hours_continued ?? 0) +
+                    ($teaching->td_hours_initial ?? 0) +
+                    ($teaching->td_hours_continued ?? 0) +
+                    ($teaching->cm_hours ?? 0);
+
+                $promotionId = $p['promotion_id'] ?? null;
+                $groupId = $p['group_id'] ?? null;
+                $subgroupId = $p['subgroup_id'] ?? null;
+
+                if ($totalQuotaHours > 0) {
+                    $usedQuery = Slot::where('teaching_id', $teaching->id);
+                    if (!empty($promotionId)) { $usedQuery->where('promotion_id', $promotionId); }
+                    if (!empty($groupId)) { $usedQuery->where('group_id', $groupId); }
+                    if (!empty($subgroupId)) { $usedQuery->where('subgroup_id', $subgroupId); }
+                    $usedHours = (float) $usedQuery->sum('duration');
+                    $remainingHours = max(0, $totalQuotaHours - $usedHours);
+                    if ($remainingHours < (float)$p['duration']) {
+                        $errors[] = "Quota du semestre atteint pour l'enseignement {$teaching->id} (index {$idx}). Restant: {$remainingHours}h, demandé: {$p['duration']}h.";
+                        continue;
+                    }
+                }
+
                 $slotData = [
                     'duration' => $p['duration'],
                     'teacher_id' => $teacher->id,
@@ -709,6 +734,34 @@ class CalendarController extends Controller
                 if (!($endMinutes <= $existingStartMinutes || $startMinutes >= $existingEndMinutes)) {
                     return response()->json([
                         'error' => 'Conflit de salle : cette salle est déjà occupée à ce créneau horaire'
+                    ], 422);
+                }
+            }
+
+            // Semester quota check: sum TP+TD+CM across all weeks for this teaching and selected filters
+            $totalQuotaHours = 
+                ($teaching->tp_hours_initial ?? 0) +
+                ($teaching->tp_hours_continued ?? 0) +
+                ($teaching->td_hours_initial ?? 0) +
+                ($teaching->td_hours_continued ?? 0) +
+                ($teaching->cm_hours ?? 0);
+
+            if ($totalQuotaHours > 0) {
+                $usedQuery = Slot::where('teaching_id', $teaching->id);
+                if (!empty($request->promotion_id)) { $usedQuery->where('promotion_id', $request->promotion_id); }
+                if (!empty($request->group_id)) { $usedQuery->where('group_id', $request->group_id); }
+                if (!empty($request->subgroup_id)) { $usedQuery->where('subgroup_id', $request->subgroup_id); }
+                $usedHours = (float) $usedQuery->sum('duration');
+                $remainingHours = max(0, $totalQuotaHours - $usedHours);
+                if ($remainingHours < (float)$request->duration) {
+                    return response()->json([
+                        'error' => 'Quota du semestre atteint pour cet enseignement',
+                        'details' => [
+                            'quota_total_heures' => $totalQuotaHours,
+                            'heures_deja_posees' => $usedHours,
+                            'heures_demandees' => (float)$request->duration,
+                            'heures_restantes' => $remainingHours
+                        ]
                     ], 422);
                 }
             }

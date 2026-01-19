@@ -65,11 +65,11 @@ async function loadTeachingsForYear(yearId: number) {
         const hours = tdHours || tpHours || cmHours || 1
         const durationMinutes = Math.max(1, Number(hours)) * 60
 
-        // compute remaining minutes depending on type
-        let remaining = 0
-        if (type === 'CM') remaining = cmHours * 60
-        else if (type === 'TD') remaining = tdHours * 60
-        else if (type === 'TP') remaining = tpHours * 60
+        // compute remaining minutes: total semester quota across types (TP+TD+CM)
+        const tpContHours = Number(t.tp_hours_continued ?? 0)
+        const tdContHours = Number(t.td_hours_continued ?? 0)
+        const totalHours = tpHours + tpContHours + tdHours + tdContHours + cmHours
+        let remaining = Math.max(0, totalHours * 60)
         if (!remaining || remaining <= 0) remaining = durationMinutes
 
         return {
