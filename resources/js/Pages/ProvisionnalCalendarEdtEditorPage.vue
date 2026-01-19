@@ -193,7 +193,26 @@ async function loadEdtSlots(yearId: number, weekNumber: number) {
       const slotId = Number(r.id)
       const isLocked = slotConstraints.has(slotId)
       const constraintId = isLocked ? slotConstraints.get(slotId) : undefined
-      placements.value.push({ id: slotId, courseId, day, time, span, duration: durationMinutes, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null, fromDb: true, locked: isLocked, constraintId, editing: false })
+      
+      // Support both old (single teacher_id) and new (multiple teachers) format
+      const teacherIds = Array.isArray(r.teachers) ? r.teachers.map((t: any) => t.id) : []
+      const firstTeacherId = teacherIds.length > 0 ? teacherIds[0] : (r.teacher_id ?? null)
+      
+      placements.value.push({ 
+        id: slotId, 
+        courseId, 
+        day, 
+        time, 
+        span, 
+        duration: durationMinutes, 
+        teacherId: firstTeacherId, // Pour compatibilité avec le code existant
+        teacherIds: teacherIds.length > 0 ? teacherIds : (firstTeacherId ? [firstTeacherId] : []),
+        roomId: r.room_id ?? null, 
+        fromDb: true, 
+        locked: isLocked, 
+        constraintId, 
+        editing: false 
+      })
       // reduce remaining minutes for this course if present
       const c = courses.value.find(x => x.id === courseId)
       if (c && typeof c.remainingMinutes === 'number') c.remainingMinutes = Math.max(0, (c.remainingMinutes || 0) - (durationMinutes || 0))
@@ -213,7 +232,18 @@ async function loadEdtSlots(yearId: number, weekNumber: number) {
           const start = minutesFromTimeString(r.start_hour)
           const durationMinutes = Number(r.duration) * 60
           const end = start + durationMinutes
-          return { day, start, end, teacherId: r.teacher_id ?? null, roomId: r.room_id ?? null, sourceId: Number(r.id) }
+          // Support both old (single teacher_id) and new (multiple teachers) format
+          const teacherIds = Array.isArray(r.teachers) ? r.teachers.map((t: any) => t.id) : []
+          const firstTeacherId = teacherIds.length > 0 ? teacherIds[0] : (r.teacher_id ?? null)
+          return { 
+            day, 
+            start, 
+            end, 
+            teacherId: firstTeacherId, 
+            teacherIds: teacherIds.length > 0 ? teacherIds : (firstTeacherId ? [firstTeacherId] : []),
+            roomId: r.room_id ?? null, 
+            sourceId: Number(r.id) 
+          }
         })
         .filter(s => s.day && s.start >= 0 && s.end > s.start)
     } catch (e) {
@@ -286,10 +316,10 @@ async function loadTeachers(yearId: number) {
   }
 }
 
-type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; roomId?: number | null; fromDb?: boolean; locked?: boolean; constraintId?: number; editing?: boolean }
+type Placement = { id: number; courseId: number; day: number; time: number; span: number; duration: number; teacherId?: number | null; teacherIds?: number[]; roomId?: number | null; fromDb?: boolean; locked?: boolean; constraintId?: number; editing?: boolean; tempTeacherId?: number | null }
 const placements = ref<Placement[]>([])
 // Keep a lightweight list of busy slots across all groups to detect teacher/room conflicts
-type BusySlot = { day: number; start: number; end: number; teacherId?: number | null; roomId?: number | null; sourceId?: number }
+type BusySlot = { day: number; start: number; end: number; teacherId?: number | null; teacherIds?: number[]; roomId?: number | null; sourceId?: number }
 const busySlots = ref<BusySlot[]>([])
 let nextPlacementId = 1
 
@@ -496,11 +526,12 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
       currentDrop.value = { day: null, time: null }
       return
     }
-    // Vérifier les conflits d'enseignant
-    if (hasTeacherConflict(old.teacherId, day, time, span, old.id)) {
+    // Vérifier les conflits d'enseignants (pour tous les profs assignés)
+    const teacherIdsToCheck = old.teacherIds || (old.teacherId ? [old.teacherId] : [])
+    if (teacherIdsToCheck.length > 0 && hasTeacherConflict(teacherIdsToCheck as number[] | number, day, time, span, old.id)) {
       placements.value.splice(idx, 0, old)
-      const teacherName = teachers.value.find(t => t.id === old.teacherId)?.name || 'Cet enseignant'
-      alert(`${teacherName} a déjà un cours à ce créneau horaire`)
+      const teacherNames = teacherIdsToCheck.map(tid => teachers.value.find(t => t.id === tid)?.name || `Prof ${tid}`).join(', ')
+      alert(`Un ou plusieurs enseignants (${teacherNames}) ont déjà un cours à ce créneau horaire`)
       currentDrop.value = { day: null, time: null }
       return
     }
@@ -789,6 +820,9 @@ async function blockSlot(placementId: number) {
 
 function isTeacherAvailableForPlacement(teacherId: number | null, placement: Placement): boolean {
   if (!teacherId) return true
+  // Exclude the teacher IDs already assigned to this placement from conflict check
+  const currentTeacherIds = placement.teacherIds || (placement.teacherId ? [placement.teacherId] : [])
+  if (currentTeacherIds.includes(teacherId)) return true // Already assigned, so available for this placement
   return !hasTeacherConflict(teacherId, placement.day, placement.time, placement.span, placement.id)
 }
 
@@ -813,6 +847,41 @@ function togglePlacementEdit(placementId: number) {
   const p = placements.value.find(x => x.id === placementId)
   if (p) {
     p.editing = !p.editing
+    // Initialize teacherIds if not present
+    if (!p.teacherIds) {
+      p.teacherIds = p.teacherId ? [p.teacherId] : []
+    }
+    // Initialize tempTeacherId for the add teacher dropdown
+    if (!p.tempTeacherId) {
+      p.tempTeacherId = null
+    }
+  }
+}
+
+function addTeacherToPlacement(placementId: number, teacherId: number | null) {
+  if (!teacherId) return
+  const p = placements.value.find(x => x.id === placementId)
+  if (!p) return
+  
+  if (!p.teacherIds) p.teacherIds = []
+  if (!p.teacherIds.includes(teacherId)) {
+    p.teacherIds.push(teacherId)
+    // Update teacherId to first teacher for backward compatibility
+    p.teacherId = p.teacherIds[0]
+  }
+  // Reset temp selection
+  p.tempTeacherId = null
+}
+
+function removeTeacherFromPlacement(placementId: number, teacherId: number) {
+  const p = placements.value.find(x => x.id === placementId)
+  if (!p || !p.teacherIds) return
+  
+  const index = p.teacherIds.indexOf(teacherId)
+  if (index > -1) {
+    p.teacherIds.splice(index, 1)
+    // Update teacherId to first teacher for backward compatibility
+    p.teacherId = p.teacherIds.length > 0 ? p.teacherIds[0] : null
   }
 }
 
@@ -823,16 +892,17 @@ async function savePlacementChanges(placementId: number) {
   try {
     const payload = {
       edt_slot_id: p.id,
-      teacher_id: p.teacherId,
+      teacher_ids: p.teacherIds || [],
       room_id: p.roomId
     }
     
     await axios.put(`/api/edt/${p.id}`, payload)
     
-    // Update busySlots to reflect new teacher/room
+    // Update busySlots to reflect new teachers/room
     const busyIdx = busySlots.value.findIndex(s => s.sourceId === p.id)
     if (busyIdx !== -1) {
-      busySlots.value[busyIdx].teacherId = p.teacherId
+      busySlots.value[busyIdx].teacherIds = p.teacherIds
+      busySlots.value[busyIdx].teacherId = (p.teacherIds && p.teacherIds.length > 0) ? p.teacherIds[0] : null
       busySlots.value[busyIdx].roomId = p.roomId
     }
     
@@ -1080,7 +1150,14 @@ async function saveEdt() {
                     </svg>
                   </button>
                   <div v-if="!p.editing" class="placed-title">{{ courses.find(c => c.id === p.courseId)?.title || 'Cours' }}</div>
-                  <div v-if="!p.editing" class="placed-meta">{{ formatDuration(p.duration) }} • {{ (p.roomId ? (rooms.find(r => r.id === p.roomId)?.name) : (courses.find(c => c.id === p.courseId)?.room)) || '-' }}</div>
+                  <div v-if="!p.editing" class="placed-meta">
+                    {{ formatDuration(p.duration) }} • {{ (p.roomId ? (rooms.find(r => r.id === p.roomId)?.name) : (courses.find(c => c.id === p.courseId)?.room)) || '-' }}
+                  </div>
+                  <div v-if="!p.editing && (p.teacherIds && p.teacherIds.length > 0)" class="placed-teachers">
+                    <span v-for="tid in p.teacherIds" :key="tid" class="teacher-badge">
+                      {{ teachers.find(t => t.id === tid)?.name || `Prof ${tid}` }}
+                    </span>
+                  </div>
                   <div v-if="p.editing" class="placed-edit-form">
                     <div class="placed-title">{{ courses.find(c => c.id === p.courseId)?.title || 'Cours' }}</div>
                     <select v-model.number="p.roomId" class="edit-select" @click.stop>
@@ -1089,13 +1166,31 @@ async function saveEdt() {
                         <option v-for="r in rooms.filter(r => !isRoomAvailableForPlacement(r.id, p))" :key="r.id" :value="r.id" disabled class="option-unavailable">{{ r.name }} (occupée)</option>
                       </optgroup>
                     </select>
-                    <select v-model.number="p.teacherId" class="edit-select" @click.stop>
-                      <option :value="null">Pas de prof</option>
-                      <option v-for="t in availableTeachers(p)" :key="t.id" :value="t.id">{{ t.name }}</option>
-                      <optgroup label="Indisponibles" v-if="teachers.filter(t => !isTeacherAvailableForPlacement(t.id, p)).length > 0">
-                        <option v-for="t in teachers.filter(t => !isTeacherAvailableForPlacement(t.id, p))" :key="t.id" :value="t.id" disabled class="option-unavailable">{{ t.name }} (occupé)</option>
-                      </optgroup>
-                    </select>
+                    
+                    <!-- Liste des professeurs assignés -->
+                    <div class="teachers-edit-section">
+                      <label class="teachers-label">Professeurs :</label>
+                      <div v-if="p.teacherIds && p.teacherIds.length > 0" class="teachers-list">
+                        <div v-for="tid in p.teacherIds" :key="tid" class="teacher-item">
+                          <span class="teacher-name">{{ teachers.find(t => t.id === tid)?.name || `Prof ${tid}` }}</span>
+                          <button class="btn-remove-teacher" @click.stop="() => removeTeacherFromPlacement(p.id, tid)" title="Retirer ce professeur">×</button>
+                        </div>
+                      </div>
+                      <div v-else class="no-teachers">Aucun professeur assigné</div>
+                      
+                      <!-- Sélecteur pour ajouter un professeur -->
+                      <div class="add-teacher-section">
+                        <select v-model.number="p.tempTeacherId" class="edit-select" @click.stop>
+                          <option :value="null">+ Ajouter un professeur</option>
+                          <option v-for="t in availableTeachers(p).filter(t => !(p.teacherIds || []).includes(t.id))" :key="t.id" :value="t.id">{{ t.name }}</option>
+                          <optgroup label="Indisponibles" v-if="teachers.filter(t => !isTeacherAvailableForPlacement(t.id, p) && !(p.teacherIds || []).includes(t.id)).length > 0">
+                            <option v-for="t in teachers.filter(t => !isTeacherAvailableForPlacement(t.id, p) && !(p.teacherIds || []).includes(t.id))" :key="t.id" :value="t.id" disabled class="option-unavailable">{{ t.name }} (occupé)</option>
+                          </optgroup>
+                        </select>
+                        <button v-if="p.tempTeacherId" class="btn-add-teacher" @click.stop="() => addTeacherToPlacement(p.id, p.tempTeacherId ?? null)">Ajouter</button>
+                      </div>
+                    </div>
+                    
                     <div class="edit-actions">
                       <button class="btn-edit-save" @click.stop="() => savePlacementChanges(p.id)">✓</button>
                       <button class="btn-edit-cancel" @click.stop="() => togglePlacementEdit(p.id)">✗</button>
@@ -1182,6 +1277,8 @@ async function saveEdt() {
 .placed-course.editing { background:#fff7ed; border:2px solid #fb923c; z-index:20; padding:0.25rem 0.4rem }
 .placed-title { font-weight:600; color:#0f172a }
 .placed-meta { font-size:0.8rem; color:#4b5563 }
+.placed-teachers { display:flex; flex-wrap:wrap; gap:0.25rem; margin-top:0.25rem }
+.teacher-badge { font-size:0.75rem; padding:0.15rem 0.4rem; background:#dbeafe; color:#1e40af; border-radius:4px; border:1px solid #bfdbfe }
 .covered-slot { position:absolute; inset:0; background: rgba(99,102,241,0.06); border-radius:4px; z-index:8 }
 .placed-lock { position:absolute; top:4px; left:6px; background:transparent; border:none; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; width:26px; height:26px; background:rgba(0,0,0,0.04); border-radius:6px; border:1px solid rgba(15,23,42,0.04); color:#374151 }
 .placed-lock:hover { background:rgba(0,0,0,0.06); transform:translateY(-1px) }
@@ -1202,6 +1299,19 @@ async function saveEdt() {
 .btn-edit-save:hover { background:#10b981 }
 .btn-edit-cancel { background:#f87171; color:#fff }
 .btn-edit-cancel:hover { background:#ef4444 }
+
+/* Multi-teachers edit interface */
+.teachers-edit-section { margin-top:0.5rem; padding:0.5rem; background:#f9fafb; border-radius:6px; border:1px solid #e5e7eb }
+.teachers-label { display:block; font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:0.3rem }
+.teachers-list { display:flex; flex-direction:column; gap:0.25rem; margin-bottom:0.4rem }
+.teacher-item { display:flex; justify-content:space-between; align-items:center; padding:0.3rem 0.4rem; background:#fff; border:1px solid #e5e7eb; border-radius:4px }
+.teacher-name { font-size:0.85rem; color:#374151 }
+.btn-remove-teacher { background:transparent; border:none; color:#ef4444; font-size:1.2rem; font-weight:bold; cursor:pointer; padding:0 0.3rem; border-radius:4px }
+.btn-remove-teacher:hover { background:#fee2e2 }
+.no-teachers { font-size:0.85rem; color:#9ca3af; font-style:italic; padding:0.3rem 0 }
+.add-teacher-section { display:flex; gap:0.3rem; align-items:center }
+.btn-add-teacher { padding:0.3rem 0.6rem; background:#3b82f6; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem; font-weight:600 }
+.btn-add-teacher:hover { background:#2563eb }
 
 /* Course badge colors (also used by placed blocks via class) */
 .course-badge.placed-sae { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,0.08) }

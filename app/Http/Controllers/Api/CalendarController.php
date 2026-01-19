@@ -431,26 +431,36 @@ class CalendarController extends Controller
                 $slotInfo = null;
                 if (!empty($r->slot_id) && isset($slots[$r->slot_id])) {
                     $slot = $slots[$r->slot_id];
-                    $teacherId = !empty($slot->teacher_ids) ? $slot->teacher_ids[0] : null;
-                    $teacher = $teacherId ? Teacher::with('user')->find($teacherId) : null;
                     
-                    // Build teacher name: try first_name/last_name from teacher, then from user, then acronym
-                    $teacherName = null;
-                    if ($teacher) {
-                        $firstName = $teacher->first_name ?? null;
-                        $lastName = $teacher->last_name ?? null;
-                        
-                        // If teacher doesn't have first/last name, get from user
-                        if ((!$firstName || !$lastName) && $teacher->user) {
-                            $firstName = $firstName ?: ($teacher->user->first_name ?? null);
-                            $lastName = $lastName ?: ($teacher->user->last_name ?? null);
-                        }
-                        
-                        $teacherName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
-                        if (empty($teacherName)) {
-                            $teacherName = $teacher->acronym ?? null;
+                    // Build teachers array: fetch ALL teachers assigned to this slot
+                    $teachers = [];
+                    if (!empty($slot->teacher_ids)) {
+                        $teacherModels = Teacher::with('user')->whereIn('id', $slot->teacher_ids)->get();
+                        foreach ($teacherModels as $teacher) {
+                            $firstName = $teacher->first_name ?? null;
+                            $lastName = $teacher->last_name ?? null;
+                            
+                            // If teacher doesn't have first/last name, get from user
+                            if ((!$firstName || !$lastName) && $teacher->user) {
+                                $firstName = $firstName ?: ($teacher->user->first_name ?? null);
+                                $lastName = $lastName ?: ($teacher->user->last_name ?? null);
+                            }
+                            
+                            $teacherName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
+                            if (empty($teacherName)) {
+                                $teacherName = $teacher->acronym ?? null;
+                            }
+                            
+                            $teachers[] = [
+                                'id' => $teacher->id,
+                                'code' => $teacher->acronym ?? null,
+                                'name' => $teacherName
+                            ];
                         }
                     }
+                    
+                    // For backward compatibility, also provide the first teacher as teacher_id/teacher_name
+                    $firstTeacher = !empty($teachers) ? $teachers[0] : null;
                     
                     // Determine final color: use exam color if is_exam=1, else use type color
                     $finalColor = null;
@@ -473,9 +483,12 @@ class CalendarController extends Controller
                         'type_acronym' => $slot->type_id && isset($slotTypesAcronyms[$slot->type_id]) ? $slotTypesAcronyms[$slot->type_id] : null,
                         'type_color' => $finalColor,
                         'is_exam' => $slot->is_exam ?? false,
-                        'teacher_id' => $teacher ? $teacher->id : null,
-                        'teacher_code' => ($teacher && isset($teacher->acronym)) ? $teacher->acronym : null,
-                        'teacher_name' => $teacherName
+                        // New: array of all teachers
+                        'teachers' => $teachers,
+                        // Backward compatibility: first teacher as single values
+                        'teacher_id' => $firstTeacher ? $firstTeacher['id'] : null,
+                        'teacher_code' => $firstTeacher ? $firstTeacher['code'] : null,
+                        'teacher_name' => $firstTeacher ? $firstTeacher['name'] : null
                     ];
                 }
 
@@ -649,7 +662,9 @@ class CalendarController extends Controller
                 'day_of_week' => 'required|string',
                 'start_hour' => ['required','regex:/^\d{2}:\d{2}$/'],
                 'room_id' => 'required|exists:rooms,id',
-                'teacher_id' => 'nullable|exists:teachers,id'
+                'teacher_id' => 'nullable|exists:teachers,id',
+                'teacher_ids' => 'nullable|array',
+                'teacher_ids.*' => 'exists:teachers,id'
             ]);
 
             if ($validator->fails()) {
@@ -666,16 +681,16 @@ class CalendarController extends Controller
                 return response()->json(['error' => 'Enseignement introuvable'], 404);
             }
 
-            // Get teacher (optional). If none is supplied, we allow creating the slot without a teacher.
-            $teacher = null;
-            $teacherId = null;
-            if (!empty($request->teacher_id)) {
-                $teacher = Teacher::find($request->teacher_id);
-                $teacherId = $request->teacher_id;
+            // Get teacher(s). Accept either teacher_id (single) or teacher_ids (array)
+            $teacherIds = [];
+            if (!empty($request->teacher_ids) && is_array($request->teacher_ids)) {
+                $teacherIds = $request->teacher_ids;
+            } elseif (!empty($request->teacher_id)) {
+                $teacherIds = [$request->teacher_id];
             }
 
-            // Vérifier les conflits d'enseignant : l'enseignant ne peut pas avoir deux cours le même jour au même créneau
-            if ($teacherId) {
+            // Vérifier les conflits d'enseignants : aucun enseignant ne peut avoir deux cours le même jour au même créneau
+            if (!empty($teacherIds)) {
                 // Parse start_hour to get time in minutes
                 $timeParts = explode(':', $request->start_hour);
                 $startMinutes = intval($timeParts[0]) * 60 + intval($timeParts[1]);
@@ -684,27 +699,32 @@ class CalendarController extends Controller
                 // Get day_of_week as string
                 $dayOfWeek = trim($request->day_of_week);
                 
-                // Find all existing edt_slot placements for this teacher on the same day
-                $conflict = DB::table('edt_slot as es')
-                    ->join('slots as s', 'es.slot_id', '=', 's.id')
-                    ->join('slots_teachers as st', 's.id', '=', 'st.slot_id')
-                    ->where('st.teacher_id', $teacherId)
-                    ->where('es.day_of_week', $dayOfWeek)
-                    ->where('s.week_id', $week->id) // Check by slot.week_id (edt_slot doesn't have week_id)
-                    ->select('es.start_hour', 's.duration')
-                    ->get();
-                
-                // Check for time overlap
-                foreach ($conflict as $existing) {
-                    $existingTimeParts = explode(':', $existing->start_hour);
-                    $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
-                    $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
+                // Check conflict for each teacher
+                foreach ($teacherIds as $teacherId) {
+                    // Find all existing edt_slot placements for this teacher on the same day
+                    $conflict = DB::table('edt_slot as es')
+                        ->join('slots as s', 'es.slot_id', '=', 's.id')
+                        ->join('slots_teachers as st', 's.id', '=', 'st.slot_id')
+                        ->where('st.teacher_id', $teacherId)
+                        ->where('es.day_of_week', $dayOfWeek)
+                        ->where('s.week_id', $week->id) // Check by slot.week_id (edt_slot doesn't have week_id)
+                        ->select('es.start_hour', 's.duration')
+                        ->get();
                     
-                    // Check if there's an overlap
-                    if (!($endMinutes <= $existingStartMinutes || $startMinutes >= $existingEndMinutes)) {
-                        return response()->json([
-                            'error' => 'Conflit d\'emploi du temps : cet enseignant a déjà un cours à ce créneau'
-                        ], 422);
+                    // Check for time overlap
+                    foreach ($conflict as $existing) {
+                        $existingTimeParts = explode(':', $existing->start_hour);
+                        $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
+                        $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
+                        
+                        // Check if there's an overlap
+                        if (!($endMinutes <= $existingStartMinutes || $startMinutes >= $existingEndMinutes)) {
+                            $teacher = Teacher::find($teacherId);
+                            $teacherName = $teacher ? ($teacher->first_name . ' ' . $teacher->last_name) : "ID $teacherId";
+                            return response()->json([
+                                'error' => "Conflit d'emploi du temps : l'enseignant $teacherName a déjà un cours à ce créneau"
+                            ], 422);
+                        }
                     }
                 }
             }
@@ -795,14 +815,16 @@ class CalendarController extends Controller
                 'is_exam' => false
             ]);
 
-            // Create pivot only if a teacher is provided
-            if ($teacher) {
-                DB::table('slots_teachers')->insert([
-                    'slot_id' => $slot->id,
-                    'teacher_id' => $teacher->id,
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
+            // Create pivot entries for all teachers
+            if (!empty($teacherIds)) {
+                foreach ($teacherIds as $teacherId) {
+                    DB::table('slots_teachers')->insert([
+                        'slot_id' => $slot->id,
+                        'teacher_id' => $teacherId,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
             }
 
             // Create edt_slot
@@ -830,6 +852,8 @@ class CalendarController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'teacher_id' => 'nullable|exists:teachers,id',
+                'teacher_ids' => 'nullable|array',
+                'teacher_ids.*' => 'exists:teachers,id',
                 'room_id' => 'nullable|exists:rooms,id'
             ]);
 
@@ -848,18 +872,27 @@ class CalendarController extends Controller
                 DB::table('edt_slot')->where('id', $id)->update(['room_id' => $request->room_id]);
             }
 
-            // Update teacher if provided (via slots_teachers pivot)
-            if ($request->has('teacher_id')) {
+            // Update teachers if provided (via slots_teachers pivot)
+            // Accept either teacher_id (single, for backward compatibility) or teacher_ids (array)
+            if ($request->has('teacher_ids') || $request->has('teacher_id')) {
                 $slotId = $edtSlot->slot_id;
                 
                 // Remove existing teacher associations
                 DB::table('slots_teachers')->where('slot_id', $slotId)->delete();
                 
-                // Add new teacher if not null
-                if ($request->teacher_id !== null) {
+                // Determine which teachers to add
+                $teacherIds = [];
+                if ($request->has('teacher_ids') && is_array($request->teacher_ids)) {
+                    $teacherIds = $request->teacher_ids;
+                } elseif ($request->has('teacher_id') && $request->teacher_id !== null) {
+                    $teacherIds = [$request->teacher_id];
+                }
+                
+                // Add new teachers
+                foreach ($teacherIds as $teacherId) {
                     DB::table('slots_teachers')->insert([
                         'slot_id' => $slotId,
-                        'teacher_id' => $request->teacher_id,
+                        'teacher_id' => $teacherId,
                         'created_at' => now(),
                         'updated_at' => now()
                     ]);

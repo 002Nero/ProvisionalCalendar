@@ -38,8 +38,12 @@ class Teacher extends Model
         return $this->belongsTo(Year::class);
     }
 
+    /**
+     * Relation many-to-many avec les slots via la table pivot slots_teachers
+     */
     public function slots()
     {
-        return $this->hasMany(Slot::class);
+        return $this->belongsToMany(Slot::class, 'slots_teachers', 'teacher_id', 'slot_id')
+            ->withTimestamps();
     }
 }

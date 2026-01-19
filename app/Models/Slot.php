@@ -34,11 +34,26 @@ class Slot extends Model
         });
     }
 
+    /**
+     * Relation many-to-many avec les professeurs via la table pivot slots_teachers
+     */
+    public function teachers()
+    {
+        return $this->belongsToMany(Teacher::class, 'slots_teachers', 'slot_id', 'teacher_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * @deprecated Use teachers() instead for many-to-many relationship
+     */
     public function teacher()
     {
         return $this->belongsTo(Teacher::class);
     }
 
+    /**
+     * @deprecated Use teachers() instead for many-to-many relationship
+     */
     public function substituteTeacher()
     {
         return $this->belongsTo(Teacher::class, 'substitute_teacher_id');
