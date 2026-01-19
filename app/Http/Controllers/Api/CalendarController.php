@@ -459,9 +459,6 @@ class CalendarController extends Controller
                         }
                     }
                     
-                    // For backward compatibility, also provide the first teacher as teacher_id/teacher_name
-                    $firstTeacher = !empty($teachers) ? $teachers[0] : null;
-                    
                     // Determine final color: use exam color if is_exam=1, else use type color
                     $finalColor = null;
                     if ($slot->is_exam && $examTypeId && isset($slotTypesColors[$examTypeId])) {
@@ -484,11 +481,7 @@ class CalendarController extends Controller
                         'type_color' => $finalColor,
                         'is_exam' => $slot->is_exam ?? false,
                         // New: array of all teachers
-                        'teachers' => $teachers,
-                        // Backward compatibility: first teacher as single values
-                        'teacher_id' => $firstTeacher ? $firstTeacher['id'] : null,
-                        'teacher_code' => $firstTeacher ? $firstTeacher['code'] : null,
-                        'teacher_name' => $firstTeacher ? $firstTeacher['name'] : null
+                        'teachers' => $teachers
                     ];
                 }
 

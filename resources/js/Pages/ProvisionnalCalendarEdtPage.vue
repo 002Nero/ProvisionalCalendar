@@ -175,8 +175,9 @@ async function loadEdtSlotsForCurrent() {
       const teachingCode = r.teaching_code ?? ''
       const title = teachingCode || `Enseignement ${r.teaching_id ?? ''}`
       
-      // Teacher - display full name if available, otherwise acronym, otherwise empty
-      const teacher = r.teacher_name ?? r.teacher_code ?? ''
+      // Teacher - display all teachers, comma-separated
+      const teachers = Array.isArray(r.teachers) ? r.teachers : []
+      const teacher = teachers.map((t: any) => t.name || t.code || '').filter(Boolean).join(', ')
       
       // room_name or room_id
       const room = r.room_name ?? (r.room_id ? `Salle ${r.room_id}` : '')
