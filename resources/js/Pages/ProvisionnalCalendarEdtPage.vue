@@ -115,10 +115,37 @@ async function ensureDataLoaded() {
 }
 
 onMounted(async () => { 
-  // sync week from store if already set
-  if (typeof edtStore.week === 'number' && edtStore.week > 0) {
+  const urlParams = new URLSearchParams(window.location.search)
+  
+  const weekParam = urlParams.get('week')
+  if (weekParam && /^\d+$/.test(weekParam)) {
+    const weekNum = parseInt(weekParam, 10)
+    if (weekNum > 0) {
+      currentWeek.value = weekNum
+    }
+  }
+  
+  if (currentWeek.value === 1 && typeof edtStore.week === 'number' && edtStore.week > 0) {
     currentWeek.value = edtStore.week
   }
+  
+  const promotionParam = urlParams.get('promotion')
+  if (promotionParam && /^\d+$/.test(promotionParam)) {
+    const promoId = parseInt(promotionParam, 10)
+    selectedPromotion.value = promoId
+  }
+  
+  const groupParam = urlParams.get('group')
+  if (groupParam && /^\d+$/.test(groupParam)) {
+    const groupId = parseInt(groupParam, 10)
+    selectedGroup.value = groupId
+  }
+  
+  const subgroupParam = urlParams.get('subgroup')
+  if (subgroupParam) {
+    selectedSubgroup.value = subgroupParam
+  }
+  
   await ensureDataLoaded()
   // After promotions/groups are loaded, load EDT slots with filters
   if (edtStore.year && currentWeek.value) {

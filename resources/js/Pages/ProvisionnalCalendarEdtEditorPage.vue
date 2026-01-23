@@ -922,6 +922,16 @@ async function savePlacementChanges(placementId: number) {
   }
 }
 
+function cancelEdit() {
+  const params = new URLSearchParams()
+  if (edtStore.week) params.append('week', String(edtStore.week))
+  if (edtStore.promotionId) params.append('promotion', String(edtStore.promotionId))
+  if (edtStore.groupId) params.append('group', String(edtStore.groupId))
+  if (edtStore.subgroup) params.append('subgroup', edtStore.subgroup)
+  const redirectUrl = '/calendrier-previsionnel/edt' + (params.toString() ? '?' + params.toString() : '')
+  window.location.href = redirectUrl
+}
+
 async function saveEdt() {
   if (!edtStore.year || !edtStore.week) {
     alert('Veuillez sélectionner une année et une semaine avant de sauvegarder.')
@@ -989,8 +999,13 @@ async function saveEdt() {
     const modifiedPlacements = placements.value.filter(p => p.fromDb)
     
     if (modifiedPlacements.length === 0) {
-      // No modifications, just redirect
-      window.location.href = '/calendrier-previsionnel/edt'
+      const params = new URLSearchParams()
+      if (edtStore.week) params.append('week', String(edtStore.week))
+      if (edtStore.promotionId) params.append('promotion', String(edtStore.promotionId))
+      if (edtStore.groupId) params.append('group', String(edtStore.groupId))
+      if (edtStore.subgroup) params.append('subgroup', edtStore.subgroup)
+      const redirectUrl = '/calendrier-previsionnel/edt' + (params.toString() ? '?' + params.toString() : '')
+      window.location.href = redirectUrl
       return
     }
     
@@ -1051,7 +1066,7 @@ async function saveEdt() {
 
         <div class="right">
           <button class="btn primary" @click="saveEdt">Sauvegarder</button>
-          <button class="btn primary" @click="$inertia.visit('/calendrier-previsionnel/edt')">Annuler</button>
+          <button class="btn primary" @click="cancelEdit">Annuler</button>
 
         </div>
       </header>
