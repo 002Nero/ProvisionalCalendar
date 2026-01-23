@@ -46,6 +46,7 @@ class CalendarControllerTest extends TestCase
 
 	protected function createMissingTables(): void
 	{
+		// TODO: Replace with models data when migrations will work.
 		// Table slot_types
 		if (!Schema::hasTable('slot_types')) {
 			Schema::create('slot_types', function ($table) {
