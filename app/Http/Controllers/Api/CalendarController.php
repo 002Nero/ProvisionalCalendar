@@ -425,9 +425,17 @@ class CalendarController extends Controller
                 }
             }
 
+            // Check if filters were applied
+            $hasFilters = $promotionId || $groupId || $subgroup;
+
             // Build response mapping edt_slot rows to enriched objects using slot data
             $result = [];
             foreach ($rows as $r) {
+                // If filters are applied, only include rows whose slots passed the filter
+                if ($hasFilters && (!empty($r->slot_id) && !isset($slots[$r->slot_id]))) {
+                    continue;
+                }
+
                 $slotInfo = null;
                 if (!empty($r->slot_id) && isset($slots[$r->slot_id])) {
                     $slot = $slots[$r->slot_id];
@@ -474,7 +482,7 @@ class CalendarController extends Controller
                         'slot_id' => $slot->id,
                         'duration' => $slot->duration,
                         'teaching_id' => $slot->teaching_id,
-                        'teaching_label' => ($slot->teaching) ? $slot->teaching->label : null,
+                        'teaching_label' => ($slot->teaching) ? $slot->teaching->title : null,
                         'teaching_code' => ($slot->teaching && isset($slot->teaching->apogee_code)) ? $slot->teaching->apogee_code : null,
                         'promotion_id' => $slot->promotion_id ?? null,
                         'group_id' => $slot->group_id ?? null,
@@ -482,7 +490,7 @@ class CalendarController extends Controller
                         'type_id' => $slot->type_id ?? null,
                         'type_acronym' => $slot->type_id && isset($slotTypesAcronyms[$slot->type_id]) ? $slotTypesAcronyms[$slot->type_id] : null,
                         'type_color' => $finalColor,
-                        'is_exam' => $slot->is_exam ?? false,
+                        'is_exam' => (bool)($slot->is_exam ?? false),
                         // New: array of all teachers
                         'teachers' => $teachers,
                         // Backward compatibility: first teacher as single values
