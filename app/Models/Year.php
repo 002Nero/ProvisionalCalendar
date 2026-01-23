@@ -10,12 +10,19 @@ use App\Models\Groups\Promotion;
 class Year extends Model
 {
     protected $fillable = [
-        'name'
+        'name',
+        'periodicity'
     ];
 
     protected static function boot()
     {
         parent::boot();
+
+        static::creating(function ($year) {
+            if (!in_array($year->periodicity, ['Semestrial', 'Trimestrial'])) {
+                throw ValidationException::withMessages(['periodicity' => 'Invalid periodicity']);
+            }
+        });
     }
 
     public function weeks()

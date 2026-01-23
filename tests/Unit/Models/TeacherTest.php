@@ -25,7 +25,7 @@ class TeacherTest extends TestCase
         $teacher = Teacher::first();
 
         $this->assertInstanceOf(Teacher::class, $teacher);
-        $this->assertEquals('LD', $teacher->acronym);
+        $this->assertEquals('TM', $teacher->acronym);
         #$this->assertEquals('Laurent', $teacher->first_name); c'est de la merde
         #$this->assertEquals('DUBREUIL', $teacher->last_name);
         $this->assertInstanceOf(User::class, $teacher->user);

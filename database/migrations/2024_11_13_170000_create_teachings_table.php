@@ -33,7 +33,7 @@ return new class extends Migration
             $table->decimal('tp_hours_continued', 5, 2)->nullable();
             $table->decimal('td_hours_initial', 5, 2);
             $table->decimal('td_hours_continued', 5, 2)->nullable();
-            $table->decimal('cm_hours_initial', 5, 2);
+            $table->decimal('cm_hours', 5, 2);
             $table->decimal('cm_hours_continued', 5, 2)->nullable();
             $table->foreignId('semester_id')->nullable()->constrained('semesters')->onDelete('cascade');
             $table->foreignId('trimester_id')->nullable()->constrained('trimesters')->onDelete('cascade');

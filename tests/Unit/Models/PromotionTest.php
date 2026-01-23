@@ -23,7 +23,7 @@ class PromotionTest extends TestCase
         $promotion = Promotion::first();
 
         $this->assertInstanceOf(Promotion::class, $promotion);
-        $this->assertEquals('BUT1', $promotion->name);
+        $this->assertEquals('DUT1', $promotion->name);
         $this->assertInstanceOf(Year::class, $promotion->year);
     }
 

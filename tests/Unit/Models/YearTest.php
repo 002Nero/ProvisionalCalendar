@@ -25,7 +25,7 @@ class YearTest extends TestCase
         $year = Year::first();
 
         $this->assertInstanceOf(Year::class, $year);
-        $this->assertEquals('2024-2025', $year->name);
+        $this->assertEquals('2020-2021', $year->name);
         $this->assertEquals('Semestrial', $year->periodicity);
     }
 

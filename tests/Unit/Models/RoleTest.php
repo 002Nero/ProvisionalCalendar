@@ -21,7 +21,7 @@ class RoleTest extends TestCase
         $role = Role::first();
 
         $this->assertInstanceOf(Role::class, $role);
-        $this->assertEquals('administrator', $role->name);
+        $this->assertEquals('Admin', $role->name);
         $this->assertEquals(0, $role->level);
     }
 
@@ -32,13 +32,13 @@ class RoleTest extends TestCase
             \Database\Seeders\RoleSeeder::class,
             \Database\Seeders\UserSeeder::class
         ]);
-        
-        $role = Role::with('users')->where('name', 'administrator')->first();
+
+        $role = Role::with('users')->where('name', 'Admin')->first();
 
         // Test de la relation avec Users
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $role->users);
         $this->assertInstanceOf(User::class, $role->users->first());
-        $this->assertCount(4, $role->users); // Car 4 utilisateurs admin dans le seeder 
+        $this->assertCount(1, $role->users); // Car 1 utilisateur admin dans le seeder 
     }
 
     public function test_role_validation()

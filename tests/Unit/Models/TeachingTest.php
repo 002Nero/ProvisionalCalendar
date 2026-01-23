@@ -30,7 +30,7 @@ class TeachingTest extends TestCase
         $this->assertEquals('TIN01A1M', $teaching->apogee_code);
         $this->assertEquals(15.00, $teaching->tp_hours_initial);
         $this->assertEquals(10.00, $teaching->td_hours_initial);
-        $this->assertEquals(15.00, $teaching->cm_hours_initial);
+        $this->assertEquals(15.00, $teaching->cm_hours);
         $this->assertInstanceOf(Year::class, $teaching->year);
     }
 
@@ -74,7 +74,7 @@ class TeachingTest extends TestCase
             'apogee_code' => 'TEST_001',
             'tp_hours_initial' => 10.00,
             'td_hours_initial' => 10.00,
-            'cm_hours_initial' => 10.00,
+            'cm_hours' => 10.00,
             'semester_id' => $semester->id,
             'trimester_id' => null,
             'year_id' => $year->id
@@ -94,7 +94,7 @@ class TeachingTest extends TestCase
             'apogee_code' => 'TEST_002',
             'tp_hours_initial' => 10.00,
             'td_hours_initial' => 10.00,
-            'cm_hours_initial' => 10.00,
+            'cm_hours' => 10.00,
             'semester_id' => $semester->id,
             'trimester_id' => null,
             'year_id' => 999 // ID inexistant

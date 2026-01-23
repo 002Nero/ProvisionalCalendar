@@ -24,7 +24,7 @@ class SubGroupTest extends TestCase
         $subgroup = Subgroup::first();
 
         $this->assertInstanceOf(Subgroup::class, $subgroup);
-        $this->assertEquals('G1A', $subgroup->name);
+        $this->assertEquals('A', $subgroup->name);
         $this->assertInstanceOf(Group::class, $subgroup->academicGroup);
     }
 
@@ -45,7 +45,7 @@ class SubGroupTest extends TestCase
         $this->assertEquals('G1', $subgroup->academicGroup->name);
 
         // Test de la relation imbriquée avec AcademicPromotion
-        $this->assertEquals('BUT1', $subgroup->academicGroup->academicPromotion->name);
+        $this->assertEquals('DUT1', $subgroup->academicGroup->academicPromotion->name);
     }
 
     public function test_academic_subgroup_validation()

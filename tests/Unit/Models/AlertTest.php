@@ -11,6 +11,8 @@ class AlertTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected $dropViews = true;
+
     public function test_alert_creation()
     {
         // Exécuter les seeders nécessaires

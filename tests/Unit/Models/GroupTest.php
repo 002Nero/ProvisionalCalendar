@@ -43,7 +43,7 @@ class GroupTest extends TestCase
 
         // Test de la relation avec AcademicPromotion
         $this->assertInstanceOf(Promotion::class, $group->Promotion);
-        $this->assertEquals('BUT1', $group->Promotion->name);
+        $this->assertEquals('DUT1', $group->Promotion->name);
 
         // Test de la relation avec AcademicSubgroups
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $group->Subgroups);

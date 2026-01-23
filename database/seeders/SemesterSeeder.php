@@ -16,7 +16,8 @@ class SemesterSeeder extends Seeder
         if (!$year) {
             // Créer l'année si elle n'existe pas
             $year = Year::create([
-                'name' => '2024-2025'
+                'name' => '2024-2025',
+                'periodicity' => 'Semestrial'
             ]);
         }
 

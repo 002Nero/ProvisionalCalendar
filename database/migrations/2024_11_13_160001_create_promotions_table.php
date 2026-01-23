@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('year_id')
                 ->constrained('years')
                 ->onDelete('cascade');
+            $table->integer('student_amount')->nullable();
             $table->timestamps();
         });
     }
