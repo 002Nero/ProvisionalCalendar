@@ -556,20 +556,21 @@ class CalendarController extends Controller
                     // Get slot info to find teacher info
                     $slot = DB::table('slots')->where('id', $edtSlot->slot_id)->first();
                     if ($slot) {
+                        // Get week info for conflict checks
+                        $week = DB::table('weeks')->where('id', $slot->week_id)->first();
+                        
+                        // Parse times for conflict checks
+                        $timeParts = explode(':', $p['start_hour']);
+                        $newStartMinutes = intval($timeParts[0]) * 60 + intval($timeParts[1]);
+                        $newEndMinutes = $newStartMinutes + ($slot->duration * 60);
+                        $newDayOfWeek = trim($p['day_of_week']);
+                        
                         // Get teacher for this slot from pivot table
                         $teacherRow = DB::table('slots_teachers')->where('slot_id', $slot->id)->first();
                         $teacherId = $teacherRow ? $teacherRow->teacher_id : null;
                         
                         // If teacher exists, check for conflicts
                         if ($teacherId) {
-                            $week = DB::table('weeks')->where('id', $slot->week_id)->first();
-                            
-                            // Parse times
-                            $timeParts = explode(':', $p['start_hour']);
-                            $newStartMinutes = intval($timeParts[0]) * 60 + intval($timeParts[1]);
-                            $newEndMinutes = $newStartMinutes + ($slot->duration * 60);
-                            $newDayOfWeek = trim($p['day_of_week']);
-                            
                             // Check for conflicts with other placements for this teacher
                             $conflicts = DB::table('edt_slot as es')
                                 ->join('slots as s', 'es.slot_id', '=', 's.id')
