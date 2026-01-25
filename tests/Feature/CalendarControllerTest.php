@@ -950,4 +950,934 @@ class CalendarControllerTest extends TestCase
 		$this->assertTrue($typeFound['TD'], 'TD slot not found');
 		$this->assertTrue($typeFound['TP'], 'TP slot not found');
 	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - VALIDATION
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_returns_422_when_updates_missing_edt_slot_id(): void
+	{
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'day_of_week' => 'Lundi',
+					'start_hour' => '08:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(422)
+			->assertJsonStructure(['error', 'messages']);
+	}
+
+	public function test_store_edt_slots_bulk_returns_422_when_updates_missing_day_of_week(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'start_hour' => '08:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(422)
+			->assertJsonStructure(['error', 'messages']);
+	}
+
+	public function test_store_edt_slots_bulk_returns_422_when_updates_missing_start_hour(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'day_of_week' => 'Lundi',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(422)
+			->assertJsonStructure(['error', 'messages']);
+	}
+
+	public function test_store_edt_slots_bulk_returns_422_when_updates_missing_room_id(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'day_of_week' => 'Lundi',
+					'start_hour' => '08:00'
+				]
+			]
+		]);
+
+		$response->assertStatus(422)
+			->assertJsonStructure(['error', 'messages']);
+	}
+
+	public function test_store_edt_slots_bulk_returns_422_when_start_hour_has_invalid_format(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'day_of_week' => 'Lundi',
+					'start_hour' => '8:00', // Invalide, le format correct : 08:00
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(422);
+	}
+
+	public function test_store_edt_slots_bulk_returns_422_when_room_id_does_not_exist(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'day_of_week' => 'Lundi',
+					'start_hour' => '08:00',
+					'room_id' => 99999 // Inexistant
+				]
+			]
+		]);
+
+		$response->assertStatus(422);
+	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - SUCCÈS
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_returns_200_with_empty_updates(): void
+	{
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => []
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonFragment(['message' => '0 mise(s) à jour']);
+	}
+
+	public function test_store_edt_slots_bulk_updates_single_edt_slot_successfully(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'day_of_week' => 'Mardi',
+					'start_hour' => '10:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonFragment(['message' => '1 mise(s) à jour'])
+			->assertJsonFragment(['updated' => [$data['edt_id']]]);
+
+		// Vérification de la mise à jour dans la DB
+		$updatedEdtSlot = DB::table('edt_slot')->where('id', $data['edt_id'])->first();
+		$this->assertEquals('Mardi', $updatedEdtSlot->day_of_week);
+		$this->assertEquals('10:00', $updatedEdtSlot->start_hour);
+	}
+
+	public function test_store_edt_slots_bulk_updates_multiple_edt_slots_successfully(): void
+	{
+		$data1 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$data2 = $this->createSlotWithEdtSlot([
+			'duration' => 1.5,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => $this->group->id,
+			'subgroup_id' => null,
+			'room_amount' => 30,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeTD->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '14:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data1['edt_id'],
+					'day_of_week' => 'Mercredi',
+					'start_hour' => '14:00',
+					'room_id' => $this->room->id
+				],
+				[
+					'edt_slot_id' => $data2['edt_id'],
+					'day_of_week' => 'Jeudi',
+					'start_hour' => '16:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonFragment(['message' => '2 mise(s) à jour']);
+
+		// Vérification de la mise à jour dans la DB
+		$updated1 = DB::table('edt_slot')->where('id', $data1['edt_id'])->first();
+		$updated2 = DB::table('edt_slot')->where('id', $data2['edt_id'])->first();
+
+		$this->assertEquals('Mercredi', $updated1->day_of_week);
+		$this->assertEquals('14:00', $updated1->start_hour);
+		$this->assertEquals('Jeudi', $updated2->day_of_week);
+		$this->assertEquals('16:00', $updated2->start_hour);
+	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - GESTION D'ERREURS
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_returns_207_when_edt_slot_not_found(): void
+	{
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => 99999, // Invalide
+					'day_of_week' => 'Lundi',
+					'start_hour' => '08:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(207)
+			->assertJsonFragment(['message' => '0 mise(s) à jour'])
+			->assertJsonStructure(['errors']);
+
+		$this->assertStringContainsString('non trouvé', $response->json('errors')[0]);
+	}
+
+	public function test_store_edt_slots_bulk_returns_207_with_partial_success(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'day_of_week' => 'Mardi',
+					'start_hour' => '10:00',
+					'room_id' => $this->room->id
+				],
+				[
+					'edt_slot_id' => 99999, // Invalide
+					'day_of_week' => 'Mercredi',
+					'start_hour' => '14:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(207)
+			->assertJsonFragment(['message' => '1 mise(s) à jour']);
+
+		$this->assertCount(1, $response->json('updated'));
+		$this->assertCount(1, $response->json('errors'));
+	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - CONFLITS D'ENSEIGNANT
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_detects_teacher_time_conflict(): void
+	{
+		// Crée le premier créneau de 08:00 à 10:00
+		$data1 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		// Crée le second créneau de 14:00 à 16:00 (pas de conflit initialement)
+		$data2 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => $this->group->id,
+			'subgroup_id' => null,
+			'room_amount' => 30,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeTD->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '14:00',
+			'room_id' => $this->room->id,
+		]);
+
+		// Essaie de déplacer le second créneau à 09:00 (chevauche le premier créneau 08:00-10:00)
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data2['edt_id'],
+					'day_of_week' => 'Lundi',
+					'start_hour' => '09:00', // Chevauche 08:00-10:00
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(207);
+		$this->assertStringContainsString("Conflit d'emploi du temps", $response->json('errors')[0]);
+	}
+
+	public function test_store_edt_slots_bulk_allows_adjacent_teacher_slots(): void
+	{
+		// Crée le premier créneau de 08:00 à 10:00
+		$data1 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		// Crée le second créneau de 14:00 à 16:00
+		$data2 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => $this->group->id,
+			'subgroup_id' => null,
+			'room_amount' => 30,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeTD->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '14:00',
+			'room_id' => $this->room->id,
+		]);
+
+		// Déplace le second créneau à 10:00 (adjacent, pas de chevauchement)
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data2['edt_id'],
+					'day_of_week' => 'Lundi',
+					'start_hour' => '10:00', // Adjacent à 08:00-10:00
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonFragment(['message' => '1 mise(s) à jour']);
+	}
+
+	public function test_store_edt_slots_bulk_allows_different_day_for_same_teacher(): void
+	{
+		// Crée le premier créneau de 08:00 à 10:00
+		$data1 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		// Crée le second créneau de 14:00 à 16:00
+		$data2 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => $this->group->id,
+			'subgroup_id' => null,
+			'room_amount' => 30,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeTD->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '14:00',
+			'room_id' => $this->room->id,
+		]);
+
+		// Déplace le second créneau à Mardi à 08:00 (jour différent, même heure OK)
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data2['edt_id'],
+					'day_of_week' => 'Mardi',
+					'start_hour' => '08:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonFragment(['message' => '1 mise(s) à jour']);
+	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - CONFLITS DE SALLE
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_detects_room_time_conflict(): void
+	{
+		// Crée un second enseignant
+		$user2 = User::create([
+			'username' => 'jsmith',
+			'first_name' => 'Jane',
+			'last_name' => 'Smith',
+			'email' => 'teacher2@test.com',
+			'password' => bcrypt('password'),
+			'acronym' => 'JS',
+			'role_id' => Role::first()->id,
+		]);
+
+		$teacher2Id = DB::table('teachers')->insertGetId([
+			'user_id' => $user2->id,
+			'acronym' => 'JS',
+			'type' => 'permanent',
+			'year_id' => $this->year->id,
+			'created_at' => now(),
+			'updated_at' => now(),
+		]);
+		$teacher2 = Teacher::find($teacher2Id);
+
+		// Crée le premier créneau avec l'enseignant 1 de 08:00 à 10:00
+		$data1 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		], [$this->teacher->id]);
+
+		// Crée une autre salle
+		$room2 = Room::create([
+			'name' => 'R50',
+			'seat_capacity' => 30,
+			'computer_capacity' => 0,
+			'exam_capacity' => 0
+		]);
+
+		// Crée le second créneau avec l'enseignant 2 de 14:00 à 16:00 dans une salle différente
+		$data2 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => $this->group->id,
+			'subgroup_id' => null,
+			'room_amount' => 30,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeTD->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '14:00',
+			'room_id' => $room2->id,
+		], [$teacher2->id]);
+
+		// Essaie de déplacer le second créneau dans la même salle et à un horaire qui chevauche
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data2['edt_id'],
+					'day_of_week' => 'Lundi',
+					'start_hour' => '09:00', // Chevauche 08:00-10:00
+					'room_id' => $this->room->id // Même salle que le premier créneau
+				]
+			]
+		]);
+
+		$response->assertStatus(207);
+		$this->assertStringContainsString('Conflit de salle', $response->json('errors')[0]);
+	}
+
+	public function test_store_edt_slots_bulk_allows_same_room_different_time(): void
+	{
+		// Crée un second enseignant
+		$user2 = User::create([
+			'username' => 'jsmith',
+			'first_name' => 'Jane',
+			'last_name' => 'Smith',
+			'email' => 'teacher2@test.com',
+			'password' => bcrypt('password'),
+			'acronym' => 'JS',
+			'role_id' => Role::first()->id,
+		]);
+
+		$teacher2Id = DB::table('teachers')->insertGetId([
+			'user_id' => $user2->id,
+			'acronym' => 'JS',
+			'type' => 'permanent',
+			'year_id' => $this->year->id,
+			'created_at' => now(),
+			'updated_at' => now(),
+		]);
+		$teacher2 = Teacher::find($teacher2Id);
+
+		// Crée le premier créneau de 08:00 à 10:00
+		$data1 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		], [$this->teacher->id]);
+
+		// Crée une autre salle
+		$room2 = Room::create([
+			'name' => 'R50',
+			'seat_capacity' => 30,
+			'computer_capacity' => 0,
+			'exam_capacity' => 0
+		]);
+
+		// Crée le second créneau avec l'enseignant 2 de 14:00 à 16:00 dans une salle différente
+		$data2 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => $this->group->id,
+			'subgroup_id' => null,
+			'room_amount' => 30,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeTD->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '14:00',
+			'room_id' => $room2->id,
+		], [$teacher2->id]);
+
+		// Déplace le second créneau dans la même salle mais à un horaire non chevauchant (10:00-12:00)
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data2['edt_id'],
+					'day_of_week' => 'Lundi',
+					'start_hour' => '10:00', // Adjacent à 08:00-10:00
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonFragment(['message' => '1 mise(s) à jour']);
+	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - SLOT SANS ENSEIGNANT
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_updates_slot_without_teacher(): void
+	{
+		// Crée un créneau sans enseignant en utilisant DB::table
+		$slotId = DB::table('slots')->insertGetId([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+			'type' => 'CM',
+			'teacher_id' => $this->teacher->id, // Pas d'enseignant assigné
+			'created_at' => now(),
+			'updated_at' => now()
+		]);
+
+		// Pas d'enseignant dans la table pivot slots_teachers
+
+		$edtSlotId = DB::table('edt_slot')->insertGetId([
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'slot_id' => $slotId,
+			'room_id' => $this->room->id,
+			'created_at' => now(),
+			'updated_at' => now()
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $edtSlotId,
+					'day_of_week' => 'Mardi',
+					'start_hour' => '10:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonFragment(['message' => '1 mise(s) à jour']);
+	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - DIFFÉRENTES SEMAINES
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_allows_same_time_different_weeks(): void
+	{
+		// Crée un créneau pour la semaine 1
+		$data1 = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		// Crée la semaine 2
+		$week2 = Week::create([
+			'name' => 'Semaine 2',
+			'week_number' => 2,
+			'year_id' => $this->year->id,
+		]);
+
+		// Crée un créneau pour la semaine 2 à un horaire différent initialement
+		$slot2Id = DB::table('slots')->insertGetId([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $week2->id,
+			'type_id' => $this->slotTypeTD->id,
+			'type' => 'TD',
+			'teacher_id' => $this->teacher->id,
+			'created_at' => now(),
+			'updated_at' => now()
+		]);
+
+		DB::table('slots_teachers')->insert([
+			'slot_id' => $slot2Id,
+			'teacher_id' => $this->teacher->id,
+			'created_at' => now(),
+			'updated_at' => now()
+		]);
+
+		$edtSlotId2 = DB::table('edt_slot')->insertGetId([
+			'day_of_week' => 'Mardi',
+			'start_hour' => '14:00',
+			'slot_id' => $slot2Id,
+			'room_id' => $this->room->id,
+			'created_at' => now(),
+			'updated_at' => now()
+		]);
+
+		// Déplace le créneau de la semaine 2 au même jour/heure que le créneau de la semaine 1 (devrait être autorisé)
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $edtSlotId2,
+					'day_of_week' => 'Lundi',
+					'start_hour' => '08:00', // Même que la semaine 1, mais semaine différente
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonFragment(['message' => '1 mise(s) à jour']);
+	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - STRUCTURE DE RÉPONSE
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_response_has_correct_structure(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'day_of_week' => 'Mardi',
+					'start_hour' => '10:00',
+					'room_id' => $this->room->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200)
+			->assertJsonStructure([
+				'message',
+				'updated',
+				'errors'
+			]);
+	}
+
+	// =========================================================================
+	// TESTS storeEdtSlotsBulk - CHANGEMENT DE SALLE
+	// =========================================================================
+
+	public function test_store_edt_slots_bulk_changes_room_successfully(): void
+	{
+		$data = $this->createSlotWithEdtSlot([
+			'duration' => 2.0,
+			'teaching_id' => $this->teaching->id,
+			'promotion_id' => $this->promotion->id,
+			'group_id' => null,
+			'subgroup_id' => null,
+			'room_amount' => 60,
+			'is_neutralized' => false,
+			'is_exam' => false,
+			'week_id' => $this->week->id,
+			'type_id' => $this->slotTypeCM->id,
+		], [
+			'day_of_week' => 'Lundi',
+			'start_hour' => '08:00',
+			'room_id' => $this->room->id,
+		]);
+
+		// Crée une nouvelle salle
+		$newRoom = Room::create([
+			'name' => 'Amphi A',
+			'seat_capacity' => 200,
+			'computer_capacity' => 0,
+			'exam_capacity' => 0
+		]);
+
+		$response = $this->postJson('/api/edt/bulk', [
+			'updates' => [
+				[
+					'edt_slot_id' => $data['edt_id'],
+					'day_of_week' => 'Lundi',
+					'start_hour' => '08:00',
+					'room_id' => $newRoom->id
+				]
+			]
+		]);
+
+		$response->assertStatus(200);
+
+		// Vérification de la mise à jour dans la DB
+		$updatedEdtSlot = DB::table('edt_slot')->where('id', $data['edt_id'])->first();
+		$this->assertEquals($newRoom->id, $updatedEdtSlot->room_id);
+	}
 }
