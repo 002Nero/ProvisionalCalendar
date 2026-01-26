@@ -362,8 +362,51 @@ function parseDay(val: unknown): number | null {
   return null
 }
 
-function isBlocked(mins: number) {
-  return mins >= 12 * 60 && mins < 13 * 60 + 30
+// Détermine la pause déjeuner pour un jour donné
+// 2 créneaux possibles: 12h-13h30 (défaut) ou 12h30-14h (si cours après 12h)
+// Peut filtrer par groupe/sous-groupe pour la vue horizontale
+function getLunchBreakForDay(dayIndex: number, groupId?: number, subgroup?: string): { start: number; end: number } {
+  // Filtrer les cours du jour qui se terminent avant ou à 12h30
+  let morningLessons = lessons.value.filter(
+    l => l.day === dayIndex && (l.start_min + l.duration_min) <= 12 * 60 + 30
+  )
+  
+  // Si un groupe est spécifié, ne considérer que les cours de ce groupe/sous-groupe
+  if (groupId !== undefined) {
+    morningLessons = morningLessons.filter(l => {
+      // CM : visible pour tous
+      if (l.type === 'CM') return true
+      // TD : filtrer par groupe
+      if (l.type === 'TD') return l.groupId === groupId
+      // TP : filtrer par groupe ET sous-groupe
+      if (l.type === 'TP') return l.groupId === groupId && l.subgroup === subgroup
+      // Autres : visible pour tous
+      return true
+    })
+  }
+  
+  if (morningLessons.length === 0) {
+    // Pas de cours le matin, utiliser la pause par défaut 12h-13h30
+    return { start: 12 * 60, end: 13 * 60 + 30 }
+  }
+  
+  // Trouver l'heure de fin du dernier cours du matin
+  const lastMorningEnd = Math.max(
+    ...morningLessons.map(l => l.start_min + l.duration_min)
+  )
+  
+  // Si un cours se termine strictement après 12h, décaler la pause à 12h30-14h
+  if (lastMorningEnd > 12 * 60) {
+    return { start: 12 * 60 + 30, end: 14 * 60 }
+  }
+  
+  // Sinon, pause normale 12h-13h30
+  return { start: 12 * 60, end: 13 * 60 + 30 }
+}
+
+function isBlocked(dayIndex: number, mins: number, groupId?: number, subgroup?: string) {
+  const lunchBreak = getLunchBreakForDay(dayIndex, groupId, subgroup)
+  return mins >= lunchBreak.start && mins < lunchBreak.end
 }
 
 function prevWeek() {
@@ -545,7 +588,7 @@ function generatePDF() {
                 class="cell"
                 v-for="d in 6"
                 :key="d"
-                :class="{ blocked: isBlocked(t) }"
+                :class="{ blocked: isBlocked(d, t) }"
               >
                 <div
                   v-for="lesson in lessonsStartingAt(d, t)"
@@ -626,7 +669,7 @@ function generatePDF() {
                           class="cell-slot"
                           v-for="t in timeSlots"
                           :key="t"
-                          :class="{ blocked: isBlocked(t) }"
+                          :class="{ blocked: isBlocked(dayIdx, t, groupItem.id, sub) }"
                         >
                           <div
                             v-for="lesson in lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups))"
