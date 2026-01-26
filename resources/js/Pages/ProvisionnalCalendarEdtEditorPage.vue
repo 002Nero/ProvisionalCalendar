@@ -32,9 +32,13 @@ function formatTime(mins: number) {
 
 // Détermine la pause déjeuner pour un jour donné
 // 2 créneaux possibles: 12h-13h30 (défaut) ou 12h30-14h (si cours après 12h)
-function getLunchBreakForDay(dayIndex: number): { start: number; end: number } {
+// Peut accepter un tableau de placements simulé pour tester un placement hypothétique
+function getLunchBreakForDay(dayIndex: number, simulatedPlacements?: Placement[]): { start: number; end: number } {
+  // Utiliser les placements simulés ou les placements réels
+  const placementsToCheck = simulatedPlacements || placements.value
+  
   // Trouver les cours qui se terminent avant ou à 12h30 (= cours du matin)
-  const morningPlacements = placements.value.filter(
+  const morningPlacements = placementsToCheck.filter(
     p => p.day === dayIndex && (p.time + p.duration) <= 12 * 60 + 30
   )
   
@@ -57,8 +61,8 @@ function getLunchBreakForDay(dayIndex: number): { start: number; end: number } {
   return { start: 12 * 60, end: 13 * 60 + 30 }
 }
 
-function isBlocked(dayIndex: number, mins: number) {
-  const lunchBreak = getLunchBreakForDay(dayIndex)
+function isBlocked(dayIndex: number, mins: number, simulatedPlacements?: Placement[]) {
+  const lunchBreak = getLunchBreakForDay(dayIndex, simulatedPlacements)
   return mins >= lunchBreak.start && mins < lunchBreak.end
 }
 
@@ -375,11 +379,40 @@ function isSlotAvailable(day: number, time: number): boolean {
   const endTime = time + span * SLOT_STEP
   if (endTime > SLOT_END) return false
   
-  // Check if any slot is blocked (lunch break)
-  for (let i = 0; i < span; i++) {
-    const t = time + i * SLOT_STEP
-    if (isBlocked(day, t)) return false
+  // Créer un placement simulé pour tester l'impact sur la pause déjeuner
+  const simulatedPlacement: Placement = {
+    id: -1, // ID temporaire
+    courseId: draggingCourse.value.courseId || 0,
+    day,
+    time,
+    span,
+    duration: span * SLOT_STEP
   }
+  
+  // Filtrer les placements existants (exclure celui qu'on déplace)
+  const existingPlacements = placements.value.filter(p => p.id !== placementId)
+  const simulatedPlacements = [...existingPlacements, simulatedPlacement]
+  
+  // Calculer la nouvelle pause APRÈS le placement simulé
+  const newLunchBreak = getLunchBreakForDay(day, simulatedPlacements)
+  
+  // Vérifier que le cours lui-même ne chevauche PAS la nouvelle pause
+  const courseStart = time
+  const courseEnd = time + span * SLOT_STEP
+  if (courseStart < newLunchBreak.end && courseEnd > newLunchBreak.start) {
+    return false
+  }
+  
+  // Vérifier que la nouvelle pause ne chevauche pas d'autres cours existants
+  const hasLunchConflict = existingPlacements.some(p => {
+    if (p.day !== day) return false
+    const pStart = p.time
+    const pEnd = p.time + p.duration
+    // Vérifier si le cours chevauche la nouvelle pause
+    return pStart < newLunchBreak.end && pEnd > newLunchBreak.start
+  })
+  
+  if (hasLunchConflict) return false
   
   if (hasPlacementOverlap(day, time, span, placementId)) return false
   
@@ -542,15 +575,45 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
       return
     }
     
-    // Vérifier les zones bloquées et les chevauchements
-    for (let i = 0; i < span; i++) {
-      const t = time + i * SLOT_STEP
-      if (isBlocked(day, t)) {
-        placements.value.splice(idx, 0, old)
-        alert('Zone bloquée lors du déplacement — emplacement inchangé')
-        currentDrop.value = { day: null, time: null }
-        return
-      }
+    // Créer un placement simulé pour tester l'impact sur la pause déjeuner
+    const simulatedPlacement: Placement = {
+      ...old,
+      day,
+      time,
+      duration: span * SLOT_STEP
+    }
+    
+    // Filtrer les placements existants (exclure celui qu'on déplace)
+    const existingPlacements = placements.value // old est déjà retiré à ce stade
+    const simulatedPlacements = [...existingPlacements, simulatedPlacement]
+    
+    // Calculer la nouvelle pause APRÈS le placement simulé
+    const newLunchBreak = getLunchBreakForDay(day, simulatedPlacements)
+    
+    // Vérifier que le cours lui-même ne chevauche PAS la nouvelle pause
+    const courseStart = time
+    const courseEnd = time + span * SLOT_STEP
+    if (courseStart < newLunchBreak.end && courseEnd > newLunchBreak.start) {
+      placements.value.splice(idx, 0, old)
+      alert('Le cours chevaucherait la pause déjeuner')
+      currentDrop.value = { day: null, time: null }
+      return
+    }
+    
+    // Vérifier que la nouvelle pause (après placement) ne chevauche pas d'autres cours
+    const hasLunchConflict = existingPlacements.some(p => {
+      if (p.day !== day) return false
+      const pStart = p.time
+      const pEnd = p.time + p.duration
+      // Vérifier si le cours chevauche la nouvelle pause
+      return pStart < newLunchBreak.end && pEnd > newLunchBreak.start
+    })
+    
+    if (hasLunchConflict) {
+      placements.value.splice(idx, 0, old)
+      alert('Ce placement décalerait la pause déjeuner sur un autre cours')
+      currentDrop.value = { day: null, time: null }
+      return
     }
     
     // Vérifier les chevauchements avec d'autres cours
@@ -613,14 +676,44 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
     return
   }
   
-  // Vérifier les zones bloquées
-  for (let i = 0; i < span; i++) {
-    const t = time + i * SLOT_STEP
-    if (isBlocked(day, t)) {
-      alert('Zone bloquée — choisissez un autre créneau')
-      currentDrop.value = { day: null, time: null }
-      return
-    }
+  // Créer un placement simulé pour tester l'impact sur la pause déjeuner
+  const simulatedPlacement: Placement = {
+    id: -1, // ID temporaire
+    courseId,
+    day,
+    time,
+    span,
+    duration: selectedDuration
+  }
+  
+  const existingPlacements = placements.value
+  const simulatedPlacements = [...existingPlacements, simulatedPlacement]
+  
+  // Calculer la nouvelle pause APRÈS le placement simulé
+  const newLunchBreak = getLunchBreakForDay(day, simulatedPlacements)
+  
+  // Vérifier que le cours lui-même ne chevauche PAS la nouvelle pause
+  const courseStart = time
+  const courseEnd = time + span * SLOT_STEP
+  if (courseStart < newLunchBreak.end && courseEnd > newLunchBreak.start) {
+    alert('Le cours chevaucherait la pause déjeuner')
+    currentDrop.value = { day: null, time: null }
+    return
+  }
+  
+  // Vérifier que la nouvelle pause (après placement) ne chevauche pas d'autres cours
+  const hasLunchConflict = existingPlacements.some(p => {
+    if (p.day !== day) return false
+    const pStart = p.time
+    const pEnd = p.time + p.duration
+    // Vérifier si le cours chevauche la nouvelle pause
+    return pStart < newLunchBreak.end && pEnd > newLunchBreak.start
+  })
+  
+  if (hasLunchConflict) {
+    alert('Ce placement décalerait la pause déjeuner sur un autre cours')
+    currentDrop.value = { day: null, time: null }
+    return
   }
   
   if (hasPlacementOverlap(day, time, span)) {
