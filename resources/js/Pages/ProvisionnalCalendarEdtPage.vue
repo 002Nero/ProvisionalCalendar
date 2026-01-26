@@ -1,7 +1,83 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useEdtStore } from '@/stores/edtStore'
+
+const isGenerating = ref(false)
+const generationStatus = ref<'idle' | 'processing' | 'done' | 'error'>('idle')
+let pollingInterval: number | null = null
+
+async function handleGenerate() {
+  if (!edtStore.year || !currentWeek.value) {
+    alert('Année ou semaine non sélectionnée')
+    return
+  }
+  const weekId = currentWeek.value
+  isGenerating.value = true
+  generationStatus.value = 'processing'
+  try {
+    // Appel API POST pour lancer la génération
+    await axios.post(
+      `${import.meta.env.VITE_API_BASE_URL}/generate`,
+      { week_id: weekId },
+      {
+        headers: {
+          Authorization: import.meta.env.VITE_API_AUTHORIZATION || ''
+        }
+      }
+    )
+    // Lancer le polling du statut
+    startPollingStatus(weekId)
+  } catch (e) {
+    isGenerating.value = false
+    generationStatus.value = 'error'
+    alert('Erreur lors du lancement de la génération')
+  }
+}
+
+function startPollingStatus(weekId: number) {
+  stopPollingStatus()
+  pollingInterval = window.setInterval(async () => {
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/generate/status/${weekId}`,
+        {
+          headers: {
+            Authorization: import.meta.env.VITE_API_AUTHORIZATION || ''
+          }
+        }
+      )
+      if (res.data && res.data.status) {
+        if (res.data.status === 'done') {
+          isGenerating.value = false
+          generationStatus.value = 'done'
+          stopPollingStatus()
+          // Optionnel : recharger l'EDT après génération
+          await loadEdtSlotsForCurrent()
+        } else if (res.data.status === 'processing') {
+          generationStatus.value = 'processing'
+        } else {
+          isGenerating.value = false
+          generationStatus.value = 'error'
+          stopPollingStatus()
+        }
+      }
+    } catch (e) {
+      isGenerating.value = false
+      generationStatus.value = 'error'
+      stopPollingStatus()
+    }
+  }, 2000) // toutes les 2 secondes
+}
+
+function stopPollingStatus() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval)
+    pollingInterval = null
+  }
+}
+
+
 
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import IconButton from '@/Components/IconButton.vue'
@@ -45,7 +121,7 @@ async function loadPromotionsForYear(yearId: number) {
     promotions.value = Array.isArray(res.data) ? res.data : []
     if (promotions.value.length > 0) {
       // preserve previously selected promotion from store if compatible
-      if (edtStore.promotionId && promotions.value.find(p => p.id === edtStore.promotionId)) {
+      if (edtStore.promotionId && promotions.value.some(p => p.id === edtStore.promotionId)) {
         selectedPromotion.value = edtStore.promotionId
       } else {
         selectedPromotion.value = promotions.value[0].id
@@ -78,10 +154,10 @@ async function loadGroupsForPromotion(promoId: number | null) {
     }))
     groupsWithSubgroups.value = withSubs
     if (groups.value.length > 0) {
-      if (edtStore.groupId && groups.value.find(g => g.id === edtStore.groupId)) {
+      if (edtStore.groupId && groups.value.some(g => g.id === edtStore.groupId)) {
         selectedGroup.value = edtStore.groupId
       } else {
-        selectedGroup.value = null
+        selectedGroup.value = groups.value[0].id
       }
     } else {
       selectedGroup.value = null
@@ -566,7 +642,7 @@ function generatePDF() {
           <IconButton iconClass="ChevronLeft" bgColor="#FFD8E4" small @click="prevWeek" />
           <span class="week-indicator"> Semaine {{ currentWeek }}</span>
           <IconButton iconClass="ChevronRight" bgColor="#FFD8E4" small @click="nextWeek" />
-          <button class="btn primary">Générer</button>
+          <button class="btn primary" @click="handleGenerate" :disabled="isGenerating">Générer</button>
           <button v-if="selectedGroup && selectedGroup !== 0" class="btn primary" @click="$inertia.visit('/calendrier-previsionnel/edt/modifier')">Modifier</button>
           <button class="btn primary" @click="generatePDF">PDF</button>
 
@@ -574,131 +650,141 @@ function generatePDF() {
       </header>
 
       <main class="edt-main">
-        <!-- Layout Vertical (groupe spécifique sélectionné) -->
-        <section v-if="selectedGroup && selectedGroup !== 0" class="calendar-area">
-          <div class="calendar-header">
-            <div class="time-header"></div>
-            <div class="day" v-for="d in ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']" :key="d">{{ d }}</div>
+        <div v-if="isGenerating" style="flex:1; display:flex; align-items:center; justify-content:center; min-height:300px;">
+          <div class="spinner-container">
+            <svg class="spinner" width="60" height="60" viewBox="0 0 50 50">
+              <circle class="path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+            </svg>
+            <div style="margin-top:1rem; font-size:1.1rem; color:#92400e;">Génération en cours...</div>
           </div>
+        </div>
+        <template v-else>
+          <!-- Layout Vertical (groupe spécifique sélectionné) -->
+          <section v-if="selectedGroup !== null && selectedGroup !== 0" class="calendar-area">
+            <div class="calendar-header">
+              <div class="time-header"></div>
+              <div class="day" v-for="d in ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']" :key="d">{{ d }}</div>
+            </div>
 
-          <div class="calendar-grid">
-            <div class="row" v-for="t in timeSlots" :key="t">
-              <div class="cell time">{{ formatTime(t) }}</div>
-              <div
-                class="cell"
-                v-for="d in 6"
-                :key="d"
-                :class="{ blocked: isBlocked(d, t) }"
-              >
+            <div class="calendar-grid">
+              <div class="row" v-for="t in timeSlots" :key="t">
+                <div class="cell time">{{ formatTime(t) }}</div>
                 <div
-                  v-for="lesson in lessonsStartingAt(d, t)"
-                  :key="lesson.id || lesson.start_min + '-' + lesson.room"
-                  class="lesson-block"
-                  :class="{ 'lesson-exam': lesson.isExam }"
-                  :style="{ height: `${lesson.span * 40 + (lesson.span - 1) * 4}px`, background: lesson.color || 'linear-gradient(180deg,#fef3c7,#fde68a)', borderColor: lesson.color || '#f59e0b' }"
+                  class="cell"
+                  v-for="d in 6"
+                  :key="d"
+                  :class="{ blocked: isBlocked(d, t) }"
                 >
-                  <div class="lesson-title">{{ lesson.title }}</div>
-                  <div class="lesson-meta">{{ lesson.teacher }} · {{ lesson.room }}</div>
+                  <div
+                    v-for="lesson in lessonsStartingAt(d, t)"
+                    :key="lesson.id || lesson.start_min + '-' + lesson.room"
+                    class="lesson-block"
+                    :class="{ 'lesson-exam': lesson.isExam }"
+                    :style="{ height: `${lesson.span * 40 + (lesson.span - 1) * 4}px`, background: lesson.color || 'linear-gradient(180deg,#fef3c7,#fde68a)', borderColor: lesson.color || '#f59e0b' }"
+                  >
+                    <div class="lesson-title">{{ lesson.title }}</div>
+                    <div class="lesson-meta">{{ lesson.teacher }} · {{ lesson.room }}</div>
+                  </div>
+                  <div v-if="isCovered(d, t) && lessonsStartingAt(d, t).length === 0" class="covered-slot"></div>
                 </div>
-                <div v-if="isCovered(d, t) && lessonsStartingAt(d, t).length === 0" class="covered-slot"></div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section v-else class="calendar-area-horizontal">
-          <div class="horizontal-wrapper">
-            <div class="header-row">
-              <div class="hour-header-placeholder" style="width:80px;"></div>
-              <div class="hour-header-placeholder" style="width:80px;"></div>
-              <div class="hour-header-placeholder" style="width:50px;"></div>
-              <div class="hours-container">
-                <div class="hour-header" v-for="t in timeSlots" :key="t">{{ formatTime(t) }}</div>
+          <section v-else class="calendar-area-horizontal">
+            <div class="horizontal-wrapper">
+              <div class="header-row">
+                <div class="hour-header-placeholder" style="width:80px;"></div>
+                <div class="hour-header-placeholder" style="width:80px;"></div>
+                <div class="hour-header-placeholder" style="width:50px;"></div>
+                <div class="hours-container">
+                  <div class="hour-header" v-for="t in timeSlots" :key="t">{{ formatTime(t) }}</div>
+                </div>
               </div>
-            </div>
 
-            <div class="content-wrapper">
-              <div class="scrollable-content">
-                <div class="day-section" v-for="dayIdx in 6" :key="dayIdx">
-                  <div class="day-label-column">
-                    <div class="day-name-cell" v-if="dayIdx === 1">Lundi</div>
-                    <div class="day-name-cell" v-else-if="dayIdx === 2">Mardi</div>
-                    <div class="day-name-cell" v-else-if="dayIdx === 3">Mercredi</div>
-                    <div class="day-name-cell" v-else-if="dayIdx === 4">Jeudi</div>
-                    <div class="day-name-cell" v-else-if="dayIdx === 5">Vendredi</div>
-                    <div class="day-name-cell" v-else>Samedi</div>
-                  </div>
+              <div class="content-wrapper">
+                <div class="scrollable-content">
+                  <div class="day-section" v-for="dayIdx in 6" :key="dayIdx">
+                    <div class="day-label-column">
+                      <div class="day-name-cell" v-if="dayIdx === 1">Lundi</div>
+                      <div class="day-name-cell" v-else-if="dayIdx === 2">Mardi</div>
+                      <div class="day-name-cell" v-else-if="dayIdx === 3">Mercredi</div>
+                      <div class="day-name-cell" v-else-if="dayIdx === 4">Jeudi</div>
+                      <div class="day-name-cell" v-else-if="dayIdx === 5">Vendredi</div>
+                      <div class="day-name-cell" v-else>Samedi</div>
+                    </div>
 
-                  <div class="groups-label-column">
-                    <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
-                      <div 
-                        class="group-label-item" 
-                        v-if="groupItem.subgroups.length > 0"
-                        :style="{ 
-                          height: `${groupItem.subgroups.length * 30}px`,
-                          borderBottom: '1px dashed #e5e7eb'
-                        }"
-                      >
-                        {{ groupItem.name }}
-                      </div>
-                    </template>
-                  </div>
+                    <div class="groups-label-column">
+                      <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
+                        <div 
+                          class="group-label-item" 
+                          v-if="groupItem.subgroups.length > 0"
+                          :style="{ 
+                            height: `${groupItem.subgroups.length * 30}px`,
+                            borderBottom: '1px dashed #e5e7eb'
+                          }"
+                        >
+                          {{ groupItem.name }}
+                        </div>
+                      </template>
+                    </div>
 
-                  <div class="subgroups-label-column">
-                    <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
-                      <div 
-                        class="subgroup-label-item" 
-                        v-for="(sub, subIdx) in groupItem.subgroups" 
-                        :key="sub"
-                        :style="{ borderBottom: '1px dashed #e5e7eb' }"
-                      >
-                        {{ sub }}
-                      </div>
-                    </template>
-                  </div>
+                    <div class="subgroups-label-column">
+                      <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
+                        <div 
+                          class="subgroup-label-item" 
+                          v-for="(sub, subIdx) in groupItem.subgroups" 
+                          :key="sub"
+                          :style="{ borderBottom: '1px dashed #e5e7eb' }"
+                        >
+                          {{ sub }}
+                        </div>
+                      </template>
+                    </div>
 
-                  <div class="day-grid-column">
-                    <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
-                      <div 
-                        class="subgroup-row" 
-                        v-for="(sub, subIdx) in groupItem.subgroups" 
-                        :key="sub"
-                        :style="{ borderBottom: '1px dashed #e5e7eb' }"
-                      >
-                        <div
-                          class="cell-slot"
-                          v-for="t in timeSlots"
-                          :key="t"
-                          :class="{ blocked: isBlocked(dayIdx, t, groupItem.id, sub) }"
+                    <div class="day-grid-column">
+                      <template v-for="(groupItem, gIdx) in groupsWithSubgroups" :key="gIdx">
+                        <div 
+                          class="subgroup-row" 
+                          v-for="(sub, subIdx) in groupItem.subgroups" 
+                          :key="sub"
+                          :style="{ borderBottom: '1px dashed #e5e7eb' }"
                         >
                           <div
-                            v-for="lesson in lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups))"
-                            :key="lesson.id || lesson.start_min + '-' + lesson.room"
-                            class="lesson-block-horizontal"
-                            :class="{ 'lesson-exam': lesson.isExam }"
-                            :style="{ 
-                              width: `calc(${lesson.span} * 60px - 4px)`,
-                              height: `${Math.min(getRowSpan(lesson, groupsWithSubgroups, gIdx, subIdx), groupsWithSubgroups.reduce((sum, g, idx) => idx >= gIdx ? sum + g.subgroups.length : sum, 0)) * 30 - 4}px`,
-                              background: lesson.color || 'linear-gradient(180deg,#fef3c7,#fde68a)', 
-                              borderColor: lesson.color || '#f59e0b' 
-                            }"
+                            class="cell-slot"
+                            v-for="t in timeSlots"
+                            :key="t"
+                            :class="{ blocked: isBlocked(dayIdx, t, groupItem.id, sub) }"
                           >
-                            <div class="lesson-content-h">
-                              <div class="lesson-title-h">{{ lesson.title }}</div>
-                              <div class="lesson-meta-h">{{ lesson.teacher }}</div>
-                              <div class="lesson-meta-h">{{ lesson.room }}</div>
+                            <div
+                              v-for="lesson in lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups))"
+                              :key="lesson.id || lesson.start_min + '-' + lesson.room"
+                              class="lesson-block-horizontal"
+                              :class="{ 'lesson-exam': lesson.isExam }"
+                              :style="{ 
+                                width: `calc(${lesson.span} * 60px - 4px)`,
+                                height: `${Math.min(getRowSpan(lesson, groupsWithSubgroups, gIdx, subIdx), groupsWithSubgroups.reduce((sum, g, idx) => idx >= gIdx ? sum + g.subgroups.length : sum, 0)) * 30 - 4}px`,
+                                background: lesson.color || 'linear-gradient(180deg,#fef3c7,#fde68a)', 
+                                borderColor: lesson.color || '#f59e0b' 
+                              }"
+                            >
+                              <div class="lesson-content-h">
+                                <div class="lesson-title-h">{{ lesson.title }}</div>
+                                <div class="lesson-meta-h">{{ lesson.teacher }}</div>
+                                <div class="lesson-meta-h">{{ lesson.room }}</div>
+                              </div>
                             </div>
+                            <div v-if="isCovered(dayIdx, t) && lessonsStartingAt(dayIdx, t).length === 0" class="covered-slot"></div>
                           </div>
-                          <div v-if="isCovered(dayIdx, t) && lessonsStartingAt(dayIdx, t).length === 0" class="covered-slot"></div>
                         </div>
-                      </div>
-                    </template>
+                      </template>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </template>
       </main>
     </div>
   </AdminLayout>

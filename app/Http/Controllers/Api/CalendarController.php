@@ -366,26 +366,54 @@ class CalendarController extends Controller
                 // A slot can be for: promotion only (CM), group (TD), or subgroup (TP)
                 if ($promotionId || $groupId || $subgroup) {
                     $query->where(function($q) use ($promotionId, $groupId, $subgroup) {
-                        if ($promotionId) {
-                            // Include slots for this promotion (CM level) or any group/subgroup in this promotion
-                            $q->Where('promotion_id', $promotionId);
-                        }
-                        if ($groupId) {
-                            // Include slots for this specific group (TD level)
-                                $q->Where(function($q2) use ($groupId) {
-                                $q2->where('group_id', $groupId)
-                                    ->orWhereNull('group_id');
-                            });
-                        }
-                        if ($subgroup) {
-                            // Convertir A/B → id
-                            $subgroupMap = ["A" => 1, "B" => 2];
-                            $subgroupId = $subgroupMap[$subgroup] ?? null;
-
+                        // Convertir A/B → id pour le sous-groupe
+                        $subgroupMap = ["A" => 1, "B" => 2];
+                        $subgroupId = $subgroup ? ($subgroupMap[$subgroup] ?? null) : null;
+                        
+                        if ($promotionId && !$groupId && !$subgroup) {
+                            // Cas 1: Seulement promotion - afficher tous les slots de la promotion
+                            $q->where('promotion_id', $promotionId);
+                        } elseif ($promotionId && $groupId && !$subgroup) {
+                            // Cas 2: Promotion + Groupe - afficher CM de la promo ET TD du groupe
+                            $q->where('promotion_id', $promotionId)
+                              ->where(function($q2) use ($groupId) {
+                                  // CM de la promotion (pas de groupe)
+                                  $q2->whereNull('group_id')
+                                     // OU TD du groupe spécifique
+                                     ->orWhere('group_id', $groupId);
+                              });
+                        } elseif ($promotionId && $groupId && $subgroupId) {
+                            // Cas 3: Promotion + Groupe + Sous-groupe - afficher CM promo, TD groupe ET TP sous-groupe
+                            $q->where('promotion_id', $promotionId)
+                              ->where(function($q2) use ($groupId, $subgroupId) {
+                                  // CM de la promotion (pas de groupe)
+                                  $q2->whereNull('group_id')
+                                     // OU TD du groupe (sans sous-groupe spécifique)
+                                     ->orWhere(function($q3) use ($groupId) {
+                                         $q3->where('group_id', $groupId)
+                                            ->whereNull('subgroup_id');
+                                     })
+                                     // OU TP du sous-groupe spécifique
+                                     ->orWhere(function($q3) use ($groupId, $subgroupId) {
+                                         $q3->where('group_id', $groupId)
+                                            ->where('subgroup_id', $subgroupId);
+                                     });
+                              });
+                        } else {
+                            // Fallback: ancienne logique si les paramètres sont partiels
+                            if ($promotionId) {
+                                $q->where('promotion_id', $promotionId);
+                            }
+                            if ($groupId) {
+                                $q->where(function($q2) use ($groupId) {
+                                    $q2->where('group_id', $groupId)
+                                       ->orWhereNull('group_id');
+                                });
+                            }
                             if ($subgroupId) {
-                                $q->where(function ($q2) use ($subgroupId) {
+                                $q->where(function($q2) use ($subgroupId) {
                                     $q2->where('subgroup_id', $subgroupId)
-                                    ->orWhereNull('subgroup_id');
+                                       ->orWhereNull('subgroup_id');
                                 });
                             }
                         }
@@ -747,6 +775,74 @@ class CalendarController extends Controller
                 if (!($endMinutes <= $existingStartMinutes || $startMinutes >= $existingEndMinutes)) {
                     return response()->json([
                         'error' => 'Conflit de salle : cette salle est déjà occupée à ce créneau horaire'
+                    ], 422);
+                }
+            }
+
+            // Vérifier les conflits de groupe/promotion : empêcher les chevauchements de cours
+            // Logique : 
+            // - Un CM (promotion) ne peut pas chevaucher un autre cours de cette promotion
+            // - Un TD (groupe) ne peut pas chevaucher un CM de la promotion ni un autre TD du même groupe
+            // - Un TP (sous-groupe) ne peut pas chevaucher un CM/TD parent ni un autre TP du même sous-groupe
+            $promotionId = $request->promotion_id;
+            $groupId = $request->group_id;
+            $subgroupId = $request->subgroup_id;
+            $type = strtoupper(trim($request->type ?? ''));
+            
+            $groupConflictQuery = DB::table('edt_slot as es')
+                ->join('slots as s', 'es.slot_id', '=', 's.id')
+                ->where('es.day_of_week', $dayOfWeek)
+                ->where('s.week_id', $week->id)
+                ->where(function($q) use ($promotionId, $groupId, $subgroupId, $type) {
+                    if ($type === 'CM') {
+                        // CM : vérifier tous les cours de la même promotion
+                        $q->where('s.promotion_id', $promotionId);
+                    } elseif ($type === 'TD') {
+                        // TD : vérifier CM de la promo + TD du même groupe
+                        $q->where('s.promotion_id', $promotionId)
+                          ->where(function($q2) use ($groupId) {
+                              $q2->whereNull('s.group_id') // CM de la promo
+                                 ->orWhere('s.group_id', $groupId); // TD du même groupe
+                          });
+                    } elseif ($type === 'TP') {
+                        // TP : vérifier CM de la promo + TD du groupe + TP du même sous-groupe
+                        $q->where('s.promotion_id', $promotionId)
+                          ->where(function($q2) use ($groupId, $subgroupId) {
+                              $q2->whereNull('s.group_id') // CM de la promo
+                                 ->orWhere(function($q3) use ($groupId) {
+                                     $q3->where('s.group_id', $groupId)
+                                        ->whereNull('s.subgroup_id'); // TD du groupe
+                                 })
+                                 ->orWhere(function($q3) use ($groupId, $subgroupId) {
+                                     $q3->where('s.group_id', $groupId)
+                                        ->where('s.subgroup_id', $subgroupId); // TP du même sous-groupe
+                                 });
+                          });
+                    }
+                })
+                ->select('es.start_hour', 's.duration', 's.group_id', 's.subgroup_id', 's.type_id')
+                ->get();
+            
+            // Check for time overlap with group/promotion courses
+            foreach ($groupConflict as $existing) {
+                $existingTimeParts = explode(':', $existing->start_hour);
+                $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
+                $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
+                
+                // Check if there's an overlap
+                if (!($endMinutes <= $existingStartMinutes || $startMinutes >= $existingEndMinutes)) {
+                    // Déterminer le type de conflit pour un message plus clair
+                    $conflictType = 'un autre cours';
+                    if ($existing->group_id === null && $existing->subgroup_id === null) {
+                        $conflictType = 'un CM de la promotion';
+                    } elseif ($existing->subgroup_id === null) {
+                        $conflictType = 'un TD du groupe';
+                    } else {
+                        $conflictType = 'un TP du sous-groupe';
+                    }
+                    
+                    return response()->json([
+                        'error' => "Conflit d'emploi du temps : ce créneau chevauche $conflictType déjà planifié"
                     ], 422);
                 }
             }
