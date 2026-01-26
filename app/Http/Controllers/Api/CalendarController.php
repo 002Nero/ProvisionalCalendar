@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Week;
+use App\Services\EdtSlotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -15,6 +16,12 @@ use Illuminate\Support\Facades\Schema;
 
 class CalendarController extends Controller
 {
+    protected EdtSlotService $edtSlotService;
+
+    public function __construct(EdtSlotService $edtSlotService)
+    {
+        $this->edtSlotService = $edtSlotService;
+    }
 
     /**
      * Crée un nouveau slot dans l'emploi du temps
@@ -295,227 +302,24 @@ class CalendarController extends Controller
     public function getEdtSlots(Request $request, $year_id, $week_number): JsonResponse
     {
         try {
-            // Read optional filters from query params
-            $promotionId = $request->query('promotion_id');
-            $groupId = $request->query('group_id');
-            $subgroup = $request->query('subgroup');
-            
-            // Prefer a direct join by weeks to find edt_slot rows for the given year and week_number.
-            // Build select list dynamically to avoid referencing columns that may not exist in all environments.
-            $hasStartHour = Schema::hasColumn('edt_slot', 'start_hour');
-            $hasStartTime = Schema::hasColumn('edt_slot', 'start_time');
-            $hasDayOfWeek = Schema::hasColumn('edt_slot', 'day_of_week');
-            $hasDay = Schema::hasColumn('edt_slot', 'day');
+            $filters = array_filter([
+                'promotion_id' => $request->query('promotion_id'),
+                'group_id' => $request->query('group_id'),
+                'subgroup' => $request->query('subgroup'),
+            ]);
 
-            if ($hasStartHour && $hasStartTime) {
-                $startSelect = DB::raw("COALESCE(edt_slot.start_hour, edt_slot.start_time) as start_hour");
-                $startOrderExpr = "COALESCE(edt_slot.start_hour, edt_slot.start_time)";
-            } elseif ($hasStartHour) {
-                $startSelect = 'edt_slot.start_hour';
-                $startOrderExpr = 'edt_slot.start_hour';
-            } elseif ($hasStartTime) {
-                $startSelect = 'edt_slot.start_time';
-                $startOrderExpr = 'edt_slot.start_time';
-            } else {
-                $startSelect = DB::raw("NULL as start_hour");
-                $startOrderExpr = null;
-            }
-
-            if ($hasDayOfWeek && $hasDay) {
-                $daySelect = DB::raw("COALESCE(edt_slot.day_of_week, edt_slot.day) as day_of_week");
-                $dayOrderExpr = "COALESCE(edt_slot.day_of_week, edt_slot.day)";
-            } elseif ($hasDayOfWeek) {
-                $daySelect = 'edt_slot.day_of_week';
-                $dayOrderExpr = 'edt_slot.day_of_week';
-            } elseif ($hasDay) {
-                $daySelect = 'edt_slot.day';
-                $dayOrderExpr = 'edt_slot.day';
-            } else {
-                $daySelect = DB::raw("NULL as day_of_week");
-                $dayOrderExpr = null;
-            }
-
-            // Select basic edt_slot columns (use * to avoid referencing non-existent fields)
-            // Join slots first, then join weeks via slots.week_id (edt_slot does not have week_id column)
-            $query = DB::table('edt_slot')
-                ->leftJoin('slots', 'edt_slot.slot_id', '=', 'slots.id')
-                ->leftJoin('weeks', 'slots.week_id', '=', 'weeks.id')
-                ->leftJoin('rooms', 'edt_slot.room_id', '=', 'rooms.id')
-                ->where('weeks.year_id', $year_id)
-                ->where('weeks.week_number', $week_number)
-                ->select('edt_slot.*', 'rooms.name as room_name');
-
-            // apply ordering only when we have valid expressions
-            if (!empty($dayOrderExpr)) {
-                $query->orderByRaw($dayOrderExpr . ' asc');
-            }
-            if (!empty($startOrderExpr)) {
-                $query->orderByRaw($startOrderExpr . ' asc');
-            }
-
-            $rows = $query->get();
-
-            // Collect slot_ids referenced and load the authoritative slot data
-            $slotIds = collect($rows)->pluck('slot_id')->filter()->unique()->values()->all();
-            $slots = [];
-            $slotTypesColors = [];
-            if (!empty($slotIds)) {
-                $query = Slot::whereIn('id', $slotIds)->with(['teaching', 'Promotion', 'Group', 'Subgroup']);
-                
-                // Apply filters if provided - use OR logic to include parent/child relationships
-                // A slot can be for: promotion only (CM), group (TD), or subgroup (TP)
-                if ($promotionId || $groupId || $subgroup) {
-                    $query->where(function($q) use ($promotionId, $groupId, $subgroup) {
-                        if ($promotionId) {
-                            // Include slots for this promotion (CM level) or any group/subgroup in this promotion
-                            $q->Where('promotion_id', $promotionId);
-                        }
-                        if ($groupId) {
-                            // Include slots for this specific group (TD level)
-                                $q->Where(function($q2) use ($groupId) {
-                                $q2->where('group_id', $groupId)
-                                    ->orWhereNull('group_id');
-                            });
-                        }
-                        if ($subgroup) {
-                            // Convertir A/B → id
-                            $subgroupMap = ["A" => 1, "B" => 2];
-                            $subgroupId = $subgroupMap[$subgroup] ?? null;
-
-                            if ($subgroupId) {
-                                $q->where(function ($q2) use ($subgroupId) {
-                                    $q2->where('subgroup_id', $subgroupId)
-                                    ->orWhereNull('subgroup_id');
-                                });
-                            }
-                        }
-                    });
-                }
-                
-                $slotModels = $query->get()->keyBy('id');
-
-                // load colors for slot types
-                $typeIds = $slotModels->pluck('type_id')->filter()->unique()->values()->all();
-                $examTypeId = null;
-                if (!empty($typeIds)) {
-                    $slotTypesColors = DB::table('slot_types')->whereIn('id', $typeIds)->pluck('color', 'id')->toArray();
-                    $slotTypesAcronyms = DB::table('slot_types')->whereIn('id', $typeIds)->pluck('acronym', 'id')->toArray();
-                } else {
-                    $slotTypesAcronyms = [];
-                }
-                // load exam slot type color
-                $examTypeRow = DB::table('slot_types')->where('acronym', 'EX')->first();
-                if ($examTypeRow) {
-                    $examTypeId = $examTypeRow->id;
-                    $slotTypesColors[$examTypeId] = $examTypeRow->color;
-                }
-                // load teachers from pivot table for these slots
-                $teachersRows = DB::table('slots_teachers')->whereIn('slot_id', $slotIds)->get();
-                $teachersBySlot = [];
-                foreach ($teachersRows as $tr) {
-                    if (!isset($teachersBySlot[$tr->slot_id])) $teachersBySlot[$tr->slot_id] = [];
-                    $teachersBySlot[$tr->slot_id][] = $tr->teacher_id;
-                }
-
-                if ($slotModels && count($slotModels) > 0) {
-                    foreach ($slotModels as $id => $s) {
-                        $slots[$id] = $s;
-                        $slots[$id]->teacher_ids = $teachersBySlot[$id] ?? [];
-                    }
-                }
-            }
-
-            // Check if filters were applied
-            $hasFilters = $promotionId || $groupId || $subgroup;
-
-            // Build response mapping edt_slot rows to enriched objects using slot data
-            $result = [];
-            foreach ($rows as $r) {
-                // If filters are applied, only include rows whose slots passed the filter
-                if ($hasFilters && (!empty($r->slot_id) && !isset($slots[$r->slot_id]))) {
-                    continue;
-                }
-
-                $slotInfo = null;
-                if (!empty($r->slot_id) && isset($slots[$r->slot_id])) {
-                    $slot = $slots[$r->slot_id];
-                    
-                    // Build teachers array: fetch ALL teachers assigned to this slot
-                    $teachers = [];
-                    if (!empty($slot->teacher_ids)) {
-                        $teacherModels = Teacher::with('user')->whereIn('id', $slot->teacher_ids)->get();
-                        foreach ($teacherModels as $teacher) {
-                            $firstName = $teacher->first_name ?? null;
-                            $lastName = $teacher->last_name ?? null;
-                            
-                            // If teacher doesn't have first/last name, get from user
-                            if ((!$firstName || !$lastName) && $teacher->user) {
-                                $firstName = $firstName ?: ($teacher->user->first_name ?? null);
-                                $lastName = $lastName ?: ($teacher->user->last_name ?? null);
-                            }
-                            
-                            $teacherName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
-                            if (empty($teacherName)) {
-                                $teacherName = $teacher->acronym ?? null;
-                            }
-                            
-                            $teachers[] = [
-                                'id' => $teacher->id,
-                                'code' => $teacher->acronym ?? null,
-                                'name' => $teacherName
-                            ];
-                        }
-                    }
-                    
-                    // For backward compatibility, also provide the first teacher as teacher_id/teacher_name
-                    $firstTeacher = !empty($teachers) ? $teachers[0] : null;
-                    
-                    // Determine final color: use exam color if is_exam=1, else use type color
-                    $finalColor = null;
-                    if ($slot->is_exam && $examTypeId && isset($slotTypesColors[$examTypeId])) {
-                        $finalColor = $slotTypesColors[$examTypeId];
-                    } elseif ($slot->type_id && isset($slotTypesColors[$slot->type_id])) {
-                        $finalColor = $slotTypesColors[$slot->type_id];
-                    }
-
-                    $slotInfo = [
-                        'slot_id' => $slot->id,
-                        'duration' => $slot->duration,
-                        'teaching_id' => $slot->teaching_id,
-                        'teaching_label' => ($slot->teaching) ? $slot->teaching->title : null,
-                        'teaching_code' => ($slot->teaching && isset($slot->teaching->apogee_code)) ? $slot->teaching->apogee_code : null,
-                        'promotion_id' => $slot->promotion_id ?? null,
-                        'group_id' => $slot->group_id ?? null,
-                        'subgroup_id' => $slot->subgroup_id ?? null,
-                        'type_id' => $slot->type_id ?? null,
-                        'type_acronym' => $slot->type_id && isset($slotTypesAcronyms[$slot->type_id]) ? $slotTypesAcronyms[$slot->type_id] : null,
-                        'type_color' => $finalColor,
-                        'is_exam' => (bool)($slot->is_exam ?? false),
-                        // New: array of all teachers
-                        'teachers' => $teachers,
-                        // Backward compatibility: first teacher as single values
-                        'teacher_id' => $firstTeacher ? $firstTeacher['id'] : null,
-                        'teacher_code' => $firstTeacher ? $firstTeacher['code'] : null,
-                        'teacher_name' => $firstTeacher ? $firstTeacher['name'] : null
-                    ];
-                }
-
-                // derive start and day values from edt_slot row
-                $start = property_exists($r, 'start_hour') ? $r->start_hour : (property_exists($r, 'start_time') ? $r->start_time : null);
-                $day = property_exists($r, 'day_of_week') ? $r->day_of_week : (property_exists($r, 'day') ? $r->day : null);
-                      
-                $result[] = array_merge([
-                    'id' => $r->id,
-                    'start_hour' => $start,
-                    'day_of_week' => $day,
-                    'room_id' => $r->room_id,
-                    'room_name' => $r->room_name ?? null,
-                ], is_array($slotInfo) ? $slotInfo : []);
-            }
+            $result = $this->edtSlotService->getEdtSlotsForWeek(
+                (int) $year_id,
+                (int) $week_number,
+                $filters
+            );
 
             return response()->json($result);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => 'Une erreur est survenue',
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
