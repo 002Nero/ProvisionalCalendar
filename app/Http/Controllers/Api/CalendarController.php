@@ -341,119 +341,17 @@ class CalendarController extends Controller
                 return response()->json(['error' => 'Données invalides', 'messages' => $validator->errors()], 422);
             }
 
-            $updated = [];
-            $errors = [];
-
-            // Handle updates
             $updates = $request->input('updates', []);
-            foreach ($updates as $p) {
-                $edtSlotId = $p['edt_slot_id'] ?? null;
-                
-                if (!empty($edtSlotId)) {
-                    // Load the current edt_slot to get the associated slot and week info
-                    $edtSlot = DB::table('edt_slot')->where('id', $edtSlotId)->first();
-                    if (!$edtSlot) {
-                        $errors[] = "edt_slot {$edtSlotId} non trouvé";
-                        continue;
-                    }
-                    
-                    // Get slot info to find teacher info
-                    $slot = DB::table('slots')->where('id', $edtSlot->slot_id)->first();
-                    if ($slot) {
-                        // Get week info for conflict checks
-                        $week = DB::table('weeks')->where('id', $slot->week_id)->first();
-                        
-                        // Parse times for conflict checks
-                        $timeParts = explode(':', $p['start_hour']);
-                        $newStartMinutes = intval($timeParts[0]) * 60 + intval($timeParts[1]);
-                        $newEndMinutes = $newStartMinutes + ($slot->duration * 60);
-                        $newDayOfWeek = trim($p['day_of_week']);
-                        
-                        // Get teacher for this slot from pivot table
-                        $teacherRow = DB::table('slots_teachers')->where('slot_id', $slot->id)->first();
-                        $teacherId = $teacherRow ? $teacherRow->teacher_id : null;
-                        
-                        // If teacher exists, check for conflicts
-                        if ($teacherId) {
-                            // Check for conflicts with other placements for this teacher
-                            $conflicts = DB::table('edt_slot as es')
-                                ->join('slots as s', 'es.slot_id', '=', 's.id')
-                                ->join('slots_teachers as st', 's.id', '=', 'st.slot_id')
-                                ->where('st.teacher_id', $teacherId)
-                                ->where('es.day_of_week', $newDayOfWeek)
-                                ->where('s.week_id', $week->id) // Check by slot.week_id
-                                ->where('es.id', '!=', $edtSlotId) // Exclude current slot
-                                ->select('es.start_hour', 's.duration')
-                                ->get();
-                            
-                            $hasConflict = false;
-                            foreach ($conflicts as $existing) {
-                                $existingTimeParts = explode(':', $existing->start_hour);
-                                $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
-                                $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
-                                
-                                // Check for overlap
-                                if (!($newEndMinutes <= $existingStartMinutes || $newStartMinutes >= $existingEndMinutes)) {
-                                    $hasConflict = true;
-                                    break;
-                                }
-                            }
-                            
-                            if ($hasConflict) {
-                                $errors[] = "Conflit d'emploi du temps : l'enseignant a déjà un cours à ce créneau pour edt_slot {$edtSlotId}";
-                                continue;
-                            }
-                        }
-                        
-                        // Check for room conflict (room cannot be used by multiple slots at same time)
-                        $newRoomId = $p['room_id'];
-                        $roomConflicts = DB::table('edt_slot as es')
-                            ->join('slots as s', 'es.slot_id', '=', 's.id')
-                            ->where('es.room_id', $newRoomId)
-                            ->where('es.day_of_week', $newDayOfWeek)
-                            ->where('s.week_id', $week->id)
-                            ->where('es.id', '!=', $edtSlotId) // Exclude current slot
-                            ->select('es.start_hour', 's.duration')
-                            ->get();
-                        
-                        $hasRoomConflict = false;
-                        foreach ($roomConflicts as $existing) {
-                            $existingTimeParts = explode(':', $existing->start_hour);
-                            $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
-                            $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
-                            
-                            // Check for overlap
-                            if (!($newEndMinutes <= $existingStartMinutes || $newStartMinutes >= $existingEndMinutes)) {
-                                $hasRoomConflict = true;
-                                break;
-                            }
-                        }
-                        
-                        if ($hasRoomConflict) {
-                            $errors[] = "Conflit de salle : cette salle est déjà occupée à ce créneau horaire pour edt_slot {$edtSlotId}";
-                            continue;
-                        }
-                    }
-                    
-                    $updateData = [
-                        'day_of_week' => $p['day_of_week'],
-                        'start_hour' => $p['start_hour'],
-                        'room_id' => $p['room_id'],
-                        'updated_at' => now()
-                    ];
-                    
-                    $result = DB::table('edt_slot')->where('id', $edtSlotId)->update($updateData);
-                    if ($result) {
-                        $updated[] = $edtSlotId;
-                    } else {
-                        $errors[] = "Impossible de mettre à jour edt_slot {$edtSlotId}";
-                    }
-                }
-            }
+            $result = $this->edtSlotService->updateEdtSlotsBulk($updates);
 
-            $status = empty($errors) ? 200 : 207;
-            $message = count($updated) . ' mise(s) à jour';
-            return response()->json(['message' => $message, 'updated' => $updated, 'errors' => $errors], $status);
+            $status = empty($result['errors']) ? 200 : 207;
+            $message = count($result['updated']) . ' mise(s) à jour';
+
+            return response()->json([
+                'message' => $message,
+                'updated' => $result['updated'],
+                'errors' => $result['errors'],
+            ], $status);
 
         } catch (\Exception $e) {
             return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);
