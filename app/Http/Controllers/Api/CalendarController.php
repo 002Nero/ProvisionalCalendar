@@ -789,7 +789,7 @@ class CalendarController extends Controller
             $subgroupId = $request->subgroup_id;
             $type = strtoupper(trim($request->type ?? ''));
             
-            $groupConflictQuery = DB::table('edt_slot as es')
+            $groupConflict = DB::table('edt_slot as es')
                 ->join('slots as s', 'es.slot_id', '=', 's.id')
                 ->where('es.day_of_week', $dayOfWeek)
                 ->where('s.week_id', $week->id)
