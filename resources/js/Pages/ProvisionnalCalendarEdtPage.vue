@@ -754,7 +754,7 @@ function generatePDF() {
                             class="cell-slot"
                             v-for="t in timeSlots"
                             :key="t"
-                            :class="{ blocked: isBlocked(t) }"
+                            :class="{ blocked: isBlocked(dayIdx, t, groupItem.id, sub) }"
                           >
                             <div
                               v-for="lesson in lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups))"
