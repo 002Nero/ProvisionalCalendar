@@ -362,8 +362,36 @@ function parseDay(val: unknown): number | null {
   return null
 }
 
-function isBlocked(mins: number) {
-  return mins >= 12 * 60 && mins < 13 * 60 + 30
+// Détermine la pause déjeuner pour un jour donné
+// 2 créneaux possibles: 12h-13h30 (défaut) ou 12h30-14h (si cours après 12h)
+function getLunchBreakForDay(dayIndex: number): { start: number; end: number } {
+  // Trouver les cours qui se terminent avant ou à 12h30 (= cours du matin)
+  const morningLessons = lessons.value.filter(
+    l => l.day === dayIndex && (l.start_min + l.duration_min) <= 12 * 60 + 30
+  )
+  
+  if (morningLessons.length === 0) {
+    // Pas de cours le matin, utiliser la pause par défaut 12h-13h30
+    return { start: 12 * 60, end: 13 * 60 + 30 }
+  }
+  
+  // Trouver l'heure de fin du dernier cours du matin
+  const lastMorningEnd = Math.max(
+    ...morningLessons.map(l => l.start_min + l.duration_min)
+  )
+  
+  // Si un cours se termine strictement après 12h, décaler la pause à 12h30-14h
+  if (lastMorningEnd > 12 * 60) {
+    return { start: 12 * 60 + 30, end: 14 * 60 }
+  }
+  
+  // Sinon, pause normale 12h-13h30
+  return { start: 12 * 60, end: 13 * 60 + 30 }
+}
+
+function isBlocked(dayIndex: number, mins: number) {
+  const lunchBreak = getLunchBreakForDay(dayIndex)
+  return mins >= lunchBreak.start && mins < lunchBreak.end
 }
 
 function prevWeek() {
@@ -545,7 +573,7 @@ function generatePDF() {
                 class="cell"
                 v-for="d in 6"
                 :key="d"
-                :class="{ blocked: isBlocked(t) }"
+                :class="{ blocked: isBlocked(d, t) }"
               >
                 <div
                   v-for="lesson in lessonsStartingAt(d, t)"
@@ -626,7 +654,7 @@ function generatePDF() {
                           class="cell-slot"
                           v-for="t in timeSlots"
                           :key="t"
-                          :class="{ blocked: isBlocked(t) }"
+                          :class="{ blocked: isBlocked(dayIdx, t) }"
                         >
                           <div
                             v-for="lesson in lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups))"

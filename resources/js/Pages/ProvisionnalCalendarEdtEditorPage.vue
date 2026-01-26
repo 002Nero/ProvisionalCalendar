@@ -30,8 +30,36 @@ function formatTime(mins: number) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-function isBlocked(mins: number) {
-  return mins >= 12 * 60 && mins < 13 * 60 + 30
+// Détermine la pause déjeuner pour un jour donné
+// 2 créneaux possibles: 12h-13h30 (défaut) ou 12h30-14h (si cours après 12h)
+function getLunchBreakForDay(dayIndex: number): { start: number; end: number } {
+  // Trouver les cours qui se terminent avant ou à 12h30 (= cours du matin)
+  const morningPlacements = placements.value.filter(
+    p => p.day === dayIndex && (p.time + p.duration) <= 12 * 60 + 30
+  )
+  
+  if (morningPlacements.length === 0) {
+    // Pas de cours le matin, utiliser la pause par défaut 12h-13h30
+    return { start: 12 * 60, end: 13 * 60 + 30 }
+  }
+  
+  // Trouver l'heure de fin du dernier cours du matin
+  const lastMorningEnd = Math.max(
+    ...morningPlacements.map(p => p.time + p.duration)
+  )
+  
+  // Si un cours se termine strictement après 12h, décaler la pause à 12h30-14h
+  if (lastMorningEnd > 12 * 60) {
+    return { start: 12 * 60 + 30, end: 14 * 60 }
+  }
+  
+  // Sinon, pause normale 12h-13h30
+  return { start: 12 * 60, end: 13 * 60 + 30 }
+}
+
+function isBlocked(dayIndex: number, mins: number) {
+  const lunchBreak = getLunchBreakForDay(dayIndex)
+  return mins >= lunchBreak.start && mins < lunchBreak.end
 }
 
 type Course = { id: number; code?: string; title: string; type?: string; duration?: number; semester?: number | null; room?: number | string; teacher?: number | string; editing?: boolean; remainingMinutes?: number; selectedDuration?: number }
@@ -350,7 +378,7 @@ function isSlotAvailable(day: number, time: number): boolean {
   // Check if any slot is blocked (lunch break)
   for (let i = 0; i < span; i++) {
     const t = time + i * SLOT_STEP
-    if (isBlocked(t)) return false
+    if (isBlocked(day, t)) return false
   }
   
   if (hasPlacementOverlap(day, time, span, placementId)) return false
@@ -517,7 +545,7 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
     // Vérifier les zones bloquées et les chevauchements
     for (let i = 0; i < span; i++) {
       const t = time + i * SLOT_STEP
-      if (isBlocked(t)) {
+      if (isBlocked(day, t)) {
         placements.value.splice(idx, 0, old)
         alert('Zone bloquée lors du déplacement — emplacement inchangé')
         currentDrop.value = { day: null, time: null }
@@ -588,7 +616,7 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
   // Vérifier les zones bloquées
   for (let i = 0; i < span; i++) {
     const t = time + i * SLOT_STEP
-    if (isBlocked(t)) {
+    if (isBlocked(day, t)) {
       alert('Zone bloquée — choisissez un autre créneau')
       currentDrop.value = { day: null, time: null }
       return
@@ -1140,7 +1168,7 @@ async function saveEdt() {
                 v-for="d in 6"
                 :key="d"
                 :class="{ 
-                  blocked: isBlocked(t), 
+                  blocked: isBlocked(d, t), 
                   droptarget: currentDrop.day === d && currentDrop.time === t,
                   available: isSlotAvailable(d, t)
                 }"
