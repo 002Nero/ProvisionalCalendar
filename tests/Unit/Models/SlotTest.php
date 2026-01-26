@@ -37,8 +37,11 @@ class SlotTest extends WithoutDatabaseTestCase
         $this->assertInstanceOf(BelongsTo::class, $slot->teacher());
         $this->assertInstanceOf(BelongsTo::class, $slot->substituteTeacher());
         $this->assertInstanceOf(BelongsTo::class, $slot->teaching());
+        $this->assertInstanceOf(BelongsTo::class, $slot->promotion());
         $this->assertInstanceOf(BelongsTo::class, $slot->Promotion());
+        $this->assertInstanceOf(BelongsTo::class, $slot->group());
         $this->assertInstanceOf(BelongsTo::class, $slot->Group());
+        $this->assertInstanceOf(BelongsTo::class, $slot->subgroup());
         $this->assertInstanceOf(BelongsTo::class, $slot->Subgroup());
         $this->assertInstanceOf(BelongsTo::class, $slot->week());
     }

@@ -12,12 +12,12 @@ class Group extends Model
         'promotion_id',
     ];
 
-    public function Promotion()
+    public function promotion()
     {
-        return $this->belongsTo(Promotion::class, "promotion_id");
+        return $this->belongsTo(Promotion::class, 'promotion_id');
     }
 
-    public function Subgroups()
+    public function subgroups()
     {
         return $this->hasMany(Subgroup::class);
     }

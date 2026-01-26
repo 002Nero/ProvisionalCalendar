@@ -13,8 +13,8 @@ class Subgroup extends Model
 
     protected $with = ['Group.Promotion'];
 
-    public function Group()
+    public function group()
     {
-        return $this->belongsTo(Group::class, "group_id");
+        return $this->belongsTo(Group::class, 'group_id');
     }
 }

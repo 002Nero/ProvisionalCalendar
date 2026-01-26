@@ -33,7 +33,7 @@ class Year extends Model
         return $this->hasMany(Teaching::class);
     }
 
-    public function Promotions()
+    public function promotions()
     {
         return $this->hasMany(Promotion::class);
     }

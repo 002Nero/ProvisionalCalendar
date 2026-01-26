@@ -22,6 +22,7 @@ class YearTest extends WithoutDatabaseTestCase
         $this->assertInstanceOf(HasMany::class, $year->weeks());
         $this->assertInstanceOf(HasMany::class, $year->teachers());
         $this->assertInstanceOf(HasMany::class, $year->teachings());
+        $this->assertInstanceOf(HasMany::class, $year->promotions());
         $this->assertInstanceOf(HasMany::class, $year->Promotions());
         $this->assertInstanceOf(HasMany::class, $year->alerts());
         $this->assertInstanceOf(HasMany::class, $year->semesters());

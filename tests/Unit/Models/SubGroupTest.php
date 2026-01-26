@@ -19,6 +19,7 @@ class SubgroupTest extends WithoutDatabaseTestCase
     {
         $subgroup = new Subgroup();
 
+        $this->assertInstanceOf(BelongsTo::class, $subgroup->group());
         $this->assertInstanceOf(BelongsTo::class, $subgroup->Group());
         $eagerLoads = $subgroup->getEagerLoads();
         $this->assertArrayHasKey('Group', $eagerLoads);
