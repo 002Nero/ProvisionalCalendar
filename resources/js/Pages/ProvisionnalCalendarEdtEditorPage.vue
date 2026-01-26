@@ -114,7 +114,8 @@ async function loadTeachingsForYear(yearId: number) {
           semester: t.semester ?? t.semester_id ?? 1,
           editing: false,
           remainingMinutes: remaining,
-          selectedDuration: Math.min(SLOT_STEP, remaining) // default min step or remaining
+          selectedDuration: Math.min(SLOT_STEP, remaining), // default min step or remaining
+          selectedType: type // Type sélectionné par l'utilisateur (par défaut le type du cours)
         }
       })
   } catch (e) {
@@ -749,20 +750,24 @@ async function onCellDrop(e: DragEvent, day: number, time: number) {
   // Insert directly in database and capture returned id if possible
   const dbId = await insertPlacementInDb(courseId, day, time, duration, placementTeacherId, placementRoomId)
 
-  const newPlacementId = dbId ?? nextPlacementId++
-  placements.value.push({ id: newPlacementId, courseId, day, time, span, duration, teachers: placementTeachers, roomId: placementRoomId, fromDb: dbId !== null, editing: false })
-  
-  // Add to busySlots if we got a DB id
-  if (dbId !== null) {
-    busySlots.value.push({
-      day,
-      start: time,
-      end: time + span * SLOT_STEP,
-      teachers: placementTeachers,
-      roomId: placementRoomId,
-      sourceId: dbId
-    })
+  // Ne pas afficher le cours si la sauvegarde a échoué
+  if (dbId === null) {
+    currentDrop.value = { day: null, time: null }
+    return
   }
+
+  const newPlacementId = dbId
+  placements.value.push({ id: newPlacementId, courseId, day, time, span, duration, teachers: placementTeachers, roomId: placementRoomId, fromDb: true, editing: false })
+  
+  // Add to busySlots
+  busySlots.value.push({
+    day,
+    start: time,
+    end: time + span * SLOT_STEP,
+    teachers: placementTeachers,
+    roomId: placementRoomId,
+    sourceId: dbId
+  })
   
   // subtract remaining minutes for that course
   if (course) {
@@ -796,13 +801,30 @@ async function insertPlacementInDb(courseId: number, day: number, time: number, 
     }
 
     const course = courses.value.find(c => c.id === courseId)
-    const type = course?.type || 'TD'
+    const type = course?.selectedType || course?.type || 'TD'
     
     const parseOrNull = (v: unknown): number | null => {
       if (typeof v === 'number') return v
       if (typeof v === 'string' && /^[0-9]+$/.test(v)) return parseInt(v, 10)
       return null
     }
+
+    // Logique selon le type de cours :
+    // - CM : toute la promotion (group_id et subgroup_id à null)
+    // - TD : par groupe (subgroup_id à null)
+    // - TP : par sous-groupe (group_id et subgroup_id définis)
+    let groupId = parseOrNull(edtStore.groupId)
+    let subgroupId = parseOrNull(edtStore.subgroup)
+    
+    if (type === 'CM') {
+      // CM = toute la promotion, pas de groupe/sous-groupe
+      groupId = null
+      subgroupId = null
+    } else if (type === 'TD') {
+      // TD = par groupe, pas de sous-groupe
+      subgroupId = null
+    }
+    // TP garde les deux (group_id et subgroup_id)
 
     const payload = {
       year_id: edtStore.year,
@@ -811,8 +833,8 @@ async function insertPlacementInDb(courseId: number, day: number, time: number, 
       duration: durationHours,
       type: type,
       promotion_id: parseOrNull(edtStore.promotionId),
-      group_id: parseOrNull(edtStore.groupId),
-      subgroup_id: parseOrNull(edtStore.subgroup),
+      group_id: groupId,
+      subgroup_id: subgroupId,
       day_of_week: dayName,
       start_hour: startHour,
       room_id: finalRoomId,
@@ -823,9 +845,11 @@ async function insertPlacementInDb(courseId: number, day: number, time: number, 
     console.log('Placement créé:', res.data)
     const newId = res?.data?.id ?? res?.data?.edt_slot_id ?? res?.data?.slot_id ?? null
     return typeof newId === 'number' ? newId : null
-  } catch (err) {
+  } catch (err: any) {
     console.error('Erreur insertion placement:', err)
-    alert('Erreur lors de la sauvegarde du placement')
+    // Afficher un message d'erreur plus détaillé depuis le serveur
+    const errorMsg = err?.response?.data?.error || err?.response?.data?.message || 'Erreur lors de la sauvegarde du placement'
+    alert(errorMsg)
     return null
   }
 }
@@ -1222,12 +1246,18 @@ async function saveEdt() {
                     <div class="course-title">{{ c.title }}</div>
 
                     <div v-if="!c.editing" class="course-meta">
+                      <div class="meta">Type: <strong>{{ c.selectedType || c.type || '-' }}</strong></div>
                       <div class="meta">Salle: <strong>{{ (typeof c.room === 'number' ? (rooms.find(r => r.id === c.room)?.name) : c.room) || '-' }}</strong></div>
                       <div class="meta">Prof: <strong>{{ (typeof c.teacher === 'number' ? (teachers.find(t => t.id === c.teacher)?.name) : c.teacher) || '-' }}</strong></div>
                       <div class="meta">Restant: <strong>{{ formatDuration(c.remainingMinutes ?? 0) }}</strong></div>
                     </div>
 
                     <div v-else class="course-edit">
+                      <select v-model="c.selectedType" class="input-small">
+                        <option value="CM">CM</option>
+                        <option value="TD">TD</option>
+                        <option value="TP">TP</option>
+                      </select>
                       <select v-model="c.room" class="input-small">
                         <option value="" disabled>Choisir salle</option>
                         <option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</option>
