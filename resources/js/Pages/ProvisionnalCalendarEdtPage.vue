@@ -364,11 +364,26 @@ function parseDay(val: unknown): number | null {
 
 // Détermine la pause déjeuner pour un jour donné
 // 2 créneaux possibles: 12h-13h30 (défaut) ou 12h30-14h (si cours après 12h)
-function getLunchBreakForDay(dayIndex: number): { start: number; end: number } {
-  // Trouver les cours qui se terminent avant ou à 12h30 (= cours du matin)
-  const morningLessons = lessons.value.filter(
+// Peut filtrer par groupe/sous-groupe pour la vue horizontale
+function getLunchBreakForDay(dayIndex: number, groupId?: number, subgroup?: string): { start: number; end: number } {
+  // Filtrer les cours du jour qui se terminent avant ou à 12h30
+  let morningLessons = lessons.value.filter(
     l => l.day === dayIndex && (l.start_min + l.duration_min) <= 12 * 60 + 30
   )
+  
+  // Si un groupe est spécifié, ne considérer que les cours de ce groupe/sous-groupe
+  if (groupId !== undefined) {
+    morningLessons = morningLessons.filter(l => {
+      // CM : visible pour tous
+      if (l.type === 'CM') return true
+      // TD : filtrer par groupe
+      if (l.type === 'TD') return l.groupId === groupId
+      // TP : filtrer par groupe ET sous-groupe
+      if (l.type === 'TP') return l.groupId === groupId && l.subgroup === subgroup
+      // Autres : visible pour tous
+      return true
+    })
+  }
   
   if (morningLessons.length === 0) {
     // Pas de cours le matin, utiliser la pause par défaut 12h-13h30
@@ -389,8 +404,8 @@ function getLunchBreakForDay(dayIndex: number): { start: number; end: number } {
   return { start: 12 * 60, end: 13 * 60 + 30 }
 }
 
-function isBlocked(dayIndex: number, mins: number) {
-  const lunchBreak = getLunchBreakForDay(dayIndex)
+function isBlocked(dayIndex: number, mins: number, groupId?: number, subgroup?: string) {
+  const lunchBreak = getLunchBreakForDay(dayIndex, groupId, subgroup)
   return mins >= lunchBreak.start && mins < lunchBreak.end
 }
 
@@ -654,7 +669,7 @@ function generatePDF() {
                           class="cell-slot"
                           v-for="t in timeSlots"
                           :key="t"
-                          :class="{ blocked: isBlocked(dayIdx, t) }"
+                          :class="{ blocked: isBlocked(dayIdx, t, groupItem.id, sub) }"
                         >
                           <div
                             v-for="lesson in lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups))"
