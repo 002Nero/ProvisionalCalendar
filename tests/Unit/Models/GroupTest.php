@@ -23,9 +23,7 @@ class GroupTest extends WithoutDatabaseTestCase
         $group = new Group();
 
         $this->assertInstanceOf(BelongsTo::class, $group->promotion());
-        $this->assertInstanceOf(BelongsTo::class, $group->Promotion());
         $this->assertInstanceOf(HasMany::class, $group->subgroups());
-        $this->assertInstanceOf(HasMany::class, $group->Subgroups());
         $this->assertInstanceOf(HasMany::class, $group->slots());
     }
 

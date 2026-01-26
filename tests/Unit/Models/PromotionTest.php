@@ -21,7 +21,6 @@ class PromotionTest extends WithoutDatabaseTestCase
         $promotion = new Promotion();
 
         $this->assertInstanceOf(HasMany::class, $promotion->groups());
-        $this->assertInstanceOf(HasMany::class, $promotion->Groups());
         $this->assertInstanceOf(BelongsTo::class, $promotion->year());
     }
 }
