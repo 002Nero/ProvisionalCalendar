@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             if (!Schema::hasColumn('users', 'acronym')) {
-                $table->string('acronym', 10)->nullable()->after('lastname');
+                $table->string('acronym', 10)->nullable()->after('last_name');
             }
         });
     }
