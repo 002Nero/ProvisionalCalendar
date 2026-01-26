@@ -14,7 +14,10 @@
     </testsuites>
     <source>
         <include>
-            <directory>app</directory>
+            <directory>app/Models</directory>
+            <directory>app/Services</directory>
+            <directory>app/Mail</directory>
+            <directory>app/Providers</directory>
         </include>
     </source>
     <php>
