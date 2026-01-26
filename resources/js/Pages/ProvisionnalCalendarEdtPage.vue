@@ -717,15 +717,15 @@ function generatePDF() {
 .btn.primary { background:#FFD8E4; color:#000000; border-color:transparent }
 .edt-main { display:flex; gap:1rem; height: calc(100vh - 230px); }
 .filters { width:200px; border:1px solid #e5e7eb; padding:0.75rem; border-radius:6px; }
-.calendar-area { flex:1; overflow:auto; padding-bottom:3rem; }
+.calendar-area { flex:1; overflow:auto; padding-bottom:3rem; display:flex; flex-direction:column; }
 .calendar-area-horizontal { flex:1; display:flex; flex-direction:column; overflow:hidden; padding-bottom:3rem; }
-.horizontal-wrapper { display:flex; flex-direction:column; height:100%; }
+.horizontal-wrapper { display:flex; flex-direction:column; height:100%; overflow:auto; }
 .header-row { display:flex; position:sticky; top:0; z-index:30; background:white; border-bottom:1px dashed #e5e7eb; }
 .hour-header-placeholder { min-width:auto; background:#f3f4f6; border-right:1px dashed #e5e7eb; flex-shrink:0; }
-.hours-container { display:flex; overflow-x:auto; flex:1; }
+.hours-container { display:flex; flex:1; min-width:max-content; overflow:hidden; }
 .hour-header { min-width:60px; width:60px; height:50px; background:#f3f4f6; border-right:1px dashed #e5e7eb; display:flex; align-items:center; justify-content:flex-start; padding-left:4px; font-size:0.7rem; font-weight:600; flex-shrink:0; }
-.content-wrapper { flex:1; overflow:auto; width: 100%; }
-.scrollable-content { display:flex; flex-direction:column; gap:0; }
+.content-wrapper { flex:1; width:100%; min-width:max-content; }
+.scrollable-content { display:flex; flex-direction:column; gap:0; min-width:max-content; }
 .day-section { display:flex; gap:0; border-bottom:1px dashed #e5e7eb; padding-bottom:4px; }
 .day-label-column { width:80px; min-width:80px; display:flex; flex-direction:column; border-right:1px dashed #e5e7eb; flex-shrink:0; }
 .day-name-cell { height:30px; background:#f3f4f6; font-weight:700; font-size:0.9rem; display:flex; align-items:center; justify-content:center; border-bottom:none; border-radius:4px; }
@@ -749,7 +749,7 @@ function generatePDF() {
 .lesson-content-h { display:flex; flex-direction:column; gap:0.1rem; overflow:hidden; }
 .lesson-title-h { font-weight:600; font-size:0.8rem; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#92400e; }
 .lesson-meta-h { font-size:0.75rem; font-weight:400; opacity:0.95; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#7c2d12; }
-.calendar-header { display:grid; grid-template-columns: 80px repeat(6,1fr); gap:0.5rem; margin-bottom:0.5rem; position:sticky; top:0; z-index:20; background:transparent }
+.calendar-header { display:grid; grid-template-columns: 80px repeat(6,minmax(0,1fr)); gap:0.5rem; margin-bottom:0.5rem; position:sticky; top:0; z-index:20; background:transparent; width:100%; }
 .calendar-header .time-header { height: 100%; }
 .calendar-header .day {
   text-align: center;
@@ -763,8 +763,8 @@ function generatePDF() {
   padding: 0;
   font-weight: 600;
 }
-.calendar-grid { display:grid; gap:0.25rem }
-.calendar-grid .row { display:grid; grid-template-columns:80px repeat(6,1fr); align-items:start }
+.calendar-grid { display:grid; gap:0.25rem; width:100%; }
+.calendar-grid .row { display:grid; grid-template-columns:80px repeat(6,minmax(0,1fr)); align-items:start; width:100%; }
 .calendar-grid .cell { height:40px; border:1px dashed #e5e7eb; background:#fff; position:relative; overflow:visible; }
 .calendar-grid .cell.time { padding:0.12rem 0.2rem; font-size:0.85rem; color:#6b7280; background:transparent; border:none; position:sticky; left:0; z-index:15; }
 .calendar-grid .cell.blocked {
