@@ -12,6 +12,7 @@ async function handleGenerate() {
     alert('Année ou semaine non sélectionnée')
     return
   }
+  const yearId = edtStore.year
   const weekId = currentWeek.value
   isGenerating.value = true
   generationStatus.value = 'processing'
@@ -19,7 +20,10 @@ async function handleGenerate() {
     // Appel API POST pour lancer la génération
     await axios.post(
       `${import.meta.env.VITE_API_BASE_URL}/generate`,
-      { week_id: weekId },
+      { 
+        year_id: yearId,
+        week_id: weekId 
+      },
       {
         headers: {
           Authorization: import.meta.env.VITE_API_AUTHORIZATION || ''
@@ -27,7 +31,7 @@ async function handleGenerate() {
       }
     )
     // Lancer le polling du statut
-    startPollingStatus(weekId)
+    startPollingStatus(yearId, weekId)
   } catch (e) {
     isGenerating.value = false
     generationStatus.value = 'error'
@@ -35,12 +39,13 @@ async function handleGenerate() {
   }
 }
 
-function startPollingStatus(weekId: number) {
+function startPollingStatus(yearId: number, weekId: number) {
   stopPollingStatus()
   pollingInterval = window.setInterval(async () => {
     try {
       const res = await axios.get(
-        `${import.meta.env.VITE_API_BASE_URL}/generate/status/${weekId}`,
+        `${import.meta.env.VITE_API_BASE_URL}/generate/status/${yearId}/${weekId}`,
+        {},
         {
           headers: {
             Authorization: import.meta.env.VITE_API_AUTHORIZATION || ''
