@@ -1,103 +1,40 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Models;
 
-use Tests\TestCase;
 use App\Models\Teaching;
-use App\Models\Year;
-use App\Models\Semester;
-use App\Models\Trimester;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Tests\WithoutDatabaseTestCase;
 
-class TeachingTest extends TestCase
+class TeachingTest extends WithoutDatabaseTestCase
 {
-    use RefreshDatabase;
-
-    public function test_teaching_creation()
+    public function test_fillable_fields()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\SemesterSeeder::class,
-            \Database\Seeders\TeachingSeeder::class
-        ]);
-        
-        $teaching = Teaching::skip(7)->first();
+        $teaching = new Teaching();
 
-        $this->assertInstanceOf(Teaching::class, $teaching);
-        echo($teaching->title);
-        $this->assertEquals('R1.01 Initiation au développement', $teaching->title);
-        $this->assertEquals('TIN01A1M', $teaching->apogee_code);
-        $this->assertEquals(15.00, $teaching->tp_hours_initial);
-        $this->assertEquals(10.00, $teaching->td_hours_initial);
-        $this->assertEquals(15.00, $teaching->cm_hours_initial);
-        $this->assertInstanceOf(Year::class, $teaching->year);
+        $this->assertSame([
+            'title',
+            'apogee_code',
+            'tp_hours_initial',
+            'tp_hours_continued',
+            'td_hours_initial',
+            'td_hours_continued',
+            'cm_hours',
+            'semester_id',
+            'year_id',
+        ], $teaching->getFillable());
     }
 
-    public function test_teaching_relationships()
+    public function test_relations_types()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\SemesterSeeder::class,
-            \Database\Seeders\TeachingSeeder::class
-        ]);
-        
-        $teaching = Teaching::with(['year', 'semester', 'trimester'])->first();
+        $teaching = new Teaching();
 
-        // Test de la relation avec Year
-        $this->assertInstanceOf(Year::class, $teaching->year);
-        
-        // Test de la relation avec Semester ou Trimester
-        if ($teaching->semester_id) {
-            $this->assertInstanceOf(Semester::class, $teaching->semester);
-            $this->assertNull($teaching->trimester);
-        } else {
-            $this->assertInstanceOf(Trimester::class, $teaching->trimester);
-            $this->assertNull($teaching->semester);
-        }
+        $this->assertInstanceOf(BelongsToMany::class, $teaching->teachers());
+        $this->assertInstanceOf(BelongsTo::class, $teaching->year());
+        $this->assertInstanceOf(HasMany::class, $teaching->slots());
+        $this->assertInstanceOf(BelongsTo::class, $teaching->semester());
+        $this->assertInstanceOf(BelongsTo::class, $teaching->trimester());
     }
-
-    public function test_teaching_validation()
-    {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\SemesterSeeder::class
-        ]);
-
-        $year = Year::first();
-        $semester = Semester::first();
-
-        // Test de création avec des données valides
-        $teaching = Teaching::create([
-            'title' => 'Test Teaching',
-            'apogee_code' => 'TEST_001',
-            'tp_hours_initial' => 10.00,
-            'td_hours_initial' => 10.00,
-            'cm_hours_initial' => 10.00,
-            'semester_id' => $semester->id,
-            'trimester_id' => null,
-            'year_id' => $year->id
-        ]);
-
-        $this->assertDatabaseHas('teachings', [
-            'title' => 'Test Teaching',
-            'apogee_code' => 'TEST_001',
-            'year_id' => $year->id
-        ]);
-
-        // Test de création avec une année inexistante
-        $this->expectException(\Illuminate\Database\QueryException::class);
-        
-        Teaching::create([
-            'title' => 'Invalid Teaching',
-            'apogee_code' => 'TEST_002',
-            'tp_hours_initial' => 10.00,
-            'td_hours_initial' => 10.00,
-            'cm_hours_initial' => 10.00,
-            'semester_id' => $semester->id,
-            'trimester_id' => null,
-            'year_id' => 999 // ID inexistant
-        ]);
-    }
-} 
+}

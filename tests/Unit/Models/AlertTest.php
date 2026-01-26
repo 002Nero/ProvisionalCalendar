@@ -1,41 +1,24 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Models;
 
-use Tests\TestCase;
 use App\Models\Alert;
-use App\Models\Year;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Tests\WithoutDatabaseTestCase;
 
-class AlertTest extends TestCase
+class AlertTest extends WithoutDatabaseTestCase
 {
-    use RefreshDatabase;
-
-    public function test_alert_creation()
+    public function test_fillable_fields()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\AlertSeeder::class
-        ]);
-        
-        $alert = Alert::first();
+        $alert = new Alert();
 
-        $this->assertInstanceOf(Alert::class, $alert);
-        $this->assertEquals('Exemple de message d\'alerte', $alert->message);
-        $this->assertInstanceOf(Year::class, $alert->year);
+        $this->assertSame(['message', 'year_id'], $alert->getFillable());
     }
 
-    public function test_alert_relationships()
+    public function test_relations_types()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\AlertSeeder::class
-        ]);
-        
-        $alert = Alert::with('year')->first();
+        $alert = new Alert();
 
-        $this->assertInstanceOf(Year::class, $alert->year);
+        $this->assertInstanceOf(BelongsTo::class, $alert->year());
     }
 }

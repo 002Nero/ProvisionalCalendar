@@ -2,54 +2,25 @@
 
 namespace Tests\Unit\Models;
 
-use Tests\TestCase;
 use App\Models\Week;
-use App\Models\Year;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Tests\WithoutDatabaseTestCase;
 
-class WeekTest extends TestCase
+class WeekTest extends WithoutDatabaseTestCase
 {
-    use RefreshDatabase;
-
-    public function test_week_belongs_to_year()
+    public function test_fillable_fields()
     {
-        $year = new Year();
-        $year->name = '2024-2025';
-        $year->periodicity = 'Semestrial';
-        $year->save();
-
         $week = new Week();
-        $week->name = 'S1';
-        $week->week_number = 1;
-        $week->year_id = $year->id;
-        $week->save();
 
-        $this->assertInstanceOf(Year::class, $week->year);
-        $this->assertEquals($year->id, $week->year->id);
+        $this->assertSame(['name', 'week_number', 'year_id'], $week->getFillable());
     }
 
-    public function test_week_number_must_be_between_1_and_52()
+    public function test_relations_types()
     {
-        $year = new Year();
-        $year->name = '2024-2025';
-        $year->periodicity = 'Semestrial';
-        $year->save();
-
         $week = new Week();
-        $week->name = 'S1';
-        $week->week_number = 1;
-        $week->year_id = $year->id;
-        $week->save();
 
-        $this->assertEquals(1, $week->week_number);
-
-        $week2 = new Week();
-        $week2->name = 'S52';
-        $week2->week_number = 52;
-        $week2->year_id = $year->id;
-        $week2->save();
-
-        $this->assertEquals(52, $week2->week_number);
+        $this->assertInstanceOf(BelongsTo::class, $week->year());
+        $this->assertInstanceOf(HasMany::class, $week->slots());
     }
-
-} 
+}

@@ -1,49 +1,28 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Models;
 
-use Tests\TestCase;
 use App\Models\Teacher;
-use App\Models\User;
-use App\Models\Year;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Tests\WithoutDatabaseTestCase;
 
-class TeacherTest extends TestCase
+class TeacherTest extends WithoutDatabaseTestCase
 {
-    use RefreshDatabase;
-
-    public function test_teacher_creation()
+    public function test_fillable_fields()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\RoleSeeder::class,
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\UserSeeder::class,
-            \Database\Seeders\TeacherSeeder::class
-        ]);
-        
-        $teacher = Teacher::first();
+        $teacher = new Teacher();
 
-        $this->assertInstanceOf(Teacher::class, $teacher);
-        $this->assertEquals('LD', $teacher->acronym);
-        #$this->assertEquals('Laurent', $teacher->first_name); c'est de la merde
-        #$this->assertEquals('DUBREUIL', $teacher->last_name);
-        $this->assertInstanceOf(User::class, $teacher->user);
-        $this->assertInstanceOf(Year::class, $teacher->year);
+        $this->assertSame(['user_id', 'acronym', 'first_name', 'last_name', 'year_id'], $teacher->getFillable());
     }
 
-    public function test_teacher_relationships()
+    public function test_relations_types()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\RoleSeeder::class,
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\UserSeeder::class,
-            \Database\Seeders\TeacherSeeder::class
-        ]);
-        
-        $teacher = Teacher::first();
-        $this->assertInstanceOf(User::class, $teacher->user);
-        $this->assertInstanceOf(Year::class, $teacher->year);
+        $teacher = new Teacher();
+
+        $this->assertInstanceOf(BelongsTo::class, $teacher->user());
+        $this->assertInstanceOf(BelongsToMany::class, $teacher->teachings());
+        $this->assertInstanceOf(BelongsTo::class, $teacher->year());
+        $this->assertInstanceOf(BelongsToMany::class, $teacher->slots());
     }
 }

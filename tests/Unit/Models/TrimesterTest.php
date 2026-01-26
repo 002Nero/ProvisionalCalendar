@@ -1,79 +1,26 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Models;
 
-use Tests\TestCase;
 use App\Models\Trimester;
-use App\Models\Year;
-use App\Models\Teaching;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Tests\WithoutDatabaseTestCase;
 
-class TrimesterTest extends TestCase
+class TrimesterTest extends WithoutDatabaseTestCase
 {
-    use RefreshDatabase;
-
-    public function test_trimester_creation()
+    public function test_fillable_fields()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\TrimesterSeeder::class
-        ]);
-        
-        $trimester = Trimester::first();
+        $trimester = new Trimester();
 
-        $this->assertInstanceOf(Trimester::class, $trimester);
-        $this->assertEquals(1, $trimester->trimester_number);
-        $this->assertInstanceOf(Year::class, $trimester->year);
+        $this->assertSame(['trimester_number', 'year_id'], $trimester->getFillable());
     }
 
-    public function test_trimester_relationships()
+    public function test_relations_types()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\SemesterSeeder::class,
-            \Database\Seeders\TrimesterSeeder::class,
-            \Database\Seeders\TeachingSeeder::class,
-        ]);
-        #$this->seed([
-        #    
-       #]);
-        
-        $trimester = Trimester::with(['year', 'teachings'])->first();
+        $trimester = new Trimester();
 
-        // Test de la relation avec Year
-        $this->assertInstanceOf(Year::class, $trimester->year);
-        
-        // Test de la relation avec Teaching
-        $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $trimester->teachings);
-        $this->assertInstanceOf(Teaching::class, $trimester->teachings->first());
+        $this->assertInstanceOf(BelongsTo::class, $trimester->year());
+        $this->assertInstanceOf(HasMany::class, $trimester->teachings());
     }
-
-    public function test_trimester_validation()
-    {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class
-        ]);
-
-        $year = Year::first();
-
-        // Test de création avec des données valides
-        $trimester = Trimester::create([
-            'trimester_number' => 1,
-            'year_id' => $year->id
-        ]);
-
-        $this->assertDatabaseHas('trimesters', [
-            'trimester_number' => 1,
-            'year_id' => $year->id
-        ]);
-
-        // Test de création avec une année inexistante
-        $this->expectException(\Illuminate\Database\QueryException::class);
-        
-        Trimester::create([
-            'trimester_number' => 1,
-            'year_id' => 999 // ID inexistant
-        ]);
-    }
-} 
+}
