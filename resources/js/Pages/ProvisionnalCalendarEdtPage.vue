@@ -81,7 +81,7 @@ async function loadGroupsForPromotion(promoId: number | null) {
       if (edtStore.groupId && groups.value.find(g => g.id === edtStore.groupId)) {
         selectedGroup.value = edtStore.groupId
       } else {
-        selectedGroup.value = groups.value[0].id
+        selectedGroup.value = null
       }
     } else {
       selectedGroup.value = null
@@ -505,11 +505,11 @@ function generatePDF() {
             <label>
               Groupe
               <select v-model="selectedGroup">
-                <option :value="null">Tous</option>
+                <option :value="0">Tous</option>
                 <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
               </select>
             </label>
-            <label v-if="selectedGroup !== null" style="display:flex; align-items:center; gap:0.4rem;">
+            <label v-if="selectedGroup && selectedGroup !== 0" style="display:flex; align-items:center; gap:0.4rem;">
               Sous-groupe
               <select v-model="selectedSubgroup" style="width:64px;">
                 <option value="A">A</option>
@@ -524,7 +524,7 @@ function generatePDF() {
           <span class="week-indicator"> Semaine {{ currentWeek }}</span>
           <IconButton iconClass="ChevronRight" bgColor="#FFD8E4" small @click="nextWeek" />
           <button class="btn primary">Générer</button>
-          <button class="btn primary" @click="$inertia.visit('/calendrier-previsionnel/edt/modifier')">Modifier</button>
+          <button v-if="selectedGroup && selectedGroup !== 0" class="btn primary" @click="$inertia.visit('/calendrier-previsionnel/edt/modifier')">Modifier</button>
           <button class="btn primary" @click="generatePDF">PDF</button>
 
         </div>
@@ -532,7 +532,7 @@ function generatePDF() {
 
       <main class="edt-main">
         <!-- Layout Vertical (groupe spécifique sélectionné) -->
-        <section v-if="selectedGroup !== null" class="calendar-area">
+        <section v-if="selectedGroup && selectedGroup !== 0" class="calendar-area">
           <div class="calendar-header">
             <div class="time-header"></div>
             <div class="day" v-for="d in ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']" :key="d">{{ d }}</div>
