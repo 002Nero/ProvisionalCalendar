@@ -73,7 +73,7 @@ async function loadTeachingsForYear(yearId: number) {
   try {
       const res = await axios.get(`/api/teachings/${yearId}`)
       const data = Array.isArray(res.data) ? res.data : []
-      console.debug('teachings API response count', data.length, data.slice ? data.slice(0,5) : data)
+      console.debug('teachings API response count', data.length)
       // Map backend teaching structure to Course used by the UI.
       // Be permissive: the API has changed names in places (cm_hours vs cm_hours_initial,
       // td_hours_intial typo, title vs name). We normalize here without touching the DB.
@@ -110,8 +110,8 @@ async function loadTeachingsForYear(yearId: number) {
           title,
           type,
           duration: durationMinutes,
-          // Default semester to 1 when missing so filters don't hide the course
-          semester: t.semester ?? t.semester_id ?? 1,
+          // Utiliser le semester tel quel sans valeur par défaut pour que le filtrage fonctionne
+          semester: t.semester ?? null,
           editing: false,
           remainingMinutes: remaining,
           selectedDuration: Math.min(SLOT_STEP, remaining), // default min step or remaining
@@ -290,15 +290,16 @@ const promotions = ref([
   { id: 3, name: 'A3' },
 ])
 
-const selectedPromotionFilter = ref<number>(edtStore.promotionId ?? promotions.value[0].id)
+// Utiliser 1 par défaut au lieu de l'ID de la promotion DB
+const selectedPromotionFilter = ref<number>(1)
 
 const selectedSemesterFilter = ref<number | 'all'>('all')
 const semesters = [1,2,3,4,5,6]
 
 const semestersByPromotion: Record<number, number[]> = {
-  1: [1,2],
-  2: [3,4],
-  3: [5,6],
+  1: [1,2],  // A1 → S1, S2
+  2: [3,4],  // A2 → S3, S4
+  3: [5,6],  // A3 → S5, S6
 }
 
 const availableSemesters = computed(() => semestersByPromotion[selectedPromotionFilter.value] || [])
@@ -311,13 +312,29 @@ watch(selectedPromotionFilter, () => {
 
 const filteredCourses = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  return courses.value.filter(c => {
-    if (selectedSemesterFilter.value !== 'all' && (c.semester ?? -1) !== selectedSemesterFilter.value) return false
+  console.debug('Filtrage - Promotion:', selectedPromotionFilter.value, 'Semester filter:', selectedSemesterFilter.value)
+  
+  const filtered = courses.value.filter(c => {
+    // Filtrer par le filtre de semestre sélectionné (S1, S2, etc.)
+    if (selectedSemesterFilter.value !== 'all' && (c.semester ?? null) !== selectedSemesterFilter.value) {
+      return false
+    }
+    
+    // Filtrer par promotion : A1 → S1-S2, A2 → S3-S4, A3 → S5-S6
     const allowed = semestersByPromotion[selectedPromotionFilter.value] || semesters
-    if (!allowed.includes((c.semester ?? -1) as number)) return false
+    const courseSemester = c.semester ?? null
+    if (courseSemester !== null && !allowed.includes(courseSemester)) {
+      return false
+    }
+    
+    // Filtrer par recherche textuelle
     if (!q) return true
     return (c.title || '').toLowerCase().includes(q) || (c.code || '').toLowerCase().includes(q)
   })
+  
+  const allowedSems = semestersByPromotion[selectedPromotionFilter.value] || []
+  console.debug('Filtre: Promo', selectedPromotionFilter.value, 'Semestres', allowedSems, filtered.length, '/', courses.value.length, 'cours')
+  return filtered
 })
 
 const rooms = ref<{id:number;name:string}[]>([])
@@ -1223,6 +1240,9 @@ async function saveEdt() {
                   <input class="search" placeholder="Rechercher un cours..." v-model="searchQuery" />
                 </div>
                 <div class="semester-row">
+                  <select v-model.number="selectedPromotionFilter" class="semester-select">
+                    <option v-for="p in promotions" :key="p.id" :value="p.id">{{ p.name }}</option>
+                  </select>
                   <select v-model="selectedSemesterFilter" class="semester-select">
                     <option value="all">Tous les semestres</option>
                     <option v-for="s in availableSemesters" :key="s" :value="s">Semestre {{ s }}</option>

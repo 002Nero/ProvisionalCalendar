@@ -26,8 +26,21 @@ class TeachingController extends Controller
             }
 
             // Récupère les enseignements pour l'année spécifiée
-            $teachings = Teaching::get()
+            $teachings = Teaching::with('semester')->get()
                 ->map(function ($teaching) {
+                    // Extraire le numéro de semestre du titre
+                    // Formats supportés: R1.xx, S1.xx, SAE 1.xx, SAÉ 1.xx
+                    $semesterNumber = null;
+                    if (preg_match('/^R(\d)\./', $teaching->title, $matches)) {
+                        $semesterNumber = (int)$matches[1];
+                    } elseif (preg_match('/^S(?:A[EÉ])?\s*(\d)\./', $teaching->title, $matches)) {
+                        // S1, SA1, SAE1, SAÉ1 (groupe non capturant pour A[EÉ])
+                        $semesterNumber = (int)$matches[1];
+                    }
+                    
+                    // Utiliser semester_number de la relation si disponible, sinon le calculé, sinon null
+                    $semester = $teaching->semester?->semester_number ?? $semesterNumber;
+                    
                     return [
                         'id' => $teaching->id,
                         'name' => $teaching->title,
@@ -37,6 +50,8 @@ class TeachingController extends Controller
                         'td_hours_intial' => $teaching->td_hours_intial,
                         'td_hours_continued' => $teaching->td_hours_continued,
                         'cm_hours' => $teaching->cm_hours,
+                        'semester_id' => $teaching->semester_id,
+                        'semester' => $semester,
                     ];
                 });
 
