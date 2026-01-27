@@ -16,10 +16,13 @@ class TeachingController extends Controller
 {
     public function getTeachings($year): JsonResponse
     {
+        Log::debug('TeachingController: getTeachings called', ['year' => $year]);
+
         try {
             // Vérifie si l'année existe
             $yearExists = Year::find($year);
             if (!$yearExists) {
+                Log::warning('TeachingController: year not found', ['year' => $year]);
                 return response()->json([
                     'error' => 'Année non trouvée'
                 ], 404);
@@ -40,9 +43,11 @@ class TeachingController extends Controller
                     ];
                 });
 
+            Log::debug('TeachingController: teachings retrieved', ['year' => $year, 'count' => $teachings->count()]);
             return response()->json($teachings);
 
         } catch (\Exception $e) {
+            Log::error('TeachingController: getTeachings failed', ['year' => $year, 'error' => $e->getMessage()]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -52,10 +57,13 @@ class TeachingController extends Controller
 
     public function getTeachingsByTeacher($teacher_id): JsonResponse
     {
+        Log::debug('TeachingController: getTeachingsByTeacher called', ['teacher_id' => $teacher_id]);
+
         try {
             // Vérifie si l'enseignant existe
             $teacher = Teacher::find($teacher_id);
             if (!$teacher) {
+                Log::warning('TeachingController: teacher not found', ['teacher_id' => $teacher_id]);
                 return response()->json([
                     'error' => 'Enseignant non trouvé'
                 ], 404);
@@ -70,9 +78,11 @@ class TeachingController extends Controller
                 ];
             });
 
+            Log::debug('TeachingController: teachings for teacher retrieved', ['teacher_id' => $teacher_id, 'count' => $teachings->count()]);
             return response()->json($teachings);
 
         } catch (\Exception $e) {
+            Log::error('TeachingController: getTeachingsByTeacher failed', ['teacher_id' => $teacher_id, 'error' => $e->getMessage()]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -82,12 +92,15 @@ class TeachingController extends Controller
 
     public function getTeaching($teaching_id): JsonResponse
     {
+        Log::debug('TeachingController: getTeaching called', ['teaching_id' => $teaching_id]);
+
         try {
             // Vérifie si l'enseignement existe
             $teaching = Teaching::with(['teachers', 'year'])
                 ->find($teaching_id);
 
             if (!$teaching) {
+                Log::warning('TeachingController: teaching not found', ['teaching_id' => $teaching_id]);
                 return response()->json([
                     'error' => 'Enseignement non trouvé'
                 ], 404);
@@ -120,9 +133,11 @@ class TeachingController extends Controller
                 })
             ];
 
+            Log::debug('TeachingController: teaching retrieved', ['teaching_id' => $teaching_id]);
             return response()->json($response);
 
         } catch (\Exception $e) {
+            Log::error('TeachingController: getTeaching failed', ['teaching_id' => $teaching_id, 'error' => $e->getMessage()]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -132,6 +147,8 @@ class TeachingController extends Controller
 
     public function storeTeaching(Request $request, $year): JsonResponse
     {
+        Log::debug('TeachingController: storeTeaching called', ['year' => $year, 'title' => $request->title]);
+
         try {
             $request->validate([
                 'title' => 'required|string|max:255',
@@ -222,6 +239,12 @@ class TeachingController extends Controller
                 'year_id' => $year
             ]);
 
+            Log::info('TeachingController: teaching created successfully', [
+                'teaching_id' => $teaching->id,
+                'title' => $teaching->title,
+                'year' => $year
+            ]);
+
             return response()->json([
                 'message' => 'Enseignement créé avec succès',
                 'teaching' => [
@@ -241,6 +264,7 @@ class TeachingController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            Log::error('TeachingController: storeTeaching failed', ['year' => $year, 'error' => $e->getMessage()]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -250,6 +274,8 @@ class TeachingController extends Controller
 
     public function updateTeaching(Request $request, $teaching_id): JsonResponse
     {
+        Log::debug('TeachingController: updateTeaching called', ['teaching_id' => $teaching_id]);
+
         try {
             $request->validate([
                 'title' => 'required|string|max:255',
@@ -360,6 +386,7 @@ class TeachingController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            Log::error('TeachingController: updateTeaching failed', ['teaching_id' => $teaching_id, 'error' => $e->getMessage()]);
             return response()->json([
                 'error' => 'Une erreur est survenue'
             ], 500);
@@ -368,19 +395,24 @@ class TeachingController extends Controller
 
     public function deleteTeaching($teaching_id): JsonResponse
     {
+        Log::debug('TeachingController: deleteTeaching called', ['teaching_id' => $teaching_id]);
+
         try {
             // Vérifie si l'enseignement existe
             $teaching = Teaching::with(['teachers', 'year'])->find($teaching_id);
             if (!$teaching) {
+                Log::warning('TeachingController: teaching not found for deletion', ['teaching_id' => $teaching_id]);
                 return response()->json([
                     'error' => 'Enseignement non trouvé'
                 ], 404);
             }
 
             $teaching->delete();
+            Log::info('TeachingController: teaching deleted successfully', ['teaching_id' => $teaching_id]);
             return response()->json([]);
 
         } catch (\Exception $e) {
+            Log::error('TeachingController: deleteTeaching failed', ['teaching_id' => $teaching_id, 'error' => $e->getMessage()]);
             return response()->json([
                 'error' => 'Une erreur est survenue'
             ], 500);

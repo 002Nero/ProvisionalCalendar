@@ -6,20 +6,29 @@ use App\Http\Controllers\Controller;
 use App\Models\Label;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class LabelController extends Controller
 {
     public function index(): JsonResponse
     {
+        Log::debug('LabelController: index called');
         return response()->json(Label::all());
     }
 
     public function getLabel($label_id): JsonResponse
     {
+        Log::debug('LabelController: getLabel called', ['label_id' => $label_id]);
+
         try {
             $label = Label::findOrFail($label_id);
+            Log::debug('LabelController: label retrieved', ['label_id' => $label_id]);
             return response()->json($label);
         } catch (\Exception $e) {
+            Log::error('LabelController: getLabel failed', [
+                'label_id' => $label_id,
+                'error' => $e->getMessage()
+            ]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -30,6 +39,8 @@ class LabelController extends Controller
 
     public function updateLabel(Request $request, $label_id): JsonResponse
     {
+        Log::debug('LabelController: updateLabel called', ['label_id' => $label_id, 'new_name' => $request->name]);
+
         try {
             // Validation de la requête
             $request->validate([
@@ -44,6 +55,11 @@ class LabelController extends Controller
                 'name' => $request->name
             ]);
 
+            Log::info('LabelController: label updated successfully', [
+                'label_id' => $label_id,
+                'new_name' => $request->name
+            ]);
+
             return response()->json([
                 'message' => 'Label modifié avec succès',
                 'label' => [
@@ -54,6 +70,10 @@ class LabelController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            Log::error('LabelController: updateLabel failed', [
+                'label_id' => $label_id,
+                'error' => $e->getMessage()
+            ]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()

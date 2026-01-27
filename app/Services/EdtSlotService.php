@@ -6,6 +6,7 @@ use App\Models\Slot;
 use App\Models\Teacher;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class EdtSlotService
@@ -18,6 +19,9 @@ class EdtSlotService
     public function __construct()
     {
         $this->columnConfig = $this->detectColumnConfiguration();
+        Log::debug('EdtSlotService: initialized with column configuration', [
+            'config' => $this->columnConfig
+        ]);
     }
 
     /**
@@ -25,11 +29,23 @@ class EdtSlotService
      */
     public function getEdtSlotsForWeek(int $yearId, int $weekNumber, array $filters = []): array
     {
+        Log::debug('EdtSlotService: fetching slots for week', [
+            'year_id' => $yearId,
+            'week_number' => $weekNumber,
+            'filters' => $filters
+        ]);
+
         $rows = $this->fetchEdtSlotRows($yearId, $weekNumber);
         
         if ($rows->isEmpty()) {
+            Log::debug('EdtSlotService: no slots found for week', [
+                'year_id' => $yearId,
+                'week_number' => $weekNumber
+            ]);
             return [];
         }
+
+        Log::debug('EdtSlotService: found raw edt_slot rows', ['count' => $rows->count()]);
 
         $slotIds = $this->extractSlotIds($rows);
         $slots = $this->loadSlotsWithFilters($slotIds, $filters);
@@ -37,7 +53,15 @@ class EdtSlotService
         $this->loadSlotTypeData($slots);
         $slots = $this->attachTeachersToSlots($slots, $slotIds);
 
-        return $this->buildResponse($rows, $slots, !empty($filters));
+        $result = $this->buildResponse($rows, $slots, !empty($filters));
+
+        Log::info('EdtSlotService: slots retrieved successfully', [
+            'year_id' => $yearId,
+            'week_number' => $weekNumber,
+            'result_count' => count($result)
+        ]);
+
+        return $result;
     }
 
     /**
@@ -417,6 +441,8 @@ class EdtSlotService
 
     public function updateEdtSlotsBulk(array $updates): array
     {
+        Log::debug('EdtSlotService: starting bulk update', ['update_count' => count($updates)]);
+
         $updated = [];
         $errors = [];
 
@@ -430,6 +456,11 @@ class EdtSlotService
             }
         }
 
+        Log::info('EdtSlotService: bulk update completed', [
+            'updated_count' => count($updated),
+            'error_count' => count($errors)
+        ]);
+
         return [
             'updated' => $updated,
             'errors' => $errors,
@@ -441,6 +472,7 @@ class EdtSlotService
         $edtSlotId = $data['edt_slot_id'] ?? null;
 
         if (empty($edtSlotId)) {
+            Log::warning('EdtSlotService: update failed - missing edt_slot_id');
             return $this->updateError($edtSlotId, 'edt_slot_id manquant');
         }
 

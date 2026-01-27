@@ -7,6 +7,7 @@ use App\Models\Week;
 use App\Services\EdtSlotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Slot;
 use App\Models\Teaching;
@@ -28,6 +29,8 @@ class CalendarController extends Controller
      */
     public function storeSlot(Request $request): JsonResponse
     {
+        Log::debug('CalendarController: storeSlot called', ['request_data' => $request->all()]);
+
         try {
             $validator = Validator::make($request->all(), [
                 'duration' => 'required|numeric|min:0',
@@ -43,6 +46,9 @@ class CalendarController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::warning('CalendarController: storeSlot validation failed', [
+                    'errors' => $validator->errors()->toArray()
+                ]);
                 return response()->json([
                     'error' => 'Données invalides',
                     'messages' => $validator->errors()
@@ -58,6 +64,11 @@ class CalendarController extends Controller
                 ->first();
 
             if ($existingSlot) {
+                Log::warning('CalendarController: slot creation failed - teacher already has a slot', [
+                    'teacher_id' => $request->teacher_id,
+                    'week_id' => $request->week_id,
+                    'existing_slot_id' => $existingSlot->id
+                ]);
                 return response()->json([
                     'error' => 'L\'enseignant a déjà un cours prévu à ce moment'
                 ], 422);
@@ -69,12 +80,18 @@ class CalendarController extends Controller
             // Charger les relations pour la réponse
             $slot->load(['teacher', 'substituteTeacher', 'teaching', 'Promotion']);
 
+            Log::info('CalendarController: slot created successfully', ['slot_id' => $slot->id]);
+
             return response()->json([
                 'message' => 'Slot créé avec succès',
                 'slot' => $slot
             ], 201);
 
         } catch (\Exception $e) {
+            Log::error('CalendarController: storeSlot failed with exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -88,6 +105,12 @@ class CalendarController extends Controller
      */
     public function storeSlotsBulk(Request $request): JsonResponse
     {
+        Log::debug('CalendarController: storeSlotsBulk called', [
+            'year_id' => $request->year_id,
+            'week_number' => $request->week_number,
+            'placements_count' => is_array($request->placements) ? count($request->placements) : 0
+        ]);
+
         try {
             $validator = Validator::make($request->all(), [
                 'year_id' => 'required|exists:years,id',
@@ -99,6 +122,9 @@ class CalendarController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::warning('CalendarController: storeSlotsBulk validation failed', [
+                    'errors' => $validator->errors()->toArray()
+                ]);
                 return response()->json([
                     'error' => 'Données invalides',
                     'messages' => $validator->errors()
@@ -108,6 +134,10 @@ class CalendarController extends Controller
             // Trouver la semaine correspondant à l'année + numéro
             $week = Week::where('year_id', $request->year_id)->where('week_number', $request->week_number)->first();
             if (!$week) {
+                Log::warning('CalendarController: week not found for bulk slot creation', [
+                    'year_id' => $request->year_id,
+                    'week_number' => $request->week_number
+                ]);
                 return response()->json(['error' => 'Semaine introuvable pour cette année'], 404);
             }
 
@@ -169,9 +199,14 @@ class CalendarController extends Controller
                 $slot = Slot::create($slotData);
                 $slot->load(['teacher', 'substituteTeacher', 'teaching', 'Promotion']);
                 $created[] = $slot;
+                Log::debug('CalendarController: slot created in bulk', ['slot_id' => $slot->id]);
             }
 
             $status = empty($errors) ? 201 : 207;
+            Log::info('CalendarController: storeSlotsBulk completed', [
+                'created_count' => count($created),
+                'error_count' => count($errors)
+            ]);
             return response()->json([
                 'message' => empty($errors) ? 'Slots créés avec succès' : 'Création partielle: certains éléments ont échoué',
                 'created' => $created,
@@ -179,6 +214,10 @@ class CalendarController extends Controller
             ], $status);
 
         } catch (\Exception $e) {
+            Log::error('CalendarController: storeSlotsBulk failed with exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -189,6 +228,8 @@ class CalendarController extends Controller
 
     public function getCalendarData($year_id): JsonResponse
     {
+        Log::debug('CalendarController: getCalendarData called', ['year_id' => $year_id]);
+
         try {
             // Récupérer les semaines avec leurs créneaux
             $weeks = Week::where('year_id', $year_id)
@@ -301,6 +342,12 @@ class CalendarController extends Controller
      */
     public function getEdtSlots(Request $request, $year_id, $week_number): JsonResponse
     {
+        Log::debug('CalendarController: getEdtSlots called', [
+            'year_id' => $year_id,
+            'week_number' => $week_number,
+            'filters' => $request->query()
+        ]);
+
         try {
             $filters = array_filter([
                 'promotion_id' => $request->query('promotion_id'),
@@ -314,8 +361,14 @@ class CalendarController extends Controller
                 $filters
             );
 
+            Log::debug('CalendarController: getEdtSlots completed', ['result_count' => count($result)]);
             return response()->json($result);
         } catch (\Exception $e) {
+            Log::error('CalendarController: getEdtSlots failed', [
+                'year_id' => $year_id,
+                'week_number' => $week_number,
+                'error' => $e->getMessage()
+            ]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -328,6 +381,10 @@ class CalendarController extends Controller
      */
     public function storeEdtSlotsBulk(Request $request): JsonResponse
     {
+        Log::debug('CalendarController: storeEdtSlotsBulk called', [
+            'updates_count' => is_array($request->input('updates')) ? count($request->input('updates')) : 0
+        ]);
+
         try {
             $validator = Validator::make($request->all(), [
                 'updates' => 'nullable|array',
