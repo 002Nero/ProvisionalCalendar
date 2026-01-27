@@ -20,6 +20,14 @@ jobs:
     - name: Copy .env
       run: docker compose exec app cp .env.example .env
 
+    - name: Clean vendor directory
+      run: docker compose exec app rm -rf vendor
+
+
+    - name: Install dependencies (Composer inside Docker)
+      run:  docker compose exec app composer install --no-interaction --prefer-dist
+
+
     - name: Generate app key
       run: docker compose exec app php artisan key:generate
 
