@@ -18,23 +18,23 @@ jobs:
       run: docker compose build
 
     - name: Copy .env
-      run: docker compose run --rm provisionalcalendar-app sh -c "cp .env.example .env || true"
+      run: docker compose run --rm app sh -c "cp .env.example .env || true"
 
     - name: Install dependencies (Composer inside Docker)
-      run: docker compose run --rm provisionalcalendar-app composer install --no-interaction --prefer-dist
+      run: docker compose run --rm app composer install --no-interaction --prefer-dist
 
     - name: Generate app key
-      run: docker compose run --rm provisionalcalendar-app php artisan key:generate
+      run: docker compose run --rm app php artisan key:generate
 
     - name: Set permissions
-      run: docker compose run --rm provisionalcalendar-app chmod -R 777 storage bootstrap/cache
+      run: docker compose run --rm app chmod -R 777 storage bootstrap/cache
 
     - name: Create SQLite database
       run: |
-        docker compose run --rm provisionalcalendar-app sh -c "
+        docker compose run --rm app sh -c "
           mkdir -p database &&
           touch database/database.sqlite
         "
 
     - name: Run tests
-      run: docker compose run --rm provisionalcalendar-app php artisan test
+      run: docker compose run --rm app php artisan test
