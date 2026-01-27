@@ -20,10 +20,6 @@ jobs:
     - name: Copy .env
       run: docker compose exec app cp .env.example .env
 
-    - name: Install dependencies (Composer inside Docker)
-      run:  docker compose exec app composer install
-
-
     - name: Generate app key
       run: docker compose exec app php artisan key:generate
 
