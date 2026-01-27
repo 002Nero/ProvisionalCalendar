@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained('users')->onDelete('cascade');
             $table->foreignId('year_id')->constrained('years')->onDelete('cascade');
-            $table->enum('type', ['permanent', 'vacataire']);
             $table->string('acronym', 3);
             $table->timestamps();
         });

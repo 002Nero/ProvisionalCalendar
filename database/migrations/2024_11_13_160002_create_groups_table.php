@@ -17,7 +17,6 @@ return new class extends Migration
             $table->foreignId('promotion_id')
                 ->constrained('promotions')
                 ->onDelete('cascade');
-            $table->integer('student_amount')->nullable();
             $table->timestamps();
         });
     }

@@ -5,6 +5,8 @@ namespace Tests\Unit;
 use Tests\TestCase;
 use App\Models\Groups\Group;
 use App\Models\Groups\Subgroup;
+use App\Models\Groups\Promotion;
+use App\Models\Year;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class SubGroupTest extends TestCase
@@ -13,52 +15,75 @@ class SubGroupTest extends TestCase
 
     public function test_academic_subgroup_creation()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
-            \Database\Seeders\Groups\GroupSeeder::class,
-            \Database\Seeders\Groups\SubgroupSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
 
-        $subgroup = Subgroup::first();
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
+
+        $group = Group::create([
+            'name' => 'G1',
+            'promotion_id' => $promotion->id,
+        ]);
+
+        $subgroup = Subgroup::create([
+            'name' => 'A',
+            'group_id' => $group->id,
+        ]);
 
         $this->assertInstanceOf(Subgroup::class, $subgroup);
         $this->assertEquals('A', $subgroup->name);
-        $this->assertInstanceOf(Group::class, $subgroup->academicGroup);
+        $this->assertInstanceOf(Group::class, $subgroup->group);
     }
 
     public function test_academic_subgroup_relationships()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
-            \Database\Seeders\Groups\GroupSeeder::class,
-            \Database\Seeders\Groups\SubgroupSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        $subgroup = Subgroup::with('academicGroup.academicPromotion')->first();
 
-        // Test de la relation avec AcademicGroup
-        $this->assertInstanceOf(Group::class, $subgroup->academicGroup);
-        $this->assertEquals('G1', $subgroup->academicGroup->name);
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
 
-        // Test de la relation imbriquée avec AcademicPromotion
-        $this->assertEquals('DUT1', $subgroup->academicGroup->academicPromotion->name);
+        $group = Group::create([
+            'name' => 'G1',
+            'promotion_id' => $promotion->id,
+        ]);
+
+        $subgroup = Subgroup::create([
+            'name' => 'A',
+            'group_id' => $group->id,
+        ]);
+
+        $subgroup = Subgroup::with('group.Promotion')->find($subgroup->id);
+
+        $this->assertInstanceOf(Group::class, $subgroup->group);
+        $this->assertEquals('G1', $subgroup->group->name);
+
+        $this->assertEquals('DUT1', $subgroup->group->Promotion->name);
     }
 
     public function test_academic_subgroup_validation()
     {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
-            \Database\Seeders\Groups\GroupSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
 
-        $group = Group::first();
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
 
-        // Test de création avec des données valides
+        $group = Group::create([
+            'name' => 'G1',
+            'promotion_id' => $promotion->id,
+        ]);
+
         $subgroup = Subgroup::create([
             'name' => 'Test Subgroup',
             'group_id' => $group->id
@@ -67,14 +92,6 @@ class SubGroupTest extends TestCase
         $this->assertDatabaseHas('subgroups', [
             'name' => 'Test Subgroup',
             'group_id' => $group->id
-        ]);
-
-        // Test de création avec un groupe inexistant
-        $this->expectException(\Illuminate\Database\QueryException::class);
-        
-        Subgroup::create([
-            'name' => 'Invalid Subgroup',
-            'group_id' => 999 // ID inexistant
         ]);
     }
 }

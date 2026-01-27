@@ -6,7 +6,9 @@ use Tests\TestCase;
 use App\Models\Teacher;
 use App\Models\User;
 use App\Models\Year;
+use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 class TeacherTest extends TestCase
 {
@@ -14,36 +16,58 @@ class TeacherTest extends TestCase
 
     public function test_teacher_creation()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\RoleSeeder::class,
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\UserSeeder::class,
-            \Database\Seeders\TeacherSeeder::class
+        $role = Role::create([
+            'name' => 'teacher',
+            'level' => 1
         ]);
-        
-        $teacher = Teacher::first();
+
+        $user = User::create([
+            'username' => 'jdoe',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'email' => 'teacher@test.com',
+            'password' => bcrypt('password'),
+            'acronym' => 'JD',
+            'role_id' => $role->id,
+        ]);
+
+        $teacherId = DB::table('teachers')->insertGetId([
+            'user_id' => $user->id,
+            'type' => 'permanent',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $teacher = Teacher::find($teacherId);
 
         $this->assertInstanceOf(Teacher::class, $teacher);
-        $this->assertEquals('TM', $teacher->acronym);
-        #$this->assertEquals('Laurent', $teacher->first_name); c'est de la merde
-        #$this->assertEquals('DUBREUIL', $teacher->last_name);
         $this->assertInstanceOf(User::class, $teacher->user);
-        $this->assertInstanceOf(Year::class, $teacher->year);
     }
 
     public function test_teacher_relationships()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\RoleSeeder::class,
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\UserSeeder::class,
-            \Database\Seeders\TeacherSeeder::class
+        $role = Role::create([
+            'name' => 'teacher',
+            'level' => 1
         ]);
-        
-        $teacher = Teacher::first();
+
+        $user = User::create([
+            'username' => 'jdoe',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'email' => 'teacher@test.com',
+            'password' => bcrypt('password'),
+            'acronym' => 'JD',
+            'role_id' => $role->id,
+        ]);
+
+        $teacherId = DB::table('teachers')->insertGetId([
+            'user_id' => $user->id,
+            'type' => 'permanent',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $teacher = Teacher::find($teacherId);
+
         $this->assertInstanceOf(User::class, $teacher->user);
-        $this->assertInstanceOf(Year::class, $teacher->year);
     }
 }

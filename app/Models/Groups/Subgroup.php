@@ -13,11 +13,7 @@ class Subgroup extends Model
 
     protected $with = ['Group.Promotion'];
 
-    public function Group()
-    {
-        return $this->belongsTo(Group::class, "group_id");
-    }
-    public function academicGroup()
+    public function group()
     {
         return $this->belongsTo(Group::class, 'group_id');
     }

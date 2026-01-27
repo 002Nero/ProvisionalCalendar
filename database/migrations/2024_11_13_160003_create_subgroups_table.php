@@ -17,7 +17,6 @@ return new class extends Migration
             $table->foreignId('group_id')
                 ->constrained('groups')
                 ->onDelete('cascade');
-            $table->integer('student_amount')->nullable();
             $table->timestamps();
         });
     }

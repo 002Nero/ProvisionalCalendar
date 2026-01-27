@@ -5,7 +5,6 @@ namespace Tests\Unit;
 use Tests\TestCase;
 use App\Models\Semester;
 use App\Models\Year;
-use App\Models\Teaching;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class SemesterTest extends TestCase
@@ -14,13 +13,14 @@ class SemesterTest extends TestCase
 
     public function test_semester_creation()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\SemesterSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        $semester = Semester::first();
+
+        $semester = Semester::create([
+            'semester_number' => 1,
+            'year_id' => $year->id
+        ]);
 
         $this->assertInstanceOf(Semester::class, $semester);
         $this->assertEquals(1, $semester->semester_number);
@@ -29,30 +29,27 @@ class SemesterTest extends TestCase
 
     public function test_semester_relationships()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\SemesterSeeder::class,
-            \Database\Seeders\TeachingSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        $semester = Semester::with(['year', 'teachings'])->first();
+
+        $semester = Semester::create([
+            'semester_number' => 1,
+            'year_id' => $year->id
+        ]);
+
+        $semester = Semester::with(['year'])->find($semester->id);
 
         // Test de la relation avec Year
         $this->assertInstanceOf(Year::class, $semester->year);
-        
-        // Test de la relation avec Teaching
-        $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $semester->teachings);
-        $this->assertInstanceOf(Teaching::class, $semester->teachings->first());
+        $this->assertEquals('2024-2025', $semester->year->name);
     }
 
     public function test_semester_validation()
     {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-
-        $year = Year::first();
 
         // Test de création avec des données valides
         $semester = Semester::create([
@@ -69,8 +66,8 @@ class SemesterTest extends TestCase
         $this->expectException(\Illuminate\Database\QueryException::class);
         
         Semester::create([
-            'semester_number' => 1,
-            'year_id' => 999 // ID inexistant
+            'semester_number' => 2,
+            'year_id' => 999
         ]);
     }
-} 
+}

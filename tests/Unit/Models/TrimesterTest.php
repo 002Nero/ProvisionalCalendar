@@ -14,13 +14,14 @@ class TrimesterTest extends TestCase
 
     public function test_trimester_creation()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\TrimesterSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        $trimester = Trimester::first();
+
+        $trimester = Trimester::create([
+            'trimester_number' => 1,
+            'year_id' => $year->id
+        ]);
 
         $this->assertInstanceOf(Trimester::class, $trimester);
         $this->assertEquals(1, $trimester->trimester_number);
@@ -29,21 +30,29 @@ class TrimesterTest extends TestCase
 
     public function test_trimester_relationships()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\SemesterSeeder::class,
-            \Database\Seeders\TrimesterSeeder::class,
-            \Database\Seeders\TeachingSeeder::class,
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        #$this->seed([
-        #    
-       #]);
-        
-        $trimester = Trimester::with(['year', 'teachings'])->first();
+
+        $trimester = Trimester::create([
+            'trimester_number' => 1,
+            'year_id' => $year->id
+        ]);
+
+        $teaching = Teaching::create([
+            'title' => 'Test Teaching',
+            'apogee_code' => 'TEST_001',
+            'tp_hours_initial' => 10.00,
+            'td_hours_initial' => 10.00,
+            'cm_hours' => 10.00,
+            'trimester_id' => $trimester->id,
+        ]);
+
+        $trimester = Trimester::with(['year', 'teachings'])->find($trimester->id);
 
         // Test de la relation avec Year
         $this->assertInstanceOf(Year::class, $trimester->year);
-        
+
         // Test de la relation avec Teaching
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $trimester->teachings);
         $this->assertInstanceOf(Teaching::class, $trimester->teachings->first());
@@ -51,11 +60,9 @@ class TrimesterTest extends TestCase
 
     public function test_trimester_validation()
     {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-
-        $year = Year::first();
 
         // Test de création avec des données valides
         $trimester = Trimester::create([
@@ -70,10 +77,10 @@ class TrimesterTest extends TestCase
 
         // Test de création avec une année inexistante
         $this->expectException(\Illuminate\Database\QueryException::class);
-        
+
         Trimester::create([
             'trimester_number' => 1,
             'year_id' => 999 // ID inexistant
         ]);
     }
-} 
+}

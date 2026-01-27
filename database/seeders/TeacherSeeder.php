@@ -27,17 +27,10 @@ class TeacherSeeder extends Seeder
 
         foreach ($users as $acronym => $type) {
             $user = \App\Models\User::where('acronym', $acronym)->first();
-            $year = Year::first();
-
-            if ($user && $year) {
+            if ($user) {
                 \App\Models\Teacher::updateOrCreate(
                     ['user_id' => $user->id],
-                    [
-                        'user_id' => $user->id,
-                        'type' => $type,
-                        'acronym' => $acronym,
-                        'year_id' => $year->id
-                    ]
+                    ['user_id' => $user->id, 'type' => $type]
                 );
             }
         }

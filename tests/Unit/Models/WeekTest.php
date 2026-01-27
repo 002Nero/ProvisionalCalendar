@@ -6,6 +6,7 @@ use Tests\TestCase;
 use App\Models\Week;
 use App\Models\Year;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 class WeekTest extends TestCase
 {
@@ -13,16 +14,19 @@ class WeekTest extends TestCase
 
     public function test_week_belongs_to_year()
     {
-        $year = new Year();
-        $year->name = '2024-2025';
-        $year->periodicity = 'Semestrial';
-        $year->save();
+        $year = Year::create([
+            'name' => '2024-2025',
+        ]);
 
-        $week = new Week();
-        $week->name = 'S1';
-        $week->week_number = 1;
-        $week->year_id = $year->id;
-        $week->save();
+        $weekId = DB::table('weeks')->insertGetId([
+            'week_number' => 1,
+            'year_id' => $year->id,
+            'start_date' => '2024-09-02',
+            'end_date' => '2024-09-08',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $week = Week::find($weekId);
 
         $this->assertInstanceOf(Year::class, $week->year);
         $this->assertEquals($year->id, $week->year->id);
@@ -30,24 +34,31 @@ class WeekTest extends TestCase
 
     public function test_week_number_must_be_between_1_and_52()
     {
-        $year = new Year();
-        $year->name = '2024-2025';
-        $year->periodicity = 'Semestrial';
-        $year->save();
+        $year = Year::create([
+            'name' => '2024-2025',
+        ]);
 
-        $week = new Week();
-        $week->name = 'S1';
-        $week->week_number = 1;
-        $week->year_id = $year->id;
-        $week->save();
+        $weekId = DB::table('weeks')->insertGetId([
+            'week_number' => 1,
+            'year_id' => $year->id,
+            'start_date' => '2024-09-02',
+            'end_date' => '2024-09-08',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $week = Week::find($weekId);
 
         $this->assertEquals(1, $week->week_number);
 
-        $week2 = new Week();
-        $week2->name = 'S52';
-        $week2->week_number = 52;
-        $week2->year_id = $year->id;
-        $week2->save();
+        $week2Id = DB::table('weeks')->insertGetId([
+            'week_number' => 52,
+            'year_id' => $year->id,
+            'start_date' => '2025-08-25',
+            'end_date' => '2025-08-31',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $week2 = Week::find($week2Id);
 
         $this->assertEquals(52, $week2->week_number);
     }
