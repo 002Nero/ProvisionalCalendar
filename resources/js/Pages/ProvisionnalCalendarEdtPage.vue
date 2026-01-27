@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, computed, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { useEdtStore } from '@/stores/edtStore'
 
@@ -12,7 +12,15 @@ async function handleGenerate() {
     alert('Année ou semaine non sélectionnée')
     return
   }
-  const yearId = edtStore.year
+  let yearId: number | null = null
+  if (typeof edtStore.year === 'number') yearId = edtStore.year
+  else if (typeof edtStore.year === 'string' && /^[0-9]+$/.test(edtStore.year)) yearId = parseInt(edtStore.year as string, 10)
+  
+  if (!yearId) {
+    alert('Année non valide')
+    return
+  }
+  
   const weekId = currentWeek.value
   isGenerating.value = true
   generationStatus.value = 'processing'
@@ -45,7 +53,6 @@ function startPollingStatus(yearId: number, weekId: number) {
     try {
       const res = await axios.get(
         `${import.meta.env.VITE_API_BASE_URL}/generate/status/${yearId}/${weekId}`,
-        {},
         {
           headers: {
             Authorization: import.meta.env.VITE_API_AUTHORIZATION || ''
@@ -234,6 +241,10 @@ onMounted(async () => {
   }
 })
 
+onUnmounted(() => {
+  stopPollingStatus()
+})
+
 // load edt_slot lessons for current year/week
 async function loadEdtSlotsForCurrent() {
   let yearId: number | null = null
@@ -384,8 +395,19 @@ function getRowSpan(lesson: Lesson, currentGroupsWithSubgroups: any[], groupIdx:
 }
 
 // check if cell is covered by a lesson (for graying out covered slots)
-function isCovered(dayIndex: number, minute: number) {
-  return lessons.value.some(l => l.day === dayIndex && l.start_min <= minute && minute < l.start_min + l.span * SLOT_STEP)
+function isCovered(dayIndex: number, minute: number, groupId?: number, subgroup?: string) {
+  return lessons.value.some(l => {
+    if (l.day !== dayIndex || l.start_min > minute || minute >= l.start_min + l.span * SLOT_STEP) {
+      return false
+    }
+    if (groupId !== undefined && subgroup !== undefined) {
+      if (l.type === 'CM') return true 
+      if (l.type === 'TD') return l.groupId === groupId
+      if (l.type === 'TP') return l.groupId === groupId && l.subgroup === subgroup 
+      return false
+    }
+    return true
+  })
 }
 
 // initialize store with current values (if any)
@@ -779,7 +801,7 @@ function generatePDF() {
                                 <div class="lesson-meta-h">{{ lesson.room }}</div>
                               </div>
                             </div>
-                            <div v-if="isCovered(dayIdx, t) && lessonsStartingAt(dayIdx, t).length === 0" class="covered-slot"></div>
+                            <div v-if="isCovered(dayIdx, t, groupItem.id, sub) && lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups)).length === 0" class="covered-slot"></div>
                           </div>
                         </div>
                       </template>
