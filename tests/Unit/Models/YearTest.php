@@ -5,12 +5,8 @@ namespace Tests\Unit;
 use Tests\TestCase;
 use App\Models\Year;
 use App\Models\Semester;
-use App\Models\Trimester;
-use App\Models\Teaching;
-use App\Models\Teacher;
 use App\Models\Groups\Promotion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 
 class YearTest extends TestCase
 {

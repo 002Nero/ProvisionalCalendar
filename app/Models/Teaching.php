@@ -48,9 +48,4 @@ class Teaching extends Model
     {
         return $this->belongsTo(Semester::class);
     }
-
-    public function trimester()
-    {
-        return $this->belongsTo(Trimester::class);
-    }
 }
