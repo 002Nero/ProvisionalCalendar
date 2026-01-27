@@ -14,32 +14,38 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Build Docker containers
-      run: docker compose up --build -d
+    - name: Build Docker image
+      run: docker compose build app
 
     - name: Copy .env
-      run: docker compose exec app cp .env.example .env
+      run: |
+        docker compose run --rm \
+          --entrypoint sh app -c "cp .env.example .env || true"
 
-    - name: Clean vendor directory
-      run: docker compose exec app rm -rf vendor
-
-
-    - name: Install dependencies (Composer inside Docker)
-      run:  docker compose exec app composer install --no-interaction --prefer-dist
-
+    - name: Install dependencies
+      run: |
+        docker compose run --rm \
+          --entrypoint sh app -c "composer install --no-interaction --prefer-dist"
 
     - name: Generate app key
-      run: docker compose exec app php artisan key:generate
+      run: |
+        docker compose run --rm \
+          --entrypoint sh app -c "php artisan key:generate"
 
     - name: Set permissions
-      run: docker compose exec app chmod -R 777 storage bootstrap/cache
+      run: |
+        docker compose run --rm \
+          --entrypoint sh app -c "chmod -R 777 storage bootstrap/cache"
 
     - name: Create SQLite database
       run: |
-        docker compose exec app sh -c "
-          mkdir -p database &&
-          touch database/database.sqlite
-        "
+        docker compose run --rm \
+          --entrypoint sh app -c "
+            mkdir -p database &&
+            touch database/database.sqlite
+          "
 
     - name: Run tests
-      run: docker compose exec app php artisan test
+      run: |
+        docker compose run --rm \
+          --entrypoint sh app -c "php artisan test"
