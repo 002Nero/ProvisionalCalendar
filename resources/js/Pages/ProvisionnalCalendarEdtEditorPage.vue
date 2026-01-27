@@ -66,7 +66,7 @@ function isBlocked(dayIndex: number, mins: number, simulatedPlacements?: Placeme
   return mins >= lunchBreak.start && mins < lunchBreak.end
 }
 
-type Course = { id: number; code?: string; title: string; type?: string; duration?: number; semester?: number | null; room?: number | string; teacher?: number | string; editing?: boolean; remainingMinutes?: number; selectedDuration?: number }
+type Course = { id: number; code?: string; title: string; type?: string; duration?: number; semester?: number | null; room?: number | string; teacher?: number | string; editing?: boolean; remainingMinutes?: number; selectedDuration?: number; selectedType?: string }
 const courses = ref<Course[]>([])
 
 async function loadTeachingsForYear(yearId: number) {
@@ -831,7 +831,13 @@ async function insertPlacementInDb(courseId: number, day: number, time: number, 
     // - TD : par groupe (subgroup_id à null)
     // - TP : par sous-groupe (group_id et subgroup_id définis)
     let groupId = parseOrNull(edtStore.groupId)
-    let subgroupId = parseOrNull(edtStore.subgroup)
+    let subgroupId: number | null = null
+    
+    // Convert subgroup letter (A/B) to numeric ID (1/2)
+    if (edtStore.subgroup) {
+      const subgroupMap: Record<string, number> = { 'A': 1, 'B': 2 }
+      subgroupId = subgroupMap[edtStore.subgroup] ?? null
+    }
     
     if (type === 'CM') {
       // CM = toute la promotion, pas de groupe/sous-groupe
