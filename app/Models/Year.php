@@ -10,19 +10,12 @@ use App\Models\Groups\Promotion;
 class Year extends Model
 {
     protected $fillable = [
-        'name',
-        'periodicity'
+        'name'
     ];
 
     protected static function boot()
     {
         parent::boot();
-
-        static::creating(function ($year) {
-            if (!in_array($year->periodicity, ['Semestrial', 'Trimestrial'])) {
-                throw ValidationException::withMessages(['periodicity' => 'Invalid periodicity']);
-            }
-        });
     }
 
     public function weeks()
@@ -40,7 +33,7 @@ class Year extends Model
         return $this->hasMany(Teaching::class);
     }
 
-    public function Promotions()
+    public function promotions()
     {
         return $this->hasMany(Promotion::class);
     }
@@ -53,10 +46,5 @@ class Year extends Model
     public function semesters()
     {
         return $this->hasMany(Semester::class);
-    }
-
-    public function trimesters()
-    {
-        return $this->hasMany(Trimester::class);
     }
 }

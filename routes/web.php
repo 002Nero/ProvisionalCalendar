@@ -11,6 +11,38 @@ use App\Http\Controllers\WorkInProgressController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TestEmailController;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+
+Route::get('/health', function () {
+    $services = [
+        'app' => 'ok',
+        'database' => 'ok',
+        'cache' => 'ok',
+    ];
+
+    // Check database
+    try {
+        DB::connection()->getPdo();
+    } catch (\Exception $e) {
+        $services['database'] = 'error';
+    }
+
+    // Check cache
+    try {
+        Cache::put('health_check', true, 1);
+        Cache::forget('health_check');
+    } catch (\Exception $e) {
+        $services['cache'] = 'error';
+    }
+
+    $allHealthy = !in_array('error', $services);
+
+    return response()->json([
+        'status' => $allHealthy ? 'ok' : 'degraded',
+        'services' => $services,
+    ], $allHealthy ? 200 : 503);
+});
 
 Route::get('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/login', [AuthController::class, 'authenticate']);

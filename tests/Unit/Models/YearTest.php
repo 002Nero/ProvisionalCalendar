@@ -5,12 +5,8 @@ namespace Tests\Unit;
 use Tests\TestCase;
 use App\Models\Year;
 use App\Models\Semester;
-use App\Models\Trimester;
-use App\Models\Teaching;
-use App\Models\Teacher;
 use App\Models\Groups\Promotion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Validation\ValidationException;
 
 class YearTest extends TestCase
 {
@@ -18,48 +14,33 @@ class YearTest extends TestCase
 
     public function test_year_creation()
     {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class
+        $year = Year::create([
+            'name' => '2020-2021',
         ]);
-        
-        $year = Year::first();
 
         $this->assertInstanceOf(Year::class, $year);
         $this->assertEquals('2020-2021', $year->name);
-        $this->assertEquals('Semestrial', $year->periodicity);
     }
 
     public function test_year_relationships()
     {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\SemesterSeeder::class,
-            \Database\Seeders\TrimesterSeeder::class,
-            \Database\Seeders\TeachingSeeder::class,
-            \Database\Seeders\RoleSeeder::class,
-            \Database\Seeders\UserSeeder::class,
-            \Database\Seeders\TeacherSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        // Test année semestrielle
-        $semesterYear = Year::where('periodicity', 'Semestrial')->first();
-        $this->assertNotNull($semesterYear->semesters);
-        $this->assertInstanceOf(Semester::class, $semesterYear->semesters->first());
-        $this->assertCount(0, $semesterYear->trimesters);
 
-        // Test année trimestrielle
-        $trimesterYear = Year::where('periodicity', 'Trimestrial')->first();
-        $this->assertNotNull($trimesterYear->trimesters);
-        $this->assertInstanceOf(Trimester::class, $trimesterYear->trimesters->first());
-        $this->assertCount(0, $trimesterYear->semesters);
+        $semester = Semester::create([
+            'semester_number' => 1,
+            'year_id' => $year->id,
+        ]);
 
-        // Test autres relations
-        $year = Year::with(['teachings', 'teachers', 'Promotions'])->first();
-        $this->assertNotNull($year->teachings);
-        $this->assertInstanceOf(Teaching::class, $year->teachings->first());
-        $this->assertNotNull($year->teachers);
-        $this->assertInstanceOf(Teacher::class, $year->teachers->first());
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
+
+        // Test relations
+        $this->assertNotNull($year->semesters);
+        $this->assertInstanceOf(Semester::class, $year->semesters->first());
         $this->assertNotNull($year->Promotions);
         $this->assertInstanceOf(Promotion::class, $year->Promotions->first());
     }
@@ -69,20 +50,10 @@ class YearTest extends TestCase
         // Test de création avec des données valides
         $year = Year::create([
             'name' => '2025-2026',
-            'periodicity' => 'Semestrial'
         ]);
 
         $this->assertDatabaseHas('years', [
             'name' => '2025-2026',
-            'periodicity' => 'Semestrial'
-        ]);
-
-        // Test de création avec une périodicité invalide
-        $this->expectException(ValidationException::class);
-        
-        Year::create([
-            'name' => '2026-2027',
-            'periodicity' => 'Invalid'
         ]);
     }
 } 

@@ -2,20 +2,13 @@
 
 namespace Database\Seeders;
 
-use App\Models\Semester;
 use App\Models\Teaching;
-use App\Models\Year;
-use App\Models\Trimester;
 use Illuminate\Database\Seeder;
 
 class TeachingSeeder extends Seeder
 {
     public function run(): void
     {
-        $yearId = Year::first()->id;
-        $semesterId = Semester::first()->id ?? null;
-        $trimesterId = Trimester::first()->id ?? null;
-
         $teachings = [
             [
                 'title' => 'SAÉ 1.01 Implémentation d\'un besoin client ',
@@ -1085,9 +1078,6 @@ class TeachingSeeder extends Seeder
         ];
 
         foreach ($teachings as $teaching) {
-            $teaching['year_id'] = $yearId;
-            $teaching['semester_id'] = $semesterId;
-            $teaching['trimester_id'] = $trimesterId;
             if (!empty($teaching['apogee_code'])) {
                 Teaching::updateOrCreate(
                     ['apogee_code' => $teaching['apogee_code']],

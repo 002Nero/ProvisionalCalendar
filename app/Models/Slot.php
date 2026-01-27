@@ -64,17 +64,17 @@ class Slot extends Model
         return $this->belongsTo(Teaching::class);
     }
 
-    public function Promotion()
+    public function promotion()
     {
         return $this->belongsTo(Promotion::class);
     }
 
-    public function Group()
+    public function group()
     {
         return $this->belongsTo(Group::class);
     }
 
-    public function Subgroup()
+    public function subgroup()
     {
         return $this->belongsTo(Subgroup::class);
     }

@@ -40,68 +40,7 @@ class CalendarControllerTest extends TestCase
 	protected function setUp(): void
 	{
 		parent::setUp();
-		$this->createMissingTables();
 		$this->createTestData();
-	}
-
-	protected function createMissingTables(): void
-	{
-		// TODO: Replace with models data when migrations will work.
-		// Table slot_types
-		if (!Schema::hasTable('slot_types')) {
-			Schema::create('slot_types', function ($table) {
-				$table->id();
-				$table->string('name');
-				$table->string('acronym', 10);
-				$table->integer('slot_order')->default(0);
-				$table->string('color', 20)->nullable();
-				$table->timestamps();
-			});
-		}
-
-		// Ajouter les colonnes manquantes à la table slots
-		if (!Schema::hasColumn('slots', 'room_amount')) {
-			Schema::table('slots', function ($table) {
-				$table->integer('room_amount')->nullable()->after('subgroup_id');
-			});
-		}
-		if (!Schema::hasColumn('slots', 'is_exam')) {
-			Schema::table('slots', function ($table) {
-				$table->boolean('is_exam')->default(false)->after('is_neutralized');
-			});
-		}
-		if (!Schema::hasColumn('slots', 'type_id')) {
-			// Supprimer l'ancienne colonne type (enum) et ajouter type_id
-			if (Schema::hasColumn('slots', 'type')) {
-				// SQLite ne permet pas de supprimer directement des colonnes
-				// On ignore cette étape pour SQLite
-			}
-			Schema::table('slots', function ($table) {
-				$table->foreignId('type_id')->nullable()->after('week_id');
-			});
-		}
-
-		// Table slots_teachers - table pivot pour la relation many-to-many
-		if (!Schema::hasTable('slots_teachers')) {
-			Schema::create('slots_teachers', function ($table) {
-				$table->id();
-				$table->foreignId('slot_id')->constrained('slots')->onDelete('cascade');
-				$table->foreignId('teacher_id')->constrained('teachers')->onDelete('cascade');
-				$table->timestamps();
-			});
-		}
-
-		// Table edt_slot - placements des créneaux
-		if (!Schema::hasTable('edt_slot')) {
-			Schema::create('edt_slot', function ($table) {
-				$table->id();
-				$table->string('start_hour', 8);
-				$table->foreignId('slot_id')->constrained('slots')->onDelete('cascade');
-				$table->foreignId('room_id')->constrained('rooms')->onDelete('cascade');
-				$table->string('day_of_week', 20);
-				$table->timestamps();
-			});
-		}
 	}
 
 	protected function createTestData(): void
@@ -113,14 +52,17 @@ class CalendarControllerTest extends TestCase
 
 		$this->year = Year::create([
 			'name' => '2024-2025',
-			'periodicity' => 'Semestrial'
 		]);
 
-		$this->week = Week::create([
-			'name' => 'Semaine 1',
+		$weekId = DB::table('weeks')->insertGetId([
 			'week_number' => 1,
 			'year_id' => $this->year->id,
+			'start_date' => '2024-09-02',
+			'end_date' => '2024-09-08',
+			'created_at' => now(),
+			'updated_at' => now(),
 		]);
+		$this->week = Week::find($weekId);
 
 		$this->slotTypeCM = SlotType::create([
 			'name' => 'Cours Magistral',
@@ -183,7 +125,6 @@ class CalendarControllerTest extends TestCase
 			'tp_hours_initial' => 15.00,
 			'td_hours_initial' => 10.00,
 			'cm_hours' => 15.00,
-			'year_id' => $this->year->id,
 		]);
 
 		$user = User::create([
@@ -199,9 +140,7 @@ class CalendarControllerTest extends TestCase
 		// Utiliser DB::table car le modèle Teacher n'a pas 'type' dans fillable
 		$teacherId = DB::table('teachers')->insertGetId([
 			'user_id' => $user->id,
-			'acronym' => 'JD',
 			'type' => 'permanent',
-			'year_id' => $this->year->id,
 			'created_at' => now(),
 			'updated_at' => now(),
 		]);
@@ -214,26 +153,8 @@ class CalendarControllerTest extends TestCase
 			$teacherIds = [$this->teacher->id];
 		}
 
-		// Mapper type_id vers type enum pour la migration originale
-		$typeMap = [
-			$this->slotTypeCM->id => 'CM',
-			$this->slotTypeTD->id => 'TD',
-			$this->slotTypeTP->id => 'TP',
-			$this->slotTypeEX->id ?? 999 => 'CM', // EX n'existe pas dans l'enum, utiliser CM
-		];
-
-		$slotDataForInsert = $slotData;
-		if (isset($slotData['type_id'])) {
-			$slotDataForInsert['type'] = $typeMap[$slotData['type_id']] ?? 'CM';
-		}
-
-		// Utiliser DB::table car la migration originale a teacher_id et type NOT NULL
-		$slotId = DB::table('slots')->insertGetId(array_merge($slotDataForInsert, [
-			'teacher_id' => $teacherIds[0], // Pour satisfaire la contrainte NOT NULL
-			'created_at' => now(),
-			'updated_at' => now()
-		]));
-		$slot = Slot::find($slotId);
+		// Créer le slot directement avec le modèle
+		$slot = Slot::create($slotData);
 
 		// Attacher tous les enseignants via la table pivot
 		$slot->teachers()->attach($teacherIds);
@@ -514,9 +435,7 @@ class CalendarControllerTest extends TestCase
 
 		$teacher2Id = DB::table('teachers')->insertGetId([
 			'user_id' => $user2->id,
-			'acronym' => 'JS',
 			'type' => 'permanent',
-			'year_id' => $this->year->id,
 			'created_at' => now(),
 			'updated_at' => now(),
 		]);
@@ -713,11 +632,15 @@ class CalendarControllerTest extends TestCase
 
 	public function test_get_edt_slots_does_not_return_slots_from_other_weeks(): void
 	{
-		$week2 = Week::create([
-			'name' => 'Semaine 2',
+		$week2Id = DB::table('weeks')->insertGetId([
 			'week_number' => 2,
 			'year_id' => $this->year->id,
+			'start_date' => '2024-09-09',
+			'end_date' => '2024-09-15',
+			'created_at' => now(),
+			'updated_at' => now(),
 		]);
+		$week2 = Week::find($week2Id);
 
 		$this->createSlotWithEdtSlot([
 			'duration' => 2.0,
@@ -748,8 +671,6 @@ class CalendarControllerTest extends TestCase
 			'is_exam' => false,
 			'week_id' => $week2->id,
 			'type_id' => $this->slotTypeTD->id,
-			'type' => 'TD',
-			'teacher_id' => $this->teacher->id,
 			'created_at' => now(),
 			'updated_at' => now()
 		]);
@@ -779,14 +700,17 @@ class CalendarControllerTest extends TestCase
 	{
 		$year2 = Year::create([
 			'name' => '2025-2026',
-			'periodicity' => 'Semestrial'
 		]);
 
-		$week2 = Week::create([
-			'name' => 'Semaine 1',
+		$week2Id = DB::table('weeks')->insertGetId([
 			'week_number' => 1,
 			'year_id' => $year2->id,
+			'start_date' => '2025-09-01',
+			'end_date' => '2025-09-07',
+			'created_at' => now(),
+			'updated_at' => now(),
 		]);
+		$week2 = Week::find($week2Id);
 
 		$this->createSlotWithEdtSlot([
 			'duration' => 2.0,
@@ -817,8 +741,6 @@ class CalendarControllerTest extends TestCase
 			'is_exam' => false,
 			'week_id' => $week2->id,
 			'type_id' => $this->slotTypeTD->id,
-			'type' => 'TD',
-			'teacher_id' => $this->teacher->id,
 			'created_at' => now(),
 			'updated_at' => now()
 		]);
@@ -1508,9 +1430,7 @@ class CalendarControllerTest extends TestCase
 
 		$teacher2Id = DB::table('teachers')->insertGetId([
 			'user_id' => $user2->id,
-			'acronym' => 'JS',
 			'type' => 'permanent',
-			'year_id' => $this->year->id,
 			'created_at' => now(),
 			'updated_at' => now(),
 		]);
@@ -1591,9 +1511,7 @@ class CalendarControllerTest extends TestCase
 
 		$teacher2Id = DB::table('teachers')->insertGetId([
 			'user_id' => $user2->id,
-			'acronym' => 'JS',
 			'type' => 'permanent',
-			'year_id' => $this->year->id,
 			'created_at' => now(),
 			'updated_at' => now(),
 		]);
@@ -1677,8 +1595,6 @@ class CalendarControllerTest extends TestCase
 			'is_exam' => false,
 			'week_id' => $this->week->id,
 			'type_id' => $this->slotTypeCM->id,
-			'type' => 'CM',
-			'teacher_id' => $this->teacher->id, // Pas d'enseignant assigné
 			'created_at' => now(),
 			'updated_at' => now()
 		]);
@@ -1734,11 +1650,15 @@ class CalendarControllerTest extends TestCase
 		]);
 
 		// Crée la semaine 2
-		$week2 = Week::create([
-			'name' => 'Semaine 2',
+		$week2Id = DB::table('weeks')->insertGetId([
 			'week_number' => 2,
 			'year_id' => $this->year->id,
+			'start_date' => '2024-09-09',
+			'end_date' => '2024-09-15',
+			'created_at' => now(),
+			'updated_at' => now(),
 		]);
+		$week2 = Week::find($week2Id);
 
 		// Crée un créneau pour la semaine 2 à un horaire différent initialement
 		$slot2Id = DB::table('slots')->insertGetId([
@@ -1752,8 +1672,6 @@ class CalendarControllerTest extends TestCase
 			'is_exam' => false,
 			'week_id' => $week2->id,
 			'type_id' => $this->slotTypeTD->id,
-			'type' => 'TD',
-			'teacher_id' => $this->teacher->id,
 			'created_at' => now(),
 			'updated_at' => now()
 		]);

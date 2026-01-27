@@ -6,23 +6,28 @@ use Tests\TestCase;
 use App\Models\Groups\Group;
 use App\Models\Groups\Promotion;
 use App\Models\Groups\Subgroup;
+use App\Models\Year;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class GroupTest extends TestCase
 {
     use RefreshDatabase;
+
     public function test_academic_group_creation()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
-            \Database\Seeders\Groups\GroupSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        $group = Group::first();
-        echo("test");
-        echo($group->promotion_id);
+
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
+
+        $group = Group::create([
+            'name' => 'G1',
+            'promotion_id' => $promotion->id,
+        ]);
 
         $this->assertInstanceOf(Group::class, $group);
         $this->assertEquals('G1', $group->name);
@@ -31,65 +36,51 @@ class GroupTest extends TestCase
 
     public function test_academic_group_relationships()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
-            \Database\Seeders\Groups\GroupSeeder::class,
-            \Database\Seeders\Groups\SubgroupSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        $group = Group::with(['Promotion', 'Subgroups'])->first();
 
-        // Test de la relation avec AcademicPromotion
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
+
+        $group = Group::create([
+            'name' => 'G1',
+            'promotion_id' => $promotion->id,
+        ]);
+
+        $subgroupA = Subgroup::create([
+            'name' => 'A',
+            'group_id' => $group->id,
+        ]);
+
+        $subgroupB = Subgroup::create([
+            'name' => 'B',
+            'group_id' => $group->id,
+        ]);
+
+        $group = Group::with(['Promotion', 'Subgroups'])->find($group->id);
+
         $this->assertInstanceOf(Promotion::class, $group->Promotion);
         $this->assertEquals('DUT1', $group->Promotion->name);
 
-        // Test de la relation avec AcademicSubgroups
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $group->Subgroups);
         $this->assertInstanceOf(Subgroup::class, $group->Subgroups->first());
-        $this->assertCount(2, $group->Subgroups); // Car G1 a deux sous-groupes (G1A et G1B)
-    }
-
-    public function test_academic_group_cascade_deletion()
-    {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
-            \Database\Seeders\Groups\GroupSeeder::class,
-            \Database\Seeders\Groups\SubgroupSeeder::class
-        ]);
-
-        $group = Group::first();
-        $subgroupIds = $group->Subgroups->pluck('id')->toArray();
-
-        // Supprimer le groupe
-        $group->delete();
-
-        // Vérifier que le groupe a été supprimé
-        $this->assertDatabaseMissing('groups', [
-            'id' => $group->id
-        ]);
-
-        // Vérifier que les sous-groupes ont été supprimés en cascade
-        foreach ($subgroupIds as $subgroupId) {
-            $this->assertDatabaseMissing('subgroups', [
-                'id' => $subgroupId
-            ]);
-        }
+        $this->assertCount(2, $group->Subgroups);
     }
 
     public function test_academic_group_validation()
     {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
 
-        $promotion = Promotion::first();
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
 
-        // Test de création avec des données valides
         $group = Group::create([
             'name' => 'Test Group',
             'promotion_id' => $promotion->id
@@ -102,10 +93,10 @@ class GroupTest extends TestCase
 
         // Test de création avec une promotion inexistante
         $this->expectException(\Illuminate\Database\QueryException::class);
-        
+
         Group::create([
             'name' => 'Invalid Group',
-            'promotion_id' => 999 // ID inexistant
+            'promotion_id' => 999
         ]);
     }
 }

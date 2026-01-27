@@ -7,6 +7,7 @@ use App\Models\Week;
 use App\Services\EdtSlotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Slot;
 use App\Models\Teaching;
@@ -28,6 +29,8 @@ class CalendarController extends Controller
      */
     public function storeSlot(Request $request): JsonResponse
     {
+        Log::debug('CalendarController: storeSlot called', ['request_data' => $request->all()]);
+
         try {
             $validator = Validator::make($request->all(), [
                 'duration' => 'required|numeric|min:0',
@@ -43,6 +46,9 @@ class CalendarController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::warning('CalendarController: storeSlot validation failed', [
+                    'errors' => $validator->errors()->toArray()
+                ]);
                 return response()->json([
                     'error' => 'Données invalides',
                     'messages' => $validator->errors()
@@ -58,6 +64,11 @@ class CalendarController extends Controller
                 ->first();
 
             if ($existingSlot) {
+                Log::warning('CalendarController: slot creation failed - teacher already has a slot', [
+                    'teacher_id' => $request->teacher_id,
+                    'week_id' => $request->week_id,
+                    'existing_slot_id' => $existingSlot->id
+                ]);
                 return response()->json([
                     'error' => 'L\'enseignant a déjà un cours prévu à ce moment'
                 ], 422);
@@ -69,12 +80,18 @@ class CalendarController extends Controller
             // Charger les relations pour la réponse
             $slot->load(['teacher', 'substituteTeacher', 'teaching', 'Promotion']);
 
+            Log::info('CalendarController: slot created successfully', ['slot_id' => $slot->id]);
+
             return response()->json([
                 'message' => 'Slot créé avec succès',
                 'slot' => $slot
             ], 201);
 
         } catch (\Exception $e) {
+            Log::error('CalendarController: storeSlot failed with exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -88,6 +105,12 @@ class CalendarController extends Controller
      */
     public function storeSlotsBulk(Request $request): JsonResponse
     {
+        Log::debug('CalendarController: storeSlotsBulk called', [
+            'year_id' => $request->year_id,
+            'week_number' => $request->week_number,
+            'placements_count' => is_array($request->placements) ? count($request->placements) : 0
+        ]);
+
         try {
             $validator = Validator::make($request->all(), [
                 'year_id' => 'required|exists:years,id',
@@ -99,6 +122,9 @@ class CalendarController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::warning('CalendarController: storeSlotsBulk validation failed', [
+                    'errors' => $validator->errors()->toArray()
+                ]);
                 return response()->json([
                     'error' => 'Données invalides',
                     'messages' => $validator->errors()
@@ -108,6 +134,10 @@ class CalendarController extends Controller
             // Trouver la semaine correspondant à l'année + numéro
             $week = Week::where('year_id', $request->year_id)->where('week_number', $request->week_number)->first();
             if (!$week) {
+                Log::warning('CalendarController: week not found for bulk slot creation', [
+                    'year_id' => $request->year_id,
+                    'week_number' => $request->week_number
+                ]);
                 return response()->json(['error' => 'Semaine introuvable pour cette année'], 404);
             }
 
@@ -169,9 +199,14 @@ class CalendarController extends Controller
                 $slot = Slot::create($slotData);
                 $slot->load(['teacher', 'substituteTeacher', 'teaching', 'Promotion']);
                 $created[] = $slot;
+                Log::debug('CalendarController: slot created in bulk', ['slot_id' => $slot->id]);
             }
 
             $status = empty($errors) ? 201 : 207;
+            Log::info('CalendarController: storeSlotsBulk completed', [
+                'created_count' => count($created),
+                'error_count' => count($errors)
+            ]);
             return response()->json([
                 'message' => empty($errors) ? 'Slots créés avec succès' : 'Création partielle: certains éléments ont échoué',
                 'created' => $created,
@@ -179,6 +214,10 @@ class CalendarController extends Controller
             ], $status);
 
         } catch (\Exception $e) {
+            Log::error('CalendarController: storeSlotsBulk failed with exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -189,6 +228,8 @@ class CalendarController extends Controller
 
     public function getCalendarData($year_id): JsonResponse
     {
+        Log::debug('CalendarController: getCalendarData called', ['year_id' => $year_id]);
+
         try {
             // Récupérer les semaines avec leurs créneaux
             $weeks = Week::where('year_id', $year_id)
@@ -301,6 +342,12 @@ class CalendarController extends Controller
      */
     public function getEdtSlots(Request $request, $year_id, $week_number): JsonResponse
     {
+        Log::debug('CalendarController: getEdtSlots called', [
+            'year_id' => $year_id,
+            'week_number' => $week_number,
+            'filters' => $request->query()
+        ]);
+
         try {
             $filters = array_filter([
                 'promotion_id' => $request->query('promotion_id'),
@@ -314,8 +361,14 @@ class CalendarController extends Controller
                 $filters
             );
 
+            Log::debug('CalendarController: getEdtSlots completed', ['result_count' => count($result)]);
             return response()->json($result);
         } catch (\Exception $e) {
+            Log::error('CalendarController: getEdtSlots failed', [
+                'year_id' => $year_id,
+                'week_number' => $week_number,
+                'error' => $e->getMessage()
+            ]);
             return response()->json([
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
@@ -328,6 +381,10 @@ class CalendarController extends Controller
      */
     public function storeEdtSlotsBulk(Request $request): JsonResponse
     {
+        Log::debug('CalendarController: storeEdtSlotsBulk called', [
+            'updates_count' => is_array($request->input('updates')) ? count($request->input('updates')) : 0
+        ]);
+
         try {
             $validator = Validator::make($request->all(), [
                 'updates' => 'nullable|array',
@@ -341,119 +398,17 @@ class CalendarController extends Controller
                 return response()->json(['error' => 'Données invalides', 'messages' => $validator->errors()], 422);
             }
 
-            $updated = [];
-            $errors = [];
-
-            // Handle updates
             $updates = $request->input('updates', []);
-            foreach ($updates as $p) {
-                $edtSlotId = $p['edt_slot_id'] ?? null;
-                
-                if (!empty($edtSlotId)) {
-                    // Load the current edt_slot to get the associated slot and week info
-                    $edtSlot = DB::table('edt_slot')->where('id', $edtSlotId)->first();
-                    if (!$edtSlot) {
-                        $errors[] = "edt_slot {$edtSlotId} non trouvé";
-                        continue;
-                    }
-                    
-                    // Get slot info to find teacher info
-                    $slot = DB::table('slots')->where('id', $edtSlot->slot_id)->first();
-                    if ($slot) {
-                        // Get week info for conflict checks
-                        $week = DB::table('weeks')->where('id', $slot->week_id)->first();
-                        
-                        // Parse times for conflict checks
-                        $timeParts = explode(':', $p['start_hour']);
-                        $newStartMinutes = intval($timeParts[0]) * 60 + intval($timeParts[1]);
-                        $newEndMinutes = $newStartMinutes + ($slot->duration * 60);
-                        $newDayOfWeek = trim($p['day_of_week']);
-                        
-                        // Get teacher for this slot from pivot table
-                        $teacherRow = DB::table('slots_teachers')->where('slot_id', $slot->id)->first();
-                        $teacherId = $teacherRow ? $teacherRow->teacher_id : null;
-                        
-                        // If teacher exists, check for conflicts
-                        if ($teacherId) {
-                            // Check for conflicts with other placements for this teacher
-                            $conflicts = DB::table('edt_slot as es')
-                                ->join('slots as s', 'es.slot_id', '=', 's.id')
-                                ->join('slots_teachers as st', 's.id', '=', 'st.slot_id')
-                                ->where('st.teacher_id', $teacherId)
-                                ->where('es.day_of_week', $newDayOfWeek)
-                                ->where('s.week_id', $week->id) // Check by slot.week_id
-                                ->where('es.id', '!=', $edtSlotId) // Exclude current slot
-                                ->select('es.start_hour', 's.duration')
-                                ->get();
-                            
-                            $hasConflict = false;
-                            foreach ($conflicts as $existing) {
-                                $existingTimeParts = explode(':', $existing->start_hour);
-                                $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
-                                $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
-                                
-                                // Check for overlap
-                                if (!($newEndMinutes <= $existingStartMinutes || $newStartMinutes >= $existingEndMinutes)) {
-                                    $hasConflict = true;
-                                    break;
-                                }
-                            }
-                            
-                            if ($hasConflict) {
-                                $errors[] = "Conflit d'emploi du temps : l'enseignant a déjà un cours à ce créneau pour edt_slot {$edtSlotId}";
-                                continue;
-                            }
-                        }
-                        
-                        // Check for room conflict (room cannot be used by multiple slots at same time)
-                        $newRoomId = $p['room_id'];
-                        $roomConflicts = DB::table('edt_slot as es')
-                            ->join('slots as s', 'es.slot_id', '=', 's.id')
-                            ->where('es.room_id', $newRoomId)
-                            ->where('es.day_of_week', $newDayOfWeek)
-                            ->where('s.week_id', $week->id)
-                            ->where('es.id', '!=', $edtSlotId) // Exclude current slot
-                            ->select('es.start_hour', 's.duration')
-                            ->get();
-                        
-                        $hasRoomConflict = false;
-                        foreach ($roomConflicts as $existing) {
-                            $existingTimeParts = explode(':', $existing->start_hour);
-                            $existingStartMinutes = intval($existingTimeParts[0]) * 60 + intval($existingTimeParts[1]);
-                            $existingEndMinutes = $existingStartMinutes + ($existing->duration * 60);
-                            
-                            // Check for overlap
-                            if (!($newEndMinutes <= $existingStartMinutes || $newStartMinutes >= $existingEndMinutes)) {
-                                $hasRoomConflict = true;
-                                break;
-                            }
-                        }
-                        
-                        if ($hasRoomConflict) {
-                            $errors[] = "Conflit de salle : cette salle est déjà occupée à ce créneau horaire pour edt_slot {$edtSlotId}";
-                            continue;
-                        }
-                    }
-                    
-                    $updateData = [
-                        'day_of_week' => $p['day_of_week'],
-                        'start_hour' => $p['start_hour'],
-                        'room_id' => $p['room_id'],
-                        'updated_at' => now()
-                    ];
-                    
-                    $result = DB::table('edt_slot')->where('id', $edtSlotId)->update($updateData);
-                    if ($result) {
-                        $updated[] = $edtSlotId;
-                    } else {
-                        $errors[] = "Impossible de mettre à jour edt_slot {$edtSlotId}";
-                    }
-                }
-            }
+            $result = $this->edtSlotService->updateEdtSlotsBulk($updates);
 
-            $status = empty($errors) ? 200 : 207;
-            $message = count($updated) . ' mise(s) à jour';
-            return response()->json(['message' => $message, 'updated' => $updated, 'errors' => $errors], $status);
+            $status = empty($result['errors']) ? 200 : 207;
+            $message = count($result['updated']) . ' mise(s) à jour';
+
+            return response()->json([
+                'message' => $message,
+                'updated' => $result['updated'],
+                'errors' => $result['errors'],
+            ], $status);
 
         } catch (\Exception $e) {
             return response()->json(['error' => 'Une erreur est survenue', 'message' => $e->getMessage()], 500);

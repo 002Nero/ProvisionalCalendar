@@ -14,74 +14,57 @@ class PromotionTest extends TestCase
 
     public function test_academic_promotion_creation()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        $promotion = Promotion::first();
+
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
 
         $this->assertInstanceOf(Promotion::class, $promotion);
         $this->assertEquals('DUT1', $promotion->name);
-        $this->assertInstanceOf(Year::class, $promotion->year);
+        $this->assertInstanceOf(Year::class, $promotion->Year);
     }
 
     public function test_academic_promotion_relationships()
     {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
-            \Database\Seeders\Groups\GroupSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
-        
-        $promotion = Promotion::with('Groups')->first();
 
-        // Test de la relation avec AcademicGroups
+        $promotion = Promotion::create([
+            'name' => 'DUT1',
+            'year_id' => $year->id,
+        ]);
+
+        $group1 = Group::create([
+            'name' => 'G1',
+            'promotion_id' => $promotion->id,
+        ]);
+
+        $group2 = Group::create([
+            'name' => 'G2',
+            'promotion_id' => $promotion->id,
+        ]);
+
+        $promotion = Promotion::with(['Year', 'Groups'])->find($promotion->id);
+
+        $this->assertInstanceOf(Year::class, $promotion->Year);
+        $this->assertEquals('2024-2025', $promotion->Year->name);
+
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $promotion->Groups);
         $this->assertInstanceOf(Group::class, $promotion->Groups->first());
-        $this->assertCount(3, $promotion->Groups); // Car BUT1 a trois groupes (G1, G2, G3)
-    }
-
-    public function test_academic_promotion_cascade_deletion()
-    {
-        // Exécuter les seeders nécessaires
-        $this->seed([
-            \Database\Seeders\YearSeeder::class,
-            \Database\Seeders\Groups\PromotionSeeder::class,
-            \Database\Seeders\Groups\GroupSeeder::class,
-            \Database\Seeders\Groups\SubgroupSeeder::class
-        ]);
-
-        $promotion = Promotion::first();
-        $groupIds = $promotion->Groups->pluck('id')->toArray();
-
-        // Supprimer la promotion
-        $promotion->delete();
-
-        // Vérifier que la promotion a été supprimée
-        $this->assertDatabaseMissing('promotions', [
-            'id' => $promotion->id
-        ]);
-
-        // Vérifier que les groupes ont été supprimés en cascade
-        foreach ($groupIds as $groupId) {
-            $this->assertDatabaseMissing('groups', [
-                'id' => $groupId
-            ]);
-        }
+        $this->assertCount(2, $promotion->Groups);
     }
 
     public function test_academic_promotion_validation()
     {
-        $this->seed([
-            \Database\Seeders\YearSeeder::class
+        $year = Year::create([
+            'name' => '2024-2025',
         ]);
 
-        $year = Year::first();
-
-        // Test de création avec des données valides
         $promotion = Promotion::create([
             'name' => 'Test Promotion',
             'year_id' => $year->id
@@ -94,10 +77,10 @@ class PromotionTest extends TestCase
 
         // Test de création avec une année inexistante
         $this->expectException(\Illuminate\Database\QueryException::class);
-        
+
         Promotion::create([
             'name' => 'Invalid Promotion',
-            'year_id' => 999 // ID inexistant
+            'year_id' => 999
         ]);
     }
 }

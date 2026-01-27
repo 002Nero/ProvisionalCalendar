@@ -18,13 +18,7 @@ class YearSeeder extends Seeder
         ];
 
         foreach ($years as $name) {
-            Year::updateOrCreate(
-                ['name' => $name],
-                [
-                    'name' => $name,
-                    'periodicity' => 'Semestrial'
-                ]
-            );
+            Year::updateOrCreate(['name' => $name], ['name' => $name]);
         }
     }
 }

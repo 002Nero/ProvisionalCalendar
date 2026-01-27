@@ -12,7 +12,7 @@ class Promotion extends Model
         'year_id',
     ];
 
-    public function Groups()
+    public function groups()
     {
         return $this->hasMany(Group::class);
     }

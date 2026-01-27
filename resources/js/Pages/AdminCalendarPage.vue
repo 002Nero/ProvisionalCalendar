@@ -11,7 +11,7 @@ import AddCalendarPopup from "@/Features/Popups/Calendar/AddCalendarPopup.vue";
 const teachers = ref([]);
 const selectedTeacherIds = ref<number[]>([]);
 const calendarStore = useCalendarStore();
-const yearId = 1;
+const yearId = ref(1);
 
 // Watch store changes
 watch(
@@ -24,7 +24,7 @@ watch(
 
 onMounted(async () => {
     try {
-        const teachersResponse = await axios.get(`/api/teachers/${yearId}`);
+        const teachersResponse = await axios.get(`/api/teachers/${yearId.value}`);
         console.log("Teachers response data:", teachersResponse);
         //teachers.value = teachersResponse.data;
                 teachers.value = teachersResponse.data
