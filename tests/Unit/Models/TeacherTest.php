@@ -17,7 +17,7 @@ class TeacherTest extends TestCase
     public function test_teacher_creation()
     {
         $role = Role::create([
-            'name' => 'teacher',
+            'name' => self::ROLE_TEACHER,
             'level' => 1
         ]);
 
@@ -46,7 +46,7 @@ class TeacherTest extends TestCase
     public function test_teacher_relationships()
     {
         $role = Role::create([
-            'name' => 'teacher',
+            'name' => self::ROLE_TEACHER,
             'level' => 1
         ]);
 

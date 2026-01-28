@@ -15,7 +15,7 @@ class WeekTest extends TestCase
     public function test_week_belongs_to_year()
     {
         $year = Year::create([
-            'name' => '2024-2025',
+            'name' => self::YEAR_NAME,
         ]);
 
         $weekId = DB::table('weeks')->insertGetId([
@@ -35,7 +35,7 @@ class WeekTest extends TestCase
     public function test_week_number_must_be_between_1_and_52()
     {
         $year = Year::create([
-            'name' => '2024-2025',
+            'name' => self::YEAR_NAME,
         ]);
 
         $weekId = DB::table('weeks')->insertGetId([

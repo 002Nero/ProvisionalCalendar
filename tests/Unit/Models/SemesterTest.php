@@ -14,7 +14,7 @@ class SemesterTest extends TestCase
     public function test_semester_creation()
     {
         $year = Year::create([
-            'name' => '2024-2025',
+            'name' => self::YEAR_NAME,
         ]);
 
         $semester = Semester::create([
@@ -30,7 +30,7 @@ class SemesterTest extends TestCase
     public function test_semester_relationships()
     {
         $year = Year::create([
-            'name' => '2024-2025',
+            'name' => self::YEAR_NAME,
         ]);
 
         $semester = Semester::create([
@@ -42,13 +42,13 @@ class SemesterTest extends TestCase
 
         // Test de la relation avec Year
         $this->assertInstanceOf(Year::class, $semester->year);
-        $this->assertEquals('2024-2025', $semester->year->name);
+        $this->assertEquals(self::YEAR_NAME, $semester->year->name);
     }
 
     public function test_semester_validation()
     {
         $year = Year::create([
-            'name' => '2024-2025',
+            'name' => self::YEAR_NAME,
         ]);
 
         // Test de création avec des données valides

@@ -14,35 +14,18 @@ class PromotionTest extends TestCase
 
     public function test_academic_promotion_creation()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
-
-        $promotion = Promotion::create([
-            'name' => 'DUT1',
-            'year_id' => $year->id,
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $promotion = $data['promotion'];
 
         $this->assertInstanceOf(Promotion::class, $promotion);
-        $this->assertEquals('DUT1', $promotion->name);
+        $this->assertEquals(self::PROMOTION_NAME, $promotion->name);
         $this->assertInstanceOf(Year::class, $promotion->Year);
     }
 
     public function test_academic_promotion_relationships()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
-
-        $promotion = Promotion::create([
-            'name' => 'DUT1',
-            'year_id' => $year->id,
-        ]);
-
-        $group1 = Group::create([
-            'name' => 'G1',
-            'promotion_id' => $promotion->id,
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $promotion = $data['promotion'];
 
         $group2 = Group::create([
             'name' => 'G2',
@@ -52,7 +35,7 @@ class PromotionTest extends TestCase
         $promotion = Promotion::with(['Year', 'Groups'])->find($promotion->id);
 
         $this->assertInstanceOf(Year::class, $promotion->Year);
-        $this->assertEquals('2024-2025', $promotion->Year->name);
+        $this->assertEquals(self::YEAR_NAME, $promotion->Year->name);
 
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $promotion->Groups);
         $this->assertInstanceOf(Group::class, $promotion->Groups->first());
@@ -61,9 +44,8 @@ class PromotionTest extends TestCase
 
     public function test_academic_promotion_validation()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $year = $data['year'];
 
         $promotion = Promotion::create([
             'name' => 'Test Promotion',

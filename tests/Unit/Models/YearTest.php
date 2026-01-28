@@ -25,7 +25,7 @@ class YearTest extends TestCase
     public function test_year_relationships()
     {
         $year = Year::create([
-            'name' => '2024-2025',
+            'name' => self::YEAR_NAME,
         ]);
 
         $semester = Semester::create([
@@ -34,7 +34,7 @@ class YearTest extends TestCase
         ]);
 
         $promotion = Promotion::create([
-            'name' => 'DUT1',
+            'name' => self::PROMOTION_NAME,
             'year_id' => $year->id,
         ]);
 
