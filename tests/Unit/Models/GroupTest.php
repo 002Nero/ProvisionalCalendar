@@ -15,45 +15,18 @@ class GroupTest extends TestCase
 
     public function test_academic_group_creation()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
-
-        $promotion = Promotion::create([
-            'name' => 'DUT1',
-            'year_id' => $year->id,
-        ]);
-
-        $group = Group::create([
-            'name' => 'G1',
-            'promotion_id' => $promotion->id,
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $group = $data['group'];
 
         $this->assertInstanceOf(Group::class, $group);
-        $this->assertEquals('G1', $group->name);
+        $this->assertEquals(self::GROUP_NAME, $group->name);
         $this->assertInstanceOf(Promotion::class, $group->Promotion);
     }
 
     public function test_academic_group_relationships()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
-
-        $promotion = Promotion::create([
-            'name' => 'DUT1',
-            'year_id' => $year->id,
-        ]);
-
-        $group = Group::create([
-            'name' => 'G1',
-            'promotion_id' => $promotion->id,
-        ]);
-
-        $subgroupA = Subgroup::create([
-            'name' => 'A',
-            'group_id' => $group->id,
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $group = $data['group'];
 
         $subgroupB = Subgroup::create([
             'name' => 'B',
@@ -63,7 +36,7 @@ class GroupTest extends TestCase
         $group = Group::with(['Promotion', 'Subgroups'])->find($group->id);
 
         $this->assertInstanceOf(Promotion::class, $group->Promotion);
-        $this->assertEquals('DUT1', $group->Promotion->name);
+        $this->assertEquals(self::PROMOTION_NAME, $group->Promotion->name);
 
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $group->Subgroups);
         $this->assertInstanceOf(Subgroup::class, $group->Subgroups->first());
@@ -72,14 +45,8 @@ class GroupTest extends TestCase
 
     public function test_academic_group_validation()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
-
-        $promotion = Promotion::create([
-            'name' => 'DUT1',
-            'year_id' => $year->id,
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $promotion = $data['promotion'];
 
         $group = Group::create([
             'name' => 'Test Group',

@@ -46,12 +46,12 @@ class CalendarControllerTest extends TestCase
 	protected function createTestData(): void
 	{
 		$role = Role::create([
-			'name' => 'teacher',
+			'name' => self::ROLE_TEACHER,
 			'level' => 1
 		]);
 
 		$this->year = Year::create([
-			'name' => '2024-2025',
+			'name' => self::YEAR_NAME,
 		]);
 
 		$weekId = DB::table('weeks')->insertGetId([
@@ -93,17 +93,17 @@ class CalendarControllerTest extends TestCase
 		]);
 
 		$this->promotion = Promotion::create([
-			'name' => 'BUT1',
+			'name' => self::PROMOTION_NAME,
 			'year_id' => $this->year->id,
 		]);
 
 		$this->group = Group::create([
-			'name' => 'G1',
+			'name' => self::GROUP_NAME,
 			'promotion_id' => $this->promotion->id,
 		]);
 
 		$this->subgroupA = Subgroup::create([
-			'name' => 'A',
+			'name' => self::SUBGROUP_NAME,
 			'group_id' => $this->group->id,
 		]);
 

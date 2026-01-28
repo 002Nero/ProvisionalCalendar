@@ -15,74 +15,31 @@ class SubGroupTest extends TestCase
 
     public function test_academic_subgroup_creation()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
-
-        $promotion = Promotion::create([
-            'name' => 'DUT1',
-            'year_id' => $year->id,
-        ]);
-
-        $group = Group::create([
-            'name' => 'G1',
-            'promotion_id' => $promotion->id,
-        ]);
-
-        $subgroup = Subgroup::create([
-            'name' => 'A',
-            'group_id' => $group->id,
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $subgroup = $data['subgroup'];
 
         $this->assertInstanceOf(Subgroup::class, $subgroup);
-        $this->assertEquals('A', $subgroup->name);
+        $this->assertEquals(self::SUBGROUP_NAME, $subgroup->name);
         $this->assertInstanceOf(Group::class, $subgroup->group);
     }
 
     public function test_academic_subgroup_relationships()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
-
-        $promotion = Promotion::create([
-            'name' => 'DUT1',
-            'year_id' => $year->id,
-        ]);
-
-        $group = Group::create([
-            'name' => 'G1',
-            'promotion_id' => $promotion->id,
-        ]);
-
-        $subgroup = Subgroup::create([
-            'name' => 'A',
-            'group_id' => $group->id,
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $subgroup = $data['subgroup'];
 
         $subgroup = Subgroup::with('group.Promotion')->find($subgroup->id);
 
         $this->assertInstanceOf(Group::class, $subgroup->group);
-        $this->assertEquals('G1', $subgroup->group->name);
+        $this->assertEquals(self::GROUP_NAME, $subgroup->group->name);
 
-        $this->assertEquals('DUT1', $subgroup->group->Promotion->name);
+        $this->assertEquals(self::PROMOTION_NAME, $subgroup->group->Promotion->name);
     }
 
     public function test_academic_subgroup_validation()
     {
-        $year = Year::create([
-            'name' => '2024-2025',
-        ]);
-
-        $promotion = Promotion::create([
-            'name' => 'DUT1',
-            'year_id' => $year->id,
-        ]);
-
-        $group = Group::create([
-            'name' => 'G1',
-            'promotion_id' => $promotion->id,
-        ]);
+        $data = $this->createStandardAcademicStructure();
+        $group = $data['group'];
 
         $subgroup = Subgroup::create([
             'name' => 'Test Subgroup',
