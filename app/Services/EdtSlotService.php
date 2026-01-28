@@ -620,29 +620,6 @@ class EdtSlotService
      */
     protected function processEdtSlotUpdate(array $data): array
     {
-        $validationError = $this->validateUpdateData($data);
-        if ($validationError !== null) {
-            return $validationError;
-        }
-
-        $edtSlotId = (int) $data['edt_slot_id'];
-        $conflictError = $this->checkUpdateConflicts($edtSlotId, $data);
-
-        if ($conflictError !== null) {
-            return $this->createUpdateError($edtSlotId, $conflictError);
-        }
-
-        return $this->performUpdate($edtSlotId, $data);
-    }
-
-    /**
-     * Valide les données de mise à jour.
-     *
-     * @param array<string, mixed> $data
-     * @return array<string, mixed>|null Erreur ou null si valide
-     */
-    private function validateUpdateData(array $data): ?array
-    {
         $edtSlotId = $data['edt_slot_id'] ?? null;
 
         if ($edtSlotId === null) {
@@ -650,12 +627,18 @@ class EdtSlotService
             return $this->createUpdateError(null, 'edt_slot_id manquant');
         }
 
-        $edtSlot = $this->findEdtSlot((int) $edtSlotId);
+        $edtSlot = $this->findById('edt_slot', (int) $edtSlotId);
         if ($edtSlot === null) {
             return $this->createUpdateError($edtSlotId, "edt_slot {$edtSlotId} non trouvé");
         }
 
-        return null;
+        $conflictError = $this->checkUpdateConflicts((int) $edtSlotId, $edtSlot, $data);
+
+        if ($conflictError !== null) {
+            return $this->createUpdateError($edtSlotId, $conflictError);
+        }
+
+        return $this->performUpdate((int) $edtSlotId, $data);
     }
 
     /**
@@ -663,16 +646,15 @@ class EdtSlotService
      *
      * @param array<string, mixed> $data
      */
-    private function checkUpdateConflicts(int $edtSlotId, array $data): ?string
+    private function checkUpdateConflicts(int $edtSlotId, stdClass $edtSlot, array $data): ?string
     {
-        $edtSlot = $this->findEdtSlot($edtSlotId);
-        $slot = $this->findSlot((int) $edtSlot->slot_id);
+        $slot = $this->findById('slots', (int) $edtSlot->slot_id);
 
         if ($slot === null) {
             return null;
         }
 
-        $week = $this->findWeek((int) $slot->week_id);
+        $week = $this->findById('weeks', (int) $slot->week_id);
 
         if ($week === null) {
             return null;
@@ -736,14 +718,9 @@ class EdtSlotService
             return false;
         }
 
-        $conflicts = DB::table('edt_slot as es')
-            ->join('slots as s', 'es.slot_id', '=', 's.id')
+        $conflicts = $this->buildConflictQuery($edtSlotId, $weekId, $timeInfo['day_of_week'])
             ->join('slots_teachers as st', 's.id', '=', 'st.slot_id')
             ->where('st.teacher_id', $teacherRow->teacher_id)
-            ->where('es.day_of_week', $timeInfo['day_of_week'])
-            ->where('s.week_id', $weekId)
-            ->where('es.id', '!=', $edtSlotId)
-            ->select('es.start_hour', 's.duration')
             ->get();
 
         return $this->hasTimeOverlap($conflicts, $timeInfo);
@@ -756,16 +733,24 @@ class EdtSlotService
      */
     protected function hasRoomConflict(int $edtSlotId, int $weekId, int $roomId, array $timeInfo): bool
     {
-        $conflicts = DB::table('edt_slot as es')
-            ->join('slots as s', 'es.slot_id', '=', 's.id')
+        $conflicts = $this->buildConflictQuery($edtSlotId, $weekId, $timeInfo['day_of_week'])
             ->where('es.room_id', $roomId)
-            ->where('es.day_of_week', $timeInfo['day_of_week'])
-            ->where('s.week_id', $weekId)
-            ->where('es.id', '!=', $edtSlotId)
-            ->select('es.start_hour', 's.duration')
             ->get();
 
         return $this->hasTimeOverlap($conflicts, $timeInfo);
+    }
+
+    /**
+     * Construit la requête de base pour détecter les conflits.
+     */
+    private function buildConflictQuery(int $edtSlotId, int $weekId, string $dayOfWeek): Builder
+    {
+        return DB::table('edt_slot as es')
+            ->join('slots as s', 'es.slot_id', '=', 's.id')
+            ->where('es.day_of_week', $dayOfWeek)
+            ->where('s.week_id', $weekId)
+            ->where('es.id', '!=', $edtSlotId)
+            ->select('es.start_hour', 's.duration');
     }
 
     /**
@@ -841,26 +826,10 @@ class EdtSlotService
     }
 
     /**
-     * Recherche un créneau EDT par son identifiant.
+     * Recherche un enregistrement par son identifiant dans une table.
      */
-    protected function findEdtSlot(int $id): ?stdClass
+    protected function findById(string $table, int $id): ?stdClass
     {
-        return DB::table('edt_slot')->where('id', $id)->first();
-    }
-
-    /**
-     * Recherche un slot par son identifiant.
-     */
-    protected function findSlot(int $id): ?stdClass
-    {
-        return DB::table('slots')->where('id', $id)->first();
-    }
-
-    /**
-     * Recherche une semaine par son identifiant.
-     */
-    protected function findWeek(int $id): ?stdClass
-    {
-        return DB::table('weeks')->where('id', $id)->first();
+        return DB::table($table)->where('id', $id)->first();
     }
 }
