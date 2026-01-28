@@ -111,22 +111,17 @@ class EdtSlotService
      */
     protected function resolveStartColumnConfig(bool $hasStartHour, bool $hasStartTime): array
     {
-        if ($hasStartHour && $hasStartTime) {
-            return [
+        $config = match (true) {
+            $hasStartHour && $hasStartTime => [
                 'select' => DB::raw('COALESCE(edt_slot.start_hour, edt_slot.start_time) as start_hour'),
                 'order' => 'COALESCE(edt_slot.start_hour, edt_slot.start_time)',
-            ];
-        }
+            ],
+            $hasStartHour => ['select' => 'edt_slot.start_hour', 'order' => 'edt_slot.start_hour'],
+            $hasStartTime => ['select' => 'edt_slot.start_time', 'order' => 'edt_slot.start_time'],
+            default => ['select' => DB::raw('NULL as start_hour'), 'order' => null],
+        };
 
-        if ($hasStartHour) {
-            return ['select' => 'edt_slot.start_hour', 'order' => 'edt_slot.start_hour'];
-        }
-
-        if ($hasStartTime) {
-            return ['select' => 'edt_slot.start_time', 'order' => 'edt_slot.start_time'];
-        }
-
-        return ['select' => DB::raw('NULL as start_hour'), 'order' => null];
+        return $config;
     }
 
     /**
@@ -136,22 +131,17 @@ class EdtSlotService
      */
     protected function resolveDayColumnConfig(bool $hasDayOfWeek, bool $hasDay): array
     {
-        if ($hasDayOfWeek && $hasDay) {
-            return [
+        $config = match (true) {
+            $hasDayOfWeek && $hasDay => [
                 'select' => DB::raw('COALESCE(edt_slot.day_of_week, edt_slot.day) as day_of_week'),
                 'order' => 'COALESCE(edt_slot.day_of_week, edt_slot.day)',
-            ];
-        }
+            ],
+            $hasDayOfWeek => ['select' => 'edt_slot.day_of_week', 'order' => 'edt_slot.day_of_week'],
+            $hasDay => ['select' => 'edt_slot.day', 'order' => 'edt_slot.day'],
+            default => ['select' => DB::raw('NULL as day_of_week'), 'order' => null],
+        };
 
-        if ($hasDayOfWeek) {
-            return ['select' => 'edt_slot.day_of_week', 'order' => 'edt_slot.day_of_week'];
-        }
-
-        if ($hasDay) {
-            return ['select' => 'edt_slot.day', 'order' => 'edt_slot.day'];
-        }
-
-        return ['select' => DB::raw('NULL as day_of_week'), 'order' => null];
+        return $config;
     }
 
     /**
@@ -630,6 +620,29 @@ class EdtSlotService
      */
     protected function processEdtSlotUpdate(array $data): array
     {
+        $validationError = $this->validateUpdateData($data);
+        if ($validationError !== null) {
+            return $validationError;
+        }
+
+        $edtSlotId = (int) $data['edt_slot_id'];
+        $conflictError = $this->checkUpdateConflicts($edtSlotId, $data);
+
+        if ($conflictError !== null) {
+            return $this->createUpdateError($edtSlotId, $conflictError);
+        }
+
+        return $this->performUpdate($edtSlotId, $data);
+    }
+
+    /**
+     * Valide les données de mise à jour.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>|null Erreur ou null si valide
+     */
+    private function validateUpdateData(array $data): ?array
+    {
         $edtSlotId = $data['edt_slot_id'] ?? null;
 
         if ($edtSlotId === null) {
@@ -642,22 +655,30 @@ class EdtSlotService
             return $this->createUpdateError($edtSlotId, "edt_slot {$edtSlotId} non trouvé");
         }
 
+        return null;
+    }
+
+    /**
+     * Vérifie les conflits avant mise à jour.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function checkUpdateConflicts(int $edtSlotId, array $data): ?string
+    {
+        $edtSlot = $this->findEdtSlot($edtSlotId);
         $slot = $this->findSlot((int) $edtSlot->slot_id);
+
         if ($slot === null) {
-            return $this->performUpdate((int) $edtSlotId, $data);
+            return null;
         }
 
         $week = $this->findWeek((int) $slot->week_id);
+
         if ($week === null) {
-            return $this->performUpdate((int) $edtSlotId, $data);
+            return null;
         }
 
-        $conflictError = $this->checkConflicts((int) $edtSlotId, $slot, $week, $data);
-        if ($conflictError !== null) {
-            return $this->createUpdateError($edtSlotId, $conflictError);
-        }
-
-        return $this->performUpdate((int) $edtSlotId, $data);
+        return $this->checkConflicts($edtSlotId, $slot, $week, $data);
     }
 
     /**
