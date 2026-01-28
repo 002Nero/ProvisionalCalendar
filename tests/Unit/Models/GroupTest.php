@@ -28,7 +28,7 @@ class GroupTest extends TestCase
         $data = $this->createStandardAcademicStructure();
         $group = $data['group'];
 
-        $subgroupB = Subgroup::create([
+        Subgroup::create([
             'name' => 'B',
             'group_id' => $group->id,
         ]);

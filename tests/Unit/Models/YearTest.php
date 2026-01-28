@@ -28,12 +28,12 @@ class YearTest extends TestCase
             'name' => self::YEAR_NAME,
         ]);
 
-        $semester = Semester::create([
+        Semester::create([
             'semester_number' => 1,
             'year_id' => $year->id,
         ]);
 
-        $promotion = Promotion::create([
+        Promotion::create([
             'name' => self::PROMOTION_NAME,
             'year_id' => $year->id,
         ]);
@@ -47,8 +47,7 @@ class YearTest extends TestCase
 
     public function test_year_validation()
     {
-        // Test de création avec des données valides
-        $year = Year::create([
+        Year::create([
             'name' => '2025-2026',
         ]);
 
@@ -56,4 +55,4 @@ class YearTest extends TestCase
             'name' => '2025-2026',
         ]);
     }
-} 
+}

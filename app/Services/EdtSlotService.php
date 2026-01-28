@@ -15,7 +15,6 @@ use stdClass;
 
 /**
  * Service pour la gestion des créneaux EDT (Emploi Du Temps).
- * 
  * Gère la récupération, le filtrage et la mise à jour des créneaux
  * avec détection automatique de la configuration des colonnes.
  */
@@ -111,7 +110,7 @@ class EdtSlotService
      */
     protected function resolveStartColumnConfig(bool $hasStartHour, bool $hasStartTime): array
     {
-        $config = match (true) {
+        return match (true) {
             $hasStartHour && $hasStartTime => [
                 'select' => DB::raw('COALESCE(edt_slot.start_hour, edt_slot.start_time) as start_hour'),
                 'order' => 'COALESCE(edt_slot.start_hour, edt_slot.start_time)',
@@ -120,8 +119,6 @@ class EdtSlotService
             $hasStartTime => ['select' => 'edt_slot.start_time', 'order' => 'edt_slot.start_time'],
             default => ['select' => DB::raw('NULL as start_hour'), 'order' => null],
         };
-
-        return $config;
     }
 
     /**
@@ -131,7 +128,7 @@ class EdtSlotService
      */
     protected function resolveDayColumnConfig(bool $hasDayOfWeek, bool $hasDay): array
     {
-        $config = match (true) {
+        return match (true) {
             $hasDayOfWeek && $hasDay => [
                 'select' => DB::raw('COALESCE(edt_slot.day_of_week, edt_slot.day) as day_of_week'),
                 'order' => 'COALESCE(edt_slot.day_of_week, edt_slot.day)',
@@ -140,8 +137,6 @@ class EdtSlotService
             $hasDay => ['select' => 'edt_slot.day', 'order' => 'edt_slot.day'],
             default => ['select' => DB::raw('NULL as day_of_week'), 'order' => null],
         };
-
-        return $config;
     }
 
     /**

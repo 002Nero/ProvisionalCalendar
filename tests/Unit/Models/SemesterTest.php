@@ -51,8 +51,7 @@ class SemesterTest extends TestCase
             'name' => self::YEAR_NAME,
         ]);
 
-        // Test de création avec des données valides
-        $semester = Semester::create([
+        Semester::create([
             'semester_number' => 1,
             'year_id' => $year->id
         ]);
@@ -64,7 +63,7 @@ class SemesterTest extends TestCase
 
         // Test de création avec une année inexistante
         $this->expectException(\Illuminate\Database\QueryException::class);
-        
+
         Semester::create([
             'semester_number' => 2,
             'year_id' => 999

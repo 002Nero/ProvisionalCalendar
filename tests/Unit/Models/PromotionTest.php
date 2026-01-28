@@ -27,7 +27,7 @@ class PromotionTest extends TestCase
         $data = $this->createStandardAcademicStructure();
         $promotion = $data['promotion'];
 
-        $group2 = Group::create([
+        Group::create([
             'name' => 'G2',
             'promotion_id' => $promotion->id,
         ]);
