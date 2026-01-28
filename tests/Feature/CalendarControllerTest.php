@@ -640,7 +640,6 @@ class CalendarControllerTest extends TestCase
 			'created_at' => now(),
 			'updated_at' => now(),
 		]);
-		$week2 = Week::find($week2Id);
 
 		$this->createSlotWithEdtSlot([
 			'duration' => 2.0,
@@ -669,16 +668,21 @@ class CalendarControllerTest extends TestCase
 			'room_amount' => 60,
 			'is_neutralized' => false,
 			'is_exam' => false,
-			'week_id' => $week2->id,
+			'week_id' => $week2Id,
 			'type_id' => $this->slotTypeTD->id,
 			'created_at' => now(),
 			'updated_at' => now()
 		]);
-		$slot2 = Slot::find($slot2Id);
-		$slot2->teachers()->attach($this->teacher->id);
+
+		DB::table('slots_teachers')->insert([
+			'slot_id' => $slot2Id,
+			'teacher_id' => $this->teacher->id,
+			'created_at' => now(),
+			'updated_at' => now()
+		]);
 
 		DB::table('edt_slot')->insert([
-			'slot_id' => $slot2->id,
+			'slot_id' => $slot2Id,
 			'day_of_week' => 'Mardi',
 			'start_hour' => '10:00',
 			'room_id' => $this->room->id,
@@ -1306,7 +1310,7 @@ class CalendarControllerTest extends TestCase
 	public function test_store_edt_slots_bulk_allows_adjacent_teacher_slots(): void
 	{
 		// Crée le premier créneau de 08:00 à 10:00
-		$data1 = $this->createSlotWithEdtSlot([
+		$this->createSlotWithEdtSlot([
 			'duration' => 2.0,
 			'teaching_id' => $this->teaching->id,
 			'promotion_id' => $this->promotion->id,
@@ -1360,7 +1364,7 @@ class CalendarControllerTest extends TestCase
 	public function test_store_edt_slots_bulk_allows_different_day_for_same_teacher(): void
 	{
 		// Crée le premier créneau de 08:00 à 10:00
-		$data1 = $this->createSlotWithEdtSlot([
+		$this->createSlotWithEdtSlot([
 			'duration' => 2.0,
 			'teaching_id' => $this->teaching->id,
 			'promotion_id' => $this->promotion->id,
@@ -1437,7 +1441,7 @@ class CalendarControllerTest extends TestCase
 		$teacher2 = Teacher::find($teacher2Id);
 
 		// Crée le premier créneau avec l'enseignant 1 de 08:00 à 10:00
-		$data1 = $this->createSlotWithEdtSlot([
+		$this->createSlotWithEdtSlot([
 			'duration' => 2.0,
 			'teaching_id' => $this->teaching->id,
 			'promotion_id' => $this->promotion->id,
@@ -1518,7 +1522,7 @@ class CalendarControllerTest extends TestCase
 		$teacher2 = Teacher::find($teacher2Id);
 
 		// Crée le premier créneau de 08:00 à 10:00
-		$data1 = $this->createSlotWithEdtSlot([
+		$this->createSlotWithEdtSlot([
 			'duration' => 2.0,
 			'teaching_id' => $this->teaching->id,
 			'promotion_id' => $this->promotion->id,
@@ -1632,7 +1636,7 @@ class CalendarControllerTest extends TestCase
 	public function test_store_edt_slots_bulk_allows_same_time_different_weeks(): void
 	{
 		// Crée un créneau pour la semaine 1
-		$data1 = $this->createSlotWithEdtSlot([
+		$this->createSlotWithEdtSlot([
 			'duration' => 2.0,
 			'teaching_id' => $this->teaching->id,
 			'promotion_id' => $this->promotion->id,
@@ -1658,7 +1662,6 @@ class CalendarControllerTest extends TestCase
 			'created_at' => now(),
 			'updated_at' => now(),
 		]);
-		$week2 = Week::find($week2Id);
 
 		// Crée un créneau pour la semaine 2 à un horaire différent initialement
 		$slot2Id = DB::table('slots')->insertGetId([
@@ -1670,7 +1673,7 @@ class CalendarControllerTest extends TestCase
 			'room_amount' => 60,
 			'is_neutralized' => false,
 			'is_exam' => false,
-			'week_id' => $week2->id,
+			'week_id' => $week2Id,
 			'type_id' => $this->slotTypeTD->id,
 			'created_at' => now(),
 			'updated_at' => now()
