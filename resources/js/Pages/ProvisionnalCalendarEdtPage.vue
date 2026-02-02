@@ -865,7 +865,8 @@ function generatePDF() {
                   >
                     <div class="lesson-title">{{ lesson.title }}</div>
                     <div class="lesson-meta" v-if="lesson.type !== 'TP' && lesson.type !== 'TD'">{{ lesson.teacher }} · {{ lesson.room }}</div>
-                    <div class="lesson-meta lesson-inline" v-if="lesson.type === 'TP' || lesson.type === 'TD'">{{ lesson.teacher }} · {{ lesson.room }}</div>
+                    <div class="lesson-meta" v-if="lesson.type === 'TP' || lesson.type === 'TD'">{{ lesson.teacher }}</div>
+                    <div class="lesson-meta" v-if="lesson.type === 'TP' || lesson.type === 'TD'">{{ lesson.room }}</div>
                   </div>
                   <div v-if="isCovered(d, t) && lessonsStartingAt(d, t).length === 0" class="covered-slot"></div>
                 </div>
@@ -951,10 +952,12 @@ function generatePDF() {
                               }"
                             >
                               <div class="lesson-content-h" :class="{ 'lesson-tp': lesson.type === 'TP', 'lesson-td': lesson.type === 'TD' }">
-                                <div class="lesson-title-h">{{ lesson.title }}</div>
+                                <div class="lesson-title-h" v-if="lesson.type !== 'TP' && lesson.type !== 'TD'">{{ lesson.title }}</div>
+                                <div class="lesson-meta-h lesson-inline" v-if="lesson.type === 'TP'"><span class="lesson-title-h">{{ lesson.title }}</span> · {{ lesson.teacher }} · {{ lesson.room }}</div>
+                                <div class="lesson-title-h" v-if="lesson.type === 'TD'">{{ lesson.title }}</div>
                                 <div class="lesson-meta-h" v-if="lesson.type !== 'TP' && lesson.type !== 'TD'">{{ lesson.teacher }}</div>
                                 <div class="lesson-meta-h" v-if="lesson.type !== 'TP' && lesson.type !== 'TD'">{{ lesson.room }}</div>
-                                <div class="lesson-meta-h lesson-inline" v-if="lesson.type === 'TP' || lesson.type === 'TD'">{{ lesson.teacher }} · {{ lesson.room }}</div>
+                                <div class="lesson-meta-h lesson-inline" v-if="lesson.type === 'TD'">{{ lesson.teacher }} · {{ lesson.room }}</div>
                               </div>
                             </div>
                             <div v-if="isCovered(dayIdx, t, groupItem.id, sub) && lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups)).length === 0" class="covered-slot"></div>
