@@ -1,0 +1,10 @@
+flask
+flask-cors
+python-dotenv
+gunicorn
+pandas
+sqlalchemy
+matplotlib
+ortools
+mysql-connector-python
+pytest

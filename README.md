@@ -25,6 +25,17 @@ cd provisionnal-calendar
 docker compose up -d --build
 ```
 
+## Services
+
+L'application utilise plusieurs services Docker :
+
+- **app** : Application Laravel (PHP)
+- **nginx** : Serveur web
+- **mariadb** : Base de données
+- **node** : Build des assets Vue.js
+- **phpmyadmin** : Interface de gestion de base de données (http://localhost:8080)
+- **generator** : Serveur Python pour la génération d'emplois du temps (http://localhost:5000)
+
 ## Commandes utiles
 
 - **Arrêter l'environnement**
@@ -37,9 +48,19 @@ docker compose down
 docker compose logs -f
 ```
 
+- **Voir les logs d'un service spécifique**
+```bash
+docker compose logs -f generator
+```
+
 - **Lancer un shell dans le conteneur de l'application php**
 ```bash
 docker compose exec app bash
+```
+
+- **Lancer un shell dans le conteneur du générateur Python**
+```bash
+docker compose exec generator bash
 ```
 
 ## Résolution des problèmes courants
@@ -55,6 +76,25 @@ docker compose up -d --build
 ```
 
 
+## Générateur d'emplois du temps
+
+Le serveur Python de génération d'emplois du temps est disponible sur le port 5000.
+
+### API Endpoints
+
+- **Health Check** : `GET http://localhost:5000/api/heartbeat`
+- **Générer un emploi du temps** : `POST http://localhost:5000/api/generate`
+
+### Configuration
+
+Le générateur utilise les variables d'environnement suivantes :
+- `DB_HOST` : Hôte de la base de données (mariadb)
+- `DB_DATABASE` : Nom de la base de données
+- `DB_USERNAME` : Utilisateur de la base de données
+- `DB_PASSWORD` : Mot de passe de la base de données
+
+Pour plus de détails sur le générateur, consultez [generator/README.md](generator/README.md)
+
 ## Liens utiles
 
 - [PHP Documentation](https://www.php.net/)
@@ -69,5 +109,8 @@ docker compose up -d --build
 - [Vue.js Documentation](https://vuejs.org/)
 - [Vue Test Utils Documentation](https://test-utils.vuejs.org/)
 - [Tailwind CSS Documentation](https://tailwindcss.com/)
+
+- [Flask Documentation](https://flask.palletsprojects.com/)
+- [OR-Tools Documentation](https://developers.google.com/optimization)
 
 - [Docker Documentation](https://www.docker.com/)

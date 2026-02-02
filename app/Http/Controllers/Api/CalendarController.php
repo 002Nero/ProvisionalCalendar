@@ -341,9 +341,10 @@ class CalendarController extends Controller
                 ->leftJoin('slots', 'edt_slot.slot_id', '=', 'slots.id')
                 ->leftJoin('weeks', 'slots.week_id', '=', 'weeks.id')
                 ->leftJoin('rooms', 'edt_slot.room_id', '=', 'rooms.id')
+                ->leftJoin('subgroups', 'slots.subgroup_id', '=', 'subgroups.id')
                 ->where('weeks.year_id', $year_id)
                 ->where('weeks.week_number', $week_number)
-                ->select('edt_slot.*', 'rooms.name as room_name');
+                ->select('edt_slot.*', 'rooms.name as room_name', 'subgroups.name as subgroup_name');
 
             // apply ordering only when we have valid expressions
             if (!empty($dayOrderExpr)) {
@@ -372,7 +373,19 @@ class CalendarController extends Controller
                         
                         if ($promotionId && !$groupId && !$subgroup) {
                             // Cas 1: Seulement promotion - afficher tous les slots de la promotion
-                            $q->where('promotion_id', $promotionId);
+                            // ET les TPs des groupes qui appartiennent à la promotion
+                            // Créer une sous-requête pour récupérer les IDs des groupes de la promotion
+                            $groupIds = DB::table('groups')
+                                ->where('promotion_id', $promotionId)
+                                ->pluck('id')
+                                ->toArray();
+                            
+                            $q->where('promotion_id', $promotionId)
+                              ->orWhere(function($q2) use ($groupIds) {
+                                  // Inclure aussi les TPs (qui ont group_id + subgroup_id)
+                                  $q2->whereIn('group_id', $groupIds)
+                                     ->whereNotNull('subgroup_id');
+                              });
                         } elseif ($promotionId && $groupId && !$subgroup) {
                             // Cas 2: Promotion + Groupe - afficher CM de la promo ET TD du groupe
                             $q->where('promotion_id', $promotionId)
@@ -401,20 +414,40 @@ class CalendarController extends Controller
                               });
                         } else {
                             // Fallback: ancienne logique si les paramètres sont partiels
-                            if ($promotionId) {
+                            // NOTE: Le fallback ne devrait pas s'utiliser en conditions normales.
+                            // Ce code doit être restrictif pour éviter les fuites de données.
+                            if ($promotionId && $groupId && $subgroupId) {
+                                // Cas complet: tous les cours pertinents pour ce sous-groupe
+                                $q->where(function($q2) use ($promotionId, $groupId, $subgroupId) {
+                                    $q2->where('promotion_id', $promotionId)
+                                      ->where(function($q3) use ($groupId, $subgroupId) {
+                                          // CM de la promotion
+                                          $q3->whereNull('group_id')
+                                             // OU TD du groupe
+                                             ->orWhere(function($q4) use ($groupId) {
+                                                 $q4->where('group_id', $groupId)
+                                                    ->whereNull('subgroup_id');
+                                             })
+                                             // OU TP du sous-groupe UNIQUEMENT
+                                             ->orWhere(function($q4) use ($groupId, $subgroupId) {
+                                                 $q4->where('group_id', $groupId)
+                                                    ->where('subgroup_id', $subgroupId);
+                                             });
+                                      });
+                                });
+                            } elseif ($promotionId && $groupId) {
+                                // Promotion + Groupe (sans sous-groupe)
+                                $q->where('promotion_id', $promotionId)
+                                  ->where(function($q2) use ($groupId) {
+                                      $q2->whereNull('group_id')
+                                         ->orWhere('group_id', $groupId);
+                                  });
+                            } elseif ($promotionId) {
+                                // Seulement promotion
                                 $q->where('promotion_id', $promotionId);
-                            }
-                            if ($groupId) {
-                                $q->where(function($q2) use ($groupId) {
-                                    $q2->where('group_id', $groupId)
-                                       ->orWhereNull('group_id');
-                                });
-                            }
-                            if ($subgroupId) {
-                                $q->where(function($q2) use ($subgroupId) {
-                                    $q2->where('subgroup_id', $subgroupId)
-                                       ->orWhereNull('subgroup_id');
-                                });
+                            } else {
+                                // Aucun filtre spécifique ne correspond - retourner vide pour la sécurité
+                                $q->whereRaw('1 = 0');
                             }
                         }
                     });
@@ -504,6 +537,7 @@ class CalendarController extends Controller
                         'promotion_id' => $slot->promotion_id ?? null,
                         'group_id' => $slot->group_id ?? null,
                         'subgroup_id' => $slot->subgroup_id ?? null,
+                        'subgroup' => property_exists($r, 'subgroup_name') ? $r->subgroup_name : null,
                         'type_id' => $slot->type_id ?? null,
                         'type_acronym' => $slot->type_id && isset($slotTypesAcronyms[$slot->type_id]) ? $slotTypesAcronyms[$slot->type_id] : null,
                         'type_color' => $finalColor,
@@ -685,11 +719,24 @@ class CalendarController extends Controller
                 'room_id' => 'required|exists:rooms,id',
                 'teacher_id' => 'nullable|exists:teachers,id',
                 'teacher_ids' => 'nullable|array',
-                'teacher_ids.*' => 'exists:teachers,id'
+                'teacher_ids.*' => 'exists:teachers,id',
+                'promotion_id' => 'nullable|exists:promotions,id',
+                'group_id' => 'nullable|exists:groups,id',
+                'subgroup_id' => 'nullable|exists:subgroups,id'
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['error' => 'Données invalides', 'messages' => $validator->errors()], 422);
+            }
+
+            // Validation supplémentaire : Pour un TP, group_id et subgroup_id sont obligatoires
+            $type = strtoupper(trim($request->type ?? ''));
+            if ($type === 'TP') {
+                if (empty($request->group_id) || empty($request->subgroup_id)) {
+                    return response()->json([
+                        'error' => 'Un TP doit être associé à un groupe et un sous-groupe. Veuillez le créer sur la cellule d\'un sous-groupe spécifique (A, B, etc.), pas sur le groupe entier.'
+                    ], 422);
+                }
             }
 
             $week = Week::where('year_id', $request->year_id)->where('week_number', $request->week_number)->first();
