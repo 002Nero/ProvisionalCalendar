@@ -79,7 +79,7 @@ function startPollingStatus(yearId: number, weekId: number) {
       generationStatus.value = 'error'
       stopPollingStatus()
     }
-  }, 2000) // toutes les 2 secondes
+  }, 10000) // toutes les 10 secondes
 }
 
 function stopPollingStatus() {
