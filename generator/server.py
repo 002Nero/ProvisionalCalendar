@@ -52,7 +52,7 @@ def authenticate():
 # Middleware for JSON content type
 @app.before_request
 def ensure_json():
-    if request.method == 'OPTIONS' or request.endpoint == 'status':
+    if request.method == 'OPTIONS' or request.endpoint == 'status' or request.method == 'GET':
         return
     if not request.is_json:
         return jsonify({'code': 400, 'error': 'Content-Type must be application/json'}), 400
