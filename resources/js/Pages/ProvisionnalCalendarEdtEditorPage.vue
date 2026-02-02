@@ -1106,11 +1106,6 @@ async function saveEdt() {
     return
   }
 
-  if (placements.value.length === 0) {
-    alert('Aucun placement à sauvegarder.')
-    return
-  }
-
   // Client-side validation: ensure each placement has required fields to avoid DB errors
   const clientErrors: string[] = []
   placements.value.forEach((p, idx) => {
