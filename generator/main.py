@@ -128,8 +128,11 @@ def main(id_semaine=None): # return 0 if success, 1 otherwise
 
     print("Vous avez fourni :", id_semaine)
     DB_CONFIG = {
-        'host': '127.0.0.1', 'database': 'provisional_calendar',
-        'user': 'root', 'password': 'secret', 'port': 3306
+        'host': os.getenv('DB_HOST', '127.0.0.1'),
+        'database': os.getenv('DB_DATABASE', 'provisional_calendar'),
+        'user': os.getenv('DB_USERNAME', 'root'),
+        'password': os.getenv('DB_PASSWORD', 'secret'),
+        'port': int(os.getenv('DB_PORT', '3306'))
     }
 
     DataProviderInsert = DataProviderID(DB_CONFIG)
