@@ -1100,6 +1100,55 @@ function cancelEdit() {
   window.location.href = redirectUrl
 }
 
+async function deleteAllPlacements() {
+  if (placements.value.length === 0) {
+    alert('Aucun cours à supprimer.')
+    return
+  }
+
+  const confirmed = confirm(`Êtes-vous sûr de vouloir supprimer les ${placements.value.length} cours ? Cette action ne peut pas être annulée.`)
+  if (!confirmed) return
+
+  const placementsToDelete = [...placements.value]
+  let successCount = 0
+  let errorCount = 0
+
+  for (const placement of placementsToDelete) {
+    if (placement.fromDb) {
+      try {
+        await axios.delete(`/api/edt/${placement.id}`)
+        successCount++
+        // Remove from placements
+        const idx = placements.value.findIndex(p => p.id === placement.id)
+        if (idx !== -1) {
+          placements.value.splice(idx, 1)
+        }
+        // Remove from busySlots
+        const busyIdx = busySlots.value.findIndex(s => s.sourceId === placement.id)
+        if (busyIdx !== -1) {
+          busySlots.value.splice(busyIdx, 1)
+        }
+      } catch (err) {
+        console.error(`Erreur suppression placement ${placement.id}`, err)
+        errorCount++
+      }
+    } else {
+      // Placement non sauvegardé, juste le retirer de la liste
+      const idx = placements.value.findIndex(p => p.id === placement.id)
+      if (idx !== -1) {
+        placements.value.splice(idx, 1)
+        successCount++
+      }
+    }
+  }
+
+  if (errorCount > 0) {
+    alert(`${successCount} cours supprimés, ${errorCount} erreurs`)
+  } else {
+    alert(`${successCount} cours supprimés avec succès`)
+  }
+}
+
 async function saveEdt() {
   if (!edtStore.year || !edtStore.week) {
     alert('Veuillez sélectionner une année et une semaine avant de sauvegarder.')
@@ -1229,6 +1278,7 @@ async function saveEdt() {
 
         <div class="right">
           <button class="btn primary" @click="saveEdt">Sauvegarder</button>
+          <button class="btn danger" @click="deleteAllPlacements">Supprimer tous les cours</button>
           <button class="btn primary" @click="cancelEdit">Annuler</button>
 
         </div>
@@ -1415,6 +1465,8 @@ async function saveEdt() {
 .arrow.button:hover { filter: brightness(75%); }
 .btn { padding:0.4rem 0.6rem; border:1px solid #d1d5db; background:#fff; border-radius:6px; cursor:pointer }
 .btn.primary { background:#FFD8E4; color:#000000; border-color:transparent }
+.btn.danger { background:#ef4444; color:#ffffff; border-color:transparent }
+.btn.danger:hover { background:#dc2626 }
 .edt-main { display:flex; gap:1rem }
 .calendar-area { flex:1; overflow:auto; max-height: calc(100vh - 220px); }
 .calendar-header { display:grid; grid-template-columns: 80px repeat(6,1fr); gap:0.5rem; margin-bottom:0.5rem; position:sticky; top:0; z-index:20; background:transparent }
