@@ -14,6 +14,8 @@ const groups = ref<{id:number;name:string;promotionId:number}[]>([])
 const subgroupsByGroup: Record<number, string[]> = {
   0: ['A','B']
 }
+// Special ID for applying constraints to all groups in a promotion
+const ALL_GROUP_ID = -1
 
 type Constraint = { id: number; text: string; room?: string; teacher?: string; promotionId?: number; groupId?: number; subgroup?: string; week?: number; day?: string; startTime?: string; endTime?: string; repeatWeekly?: boolean }
 
@@ -58,7 +60,7 @@ async function loadGroupsForPromotion(promoId: number | undefined) {
     const res = await axios.get(`/api/groups/${promoId}`)
     groups.value = Array.isArray(res.data) ? res.data.map((g: any) => ({ id: g.id, name: g.name, promotionId: promoId })) : []
     groups.value.forEach(g => { if (!subgroupsByGroup[g.id]) subgroupsByGroup[g.id] = ['A','B'] })
-    if (groups.value.length > 0 && !newGroupGroupId.value) newGroupGroupId.value = groups.value[0].id
+    if (groups.value.length > 0 && !newGroupGroupId.value) newGroupGroupId.value = ALL_GROUP_ID
   } catch (e) {
     console.warn('Could not load groups', e)
   }
@@ -202,24 +204,28 @@ function addGroupConstraint() {
   if (!text) return
   ;(async () => {
     try {
-      const payload = {
-        group_id: newGroupGroupId.value ?? null,
-        constraint_type: 'unavailable',
-        day_of_week: newGroupDay.value ?? null,
-        start_time: newGroupStart.value ?? null,
-        end_time: newGroupEnd.value ?? null,
-        reason: text,
-        week_id: newGroupWeek.value ?? null,
-        priority: 'hard',
-        active: true
-      }
-      if (!newGroupGroupId.value || !groups.value.find(g => g.id === newGroupGroupId.value)) {
-        alert('Veuillez sélectionner un groupe valide avant de sauvegarder.')
+      const isAll = newGroupGroupId.value === ALL_GROUP_ID
+      const targetGroups = isAll ? groups.value.filter(g => g.promotionId === (newGroupPromo.value ?? g.promotionId)) : groups.value.filter(g => g.id === newGroupGroupId.value)
+      if (targetGroups.length === 0) {
+        alert('Veuillez sélectionner une promotion et un groupe valides avant de sauvegarder.')
         return
       }
-      const res = await axios.post('/api/group-constraints', payload)
-      const id = res.data?.id ?? nextId++
-      groupConstraints.value.push({ id, text, promotionId: newGroupPromo.value, groupId: newGroupGroupId.value, subgroup: newGroupSubgroup.value, week: newGroupWeek.value, day: newGroupDay.value, startTime: newGroupStart.value, endTime: newGroupEnd.value, repeatWeekly: newGroupRepeat.value })
+      for (const g of targetGroups) {
+        const payload = {
+          group_id: g.id,
+          constraint_type: 'unavailable',
+          day_of_week: newGroupDay.value ?? null,
+          start_time: newGroupStart.value ?? null,
+          end_time: newGroupEnd.value ?? null,
+          reason: text,
+          week_id: newGroupRepeat.value ? null : (newGroupWeek.value ?? null),
+          priority: 'hard',
+          active: true
+        }
+        const res = await axios.post('/api/group-constraints', payload)
+        const id = res.data?.id ?? nextId++
+        groupConstraints.value.push({ id, text, promotionId: newGroupPromo.value, groupId: g.id, subgroup: isAll ? 'Tous' : newGroupSubgroup.value, week: newGroupWeek.value, day: newGroupDay.value, startTime: newGroupStart.value, endTime: newGroupEnd.value, repeatWeekly: newGroupRepeat.value })
+      }
       newGroupText.value = ''
       newGroupWeek.value = undefined
       newGroupDay.value = undefined
@@ -430,12 +436,14 @@ function saveGroupEdit(id: number) {
 }
 function cancelGroupEdit() { editingGroupId.value = null }
 
-watch(editGroupPromo, (val) => {
+watch(editGroupPromo, async (val) => {
+  await loadGroupsForPromotion(val)
   const first = groups.value.find(g => g.promotionId === val)
   editGroupGroupId.value = first?.id
 })
 watch(editGroupGroupId, (val) => {
-  editGroupSubgroup.value = (subgroupsByGroup[val ?? 0] || [])[0]
+  // Default to 'Tous' regardless of group; user can pick A/B
+  editGroupSubgroup.value = 'Tous'
 })
 
 const newRoomWeek = ref<number | undefined>(undefined)
@@ -457,7 +465,7 @@ const newTeacherSel = ref<number | undefined>(teachers.value[0]?.id)
 const newGroupText = ref('')
 const newGroupPromo = ref<number | undefined>(promotions.value[0]?.id)
 const newGroupGroupId = ref<number | undefined>(groups.value.find(g => g.promotionId === newGroupPromo.value)?.id)
-const newGroupSubgroup = ref<string | undefined>(subgroupsByGroup[newGroupGroupId.value ?? groups.value[0]?.id ?? 0]?.[0] ?? undefined)
+const newGroupSubgroup = ref<string | undefined>('Tous')
 
 // removed unused newGroupSel
 
@@ -501,12 +509,14 @@ const filteredGroupConstraints = computed(() => {
   })
 })
 
-watch(newGroupPromo, (val) => {
-  const first = groups.value.find(g => g.promotionId === val)
-  newGroupGroupId.value = first?.id
+watch(newGroupPromo, async (val) => {
+  await loadGroupsForPromotion(val)
+  // Default to 'Tous' to allow promo-wide constraints
+  newGroupGroupId.value = ALL_GROUP_ID
 })
 watch(newGroupGroupId, (val) => {
-  newGroupSubgroup.value = (subgroupsByGroup[val ?? 0] || [])[0]
+  // Default to 'Tous' regardless of group; user can pick A/B
+  newGroupSubgroup.value = 'Tous'
 })
 </script>
 
@@ -661,10 +671,12 @@ watch(newGroupGroupId, (val) => {
               <option v-for="p in promotions" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
             <select v-model="newGroupGroupId" class="input small">
+              <option :value="ALL_GROUP_ID">Tous</option>
               <option v-for="g in groups.filter(gg => gg.promotionId === newGroupPromo)" :key="g.id" :value="g.id">{{ g.name }}</option>
             </select>
             <select v-model="newGroupSubgroup" class="input small">
-              <option v-for="s in (subgroupsByGroup[newGroupGroupId ?? 0] || [])" :key="s" :value="s">{{ s }}</option>
+              <option value="Tous">Tous</option>
+              <option v-if="newGroupGroupId !== ALL_GROUP_ID" v-for="s in ((subgroupsByGroup[newGroupGroupId ?? 0] && subgroupsByGroup[newGroupGroupId ?? 0].length) ? subgroupsByGroup[newGroupGroupId ?? 0] : ['A','B'])" :key="s" :value="s">{{ s }}</option>
             </select>
             <input v-model.number="newGroupWeek" type="number" min="1" placeholder="Semaine" class="input small" />
             <select v-model="newGroupDay" class="input small">
@@ -689,7 +701,8 @@ watch(newGroupGroupId, (val) => {
                     <option v-for="g in groups.filter(gg => gg.promotionId === editGroupPromo)" :key="g.id" :value="g.id">{{ g.name }}</option>
                   </select>
                   <select v-model="editGroupSubgroup" class="input small">
-                    <option v-for="s in (subgroupsByGroup[editGroupGroupId ?? 0] || [])" :key="s" :value="s">{{ s }}</option>
+                    <option value="Tous">Tous</option>
+                    <option v-if="editGroupGroupId !== ALL_GROUP_ID" v-for="s in ((subgroupsByGroup[editGroupGroupId ?? 0] && subgroupsByGroup[editGroupGroupId ?? 0].length) ? subgroupsByGroup[editGroupGroupId ?? 0] : ['A','B'])" :key="s" :value="s">{{ s }}</option>
                   </select>
                   <input v-model.number="editGroupWeek" type="number" min="1" placeholder="Semaine" class="input small" />
                   <select v-model="editGroupDay" class="input small">
