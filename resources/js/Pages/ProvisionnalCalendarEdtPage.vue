@@ -611,36 +611,41 @@ function generatePDF() {
             lessonBlocks.forEach((block: Element) => {
               const htmlBlock = block as HTMLElement
               htmlBlock.style.overflow = 'visible'
-              htmlBlock.style.padding = '4px'
+              htmlBlock.style.padding = '3px'
               
               // Ajuster le contenu du cours
               const content = htmlBlock.querySelector('.lesson-content-h') as HTMLElement
               if (content) {
                 content.style.overflow = 'visible'
-                content.style.gap = '2px'
+                content.style.gap = '1px'
+                content.style.display = 'flex'
+                content.style.flexDirection = 'column'
+                content.style.justifyContent = 'flex-start'
               }
               
               // Ajuster les titres
               const titles = htmlBlock.querySelectorAll('.lesson-title-h')
               titles.forEach((title: Element) => {
                 const htmlTitle = title as HTMLElement
-                htmlTitle.style.fontSize = '9px'
-                htmlTitle.style.lineHeight = '1.1'
+                htmlTitle.style.fontSize = '12px'
+                htmlTitle.style.lineHeight = '1.2'
                 htmlTitle.style.whiteSpace = 'normal'
                 htmlTitle.style.overflow = 'visible'
                 htmlTitle.style.textOverflow = 'clip'
                 htmlTitle.style.fontWeight = '700'
+                htmlTitle.style.wordWrap = 'break-word'
               })
               
               // Ajuster les métadonnées (prof, salle)
               const metas = htmlBlock.querySelectorAll('.lesson-meta-h')
               metas.forEach((meta: Element) => {
                 const htmlMeta = meta as HTMLElement
-                htmlMeta.style.fontSize = '8px'
-                htmlMeta.style.lineHeight = '1.1'
+                htmlMeta.style.fontSize = '11px'
+                htmlMeta.style.lineHeight = '1.2'
                 htmlMeta.style.whiteSpace = 'normal'
                 htmlMeta.style.overflow = 'visible'
                 htmlMeta.style.textOverflow = 'clip'
+                htmlMeta.style.wordWrap = 'break-word'
               })
             })
             
@@ -649,25 +654,29 @@ function generatePDF() {
             lessonBlocksVertical.forEach((block: Element) => {
               const htmlBlock = block as HTMLElement
               htmlBlock.style.overflow = 'visible'
-              htmlBlock.style.padding = '4px'
+              htmlBlock.style.padding = '3px'
               
               const titles = htmlBlock.querySelectorAll('.lesson-title')
               titles.forEach((title: Element) => {
                 const htmlTitle = title as HTMLElement
-                htmlTitle.style.fontSize = '10px'
-                htmlTitle.style.lineHeight = '1.2'
+                htmlTitle.style.fontSize = '13px'
+                htmlTitle.style.lineHeight = '1.3'
                 htmlTitle.style.whiteSpace = 'normal'
                 htmlTitle.style.overflow = 'visible'
+                htmlTitle.style.textOverflow = 'clip'
                 htmlTitle.style.fontWeight = '700'
+                htmlTitle.style.wordWrap = 'break-word'
               })
               
               const metas = htmlBlock.querySelectorAll('.lesson-meta')
               metas.forEach((meta: Element) => {
                 const htmlMeta = meta as HTMLElement
-                htmlMeta.style.fontSize = '9px'
-                htmlMeta.style.lineHeight = '1.2'
+                htmlMeta.style.fontSize = '12px'
+                htmlMeta.style.lineHeight = '1.3'
                 htmlMeta.style.whiteSpace = 'normal'
                 htmlMeta.style.overflow = 'visible'
+                htmlMeta.style.textOverflow = 'clip'
+                htmlMeta.style.wordWrap = 'break-word'
               })
             })
             
@@ -855,7 +864,8 @@ function generatePDF() {
                     :style="{ height: `${lesson.span * 40 + (lesson.span - 1) * 4}px`, background: lesson.color || 'linear-gradient(180deg,#fef3c7,#fde68a)', borderColor: lesson.color || '#f59e0b' }"
                   >
                     <div class="lesson-title">{{ lesson.title }}</div>
-                    <div class="lesson-meta">{{ lesson.teacher }} · {{ lesson.room }}</div>
+                    <div class="lesson-meta" v-if="lesson.type !== 'TP' && lesson.type !== 'TD'">{{ lesson.teacher }} · {{ lesson.room }}</div>
+                    <div class="lesson-meta lesson-inline" v-if="lesson.type === 'TP' || lesson.type === 'TD'">{{ lesson.teacher }} · {{ lesson.room }}</div>
                   </div>
                   <div v-if="isCovered(d, t) && lessonsStartingAt(d, t).length === 0" class="covered-slot"></div>
                 </div>
@@ -940,10 +950,11 @@ function generatePDF() {
                                 borderColor: lesson.color || '#f59e0b' 
                               }"
                             >
-                              <div class="lesson-content-h">
+                              <div class="lesson-content-h" :class="{ 'lesson-tp': lesson.type === 'TP', 'lesson-td': lesson.type === 'TD' }">
                                 <div class="lesson-title-h">{{ lesson.title }}</div>
-                                <div class="lesson-meta-h">{{ lesson.teacher }}</div>
-                                <div class="lesson-meta-h">{{ lesson.room }}</div>
+                                <div class="lesson-meta-h" v-if="lesson.type !== 'TP' && lesson.type !== 'TD'">{{ lesson.teacher }}</div>
+                                <div class="lesson-meta-h" v-if="lesson.type !== 'TP' && lesson.type !== 'TD'">{{ lesson.room }}</div>
+                                <div class="lesson-meta-h lesson-inline" v-if="lesson.type === 'TP' || lesson.type === 'TD'">{{ lesson.teacher }} · {{ lesson.room }}</div>
                               </div>
                             </div>
                             <div v-if="isCovered(dayIdx, t, groupItem.id, sub) && lessonsStartingAt(dayIdx, t).filter(l => shouldDisplayLessonInCell(l, gIdx, subIdx, groupsWithSubgroups)).length === 0" class="covered-slot"></div>
@@ -1005,8 +1016,11 @@ function generatePDF() {
 .lesson-block-horizontal { position:absolute; left:2px; top:2px; box-sizing:border-box; padding:0.25rem; font-size:0.85rem; border:1px solid; border-radius:6px; overflow:hidden; z-index:5; display:flex; flex-direction:column; gap:0.15rem; }
 .lesson-block-horizontal.lesson-exam { border-width:2px; box-shadow:0 0 6px rgba(0, 0, 0, 0.2); }
 .lesson-content-h { display:flex; flex-direction:column; gap:0.1rem; overflow:hidden; }
+.lesson-content-h.lesson-tp,
+.lesson-content-h.lesson-td { gap:0.05rem; }
 .lesson-title-h { font-weight:600; font-size:0.8rem; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#92400e; }
 .lesson-meta-h { font-size:0.75rem; font-weight:400; opacity:0.95; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#7c2d12; }
+.lesson-meta-h.lesson-inline { font-size:0.7rem; line-height:1.1; }
 .calendar-header { display:grid; grid-template-columns: 80px repeat(6,minmax(0,1fr)); gap:0.5rem; margin-bottom:0.5rem; position:sticky; top:0; z-index:20; background:transparent; width:100%; }
 .calendar-header .time-header { height: 100%; }
 .calendar-header .day {
