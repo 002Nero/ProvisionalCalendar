@@ -521,11 +521,16 @@ function nextWeek() {
 
 function generatePDF() {
   try {
-    const calendarArea = document.querySelector('.calendar-area')
+    // Chercher d'abord la vue verticale, sinon la vue horizontale
+    const calendarArea = document.querySelector('.calendar-area') || document.querySelector('.calendar-area-horizontal')
     if (!calendarArea) {
       alert('Impossible de trouver l\'emploi du temps à exporter')
       return
     }
+
+    // Détecter le type de vue
+    const isHorizontalView = calendarArea.classList.contains('calendar-area-horizontal')
+    const selectorClass = isHorizontalView ? '.calendar-area-horizontal' : '.calendar-area'
 
     // Charger html2canvas
     const script1 = document.createElement('script')
@@ -540,51 +545,191 @@ function generatePDF() {
         // @ts-ignore  
         const html2canvas = window.html2canvas
 
+        // Pour la vue horizontale, trouver le conteneur scrollable
+        let captureElement = calendarArea
+        if (isHorizontalView) {
+          const horizontalWrapper = calendarArea.querySelector('.horizontal-wrapper')
+          if (horizontalWrapper) {
+            captureElement = horizontalWrapper as HTMLElement
+          }
+        }
+
         // Capturer le calendrier avec couleurs
         // Important: capturer tout l'élément, même ce qui n'est pas visible à l'écran
-        html2canvas(calendarArea, {
-          scale: 1.8,
+        html2canvas(captureElement, {
+          scale: 2.5,  // Augmenté pour meilleure qualité
           backgroundColor: '#ffffff',
           useCORS: true,
           logging: false,
           allowTaint: true,
           // Capturer toute la zone, pas seulement la partie visible
-          windowHeight: calendarArea.scrollHeight,
-          windowWidth: calendarArea.scrollWidth,
-          height: calendarArea.scrollHeight,
-          width: calendarArea.scrollWidth,
+          scrollY: -window.scrollY,
+          scrollX: -window.scrollX,
+          windowHeight: captureElement.scrollHeight + 100,
+          windowWidth: captureElement.scrollWidth + 100,
+          height: captureElement.scrollHeight,
+          width: captureElement.scrollWidth,
           onclone: function(doc: Document) {
             // Forcer l'affichage complet dans le clone
-            const clonedElement = doc.querySelector('.calendar-area') as HTMLElement
+            const clonedElement = doc.querySelector(isHorizontalView ? '.horizontal-wrapper' : selectorClass) as HTMLElement
             if (clonedElement) {
               clonedElement.style.overflow = 'visible'
-              clonedElement.style.height = calendarArea.scrollHeight + 'px'
-              clonedElement.style.width = calendarArea.scrollWidth + 'px'
+              clonedElement.style.height = 'auto'
+              clonedElement.style.maxHeight = 'none'
+              clonedElement.style.width = 'auto'
+              clonedElement.style.maxWidth = 'none'
+              clonedElement.style.transform = 'none'
+            }
+            // Forcer tous les éléments parents à être visibles
+            const wrapper = doc.querySelector('.horizontal-wrapper') as HTMLElement
+            if (wrapper) {
+              wrapper.style.overflow = 'visible'
+              wrapper.style.height = 'auto'
+              wrapper.style.maxHeight = 'none'
+              wrapper.style.flexDirection = 'column'
+              wrapper.style.display = 'flex'
+            }
+            const scrollableContent = doc.querySelector('.scrollable-content') as HTMLElement
+            if (scrollableContent) {
+              scrollableContent.style.overflow = 'visible'
+              scrollableContent.style.height = 'auto'
+              scrollableContent.style.maxHeight = 'none'
+            }
+            const areaHorizontal = doc.querySelector('.calendar-area-horizontal') as HTMLElement
+            if (areaHorizontal) {
+              areaHorizontal.style.overflow = 'visible'
+              areaHorizontal.style.height = 'auto'
             }
             const clonedMain = doc.querySelector('.edt-main') as HTMLElement
             if (clonedMain) {
               clonedMain.style.height = 'auto'
               clonedMain.style.overflow = 'visible'
             }
+            
+            // Ajuster les blocs de cours pour une meilleure lisibilité dans le PDF
+            const lessonBlocks = doc.querySelectorAll('.lesson-block-horizontal')
+            lessonBlocks.forEach((block: Element) => {
+              const htmlBlock = block as HTMLElement
+              htmlBlock.style.overflow = 'visible'
+              htmlBlock.style.padding = '4px'
+              
+              // Ajuster le contenu du cours
+              const content = htmlBlock.querySelector('.lesson-content-h') as HTMLElement
+              if (content) {
+                content.style.overflow = 'visible'
+                content.style.gap = '2px'
+              }
+              
+              // Ajuster les titres
+              const titles = htmlBlock.querySelectorAll('.lesson-title-h')
+              titles.forEach((title: Element) => {
+                const htmlTitle = title as HTMLElement
+                htmlTitle.style.fontSize = '9px'
+                htmlTitle.style.lineHeight = '1.1'
+                htmlTitle.style.whiteSpace = 'normal'
+                htmlTitle.style.overflow = 'visible'
+                htmlTitle.style.textOverflow = 'clip'
+                htmlTitle.style.fontWeight = '700'
+              })
+              
+              // Ajuster les métadonnées (prof, salle)
+              const metas = htmlBlock.querySelectorAll('.lesson-meta-h')
+              metas.forEach((meta: Element) => {
+                const htmlMeta = meta as HTMLElement
+                htmlMeta.style.fontSize = '8px'
+                htmlMeta.style.lineHeight = '1.1'
+                htmlMeta.style.whiteSpace = 'normal'
+                htmlMeta.style.overflow = 'visible'
+                htmlMeta.style.textOverflow = 'clip'
+              })
+            })
+            
+            // Ajuster aussi les blocs de cours pour la vue verticale
+            const lessonBlocksVertical = doc.querySelectorAll('.lesson-block')
+            lessonBlocksVertical.forEach((block: Element) => {
+              const htmlBlock = block as HTMLElement
+              htmlBlock.style.overflow = 'visible'
+              htmlBlock.style.padding = '4px'
+              
+              const titles = htmlBlock.querySelectorAll('.lesson-title')
+              titles.forEach((title: Element) => {
+                const htmlTitle = title as HTMLElement
+                htmlTitle.style.fontSize = '10px'
+                htmlTitle.style.lineHeight = '1.2'
+                htmlTitle.style.whiteSpace = 'normal'
+                htmlTitle.style.overflow = 'visible'
+                htmlTitle.style.fontWeight = '700'
+              })
+              
+              const metas = htmlBlock.querySelectorAll('.lesson-meta')
+              metas.forEach((meta: Element) => {
+                const htmlMeta = meta as HTMLElement
+                htmlMeta.style.fontSize = '9px'
+                htmlMeta.style.lineHeight = '1.2'
+                htmlMeta.style.whiteSpace = 'normal'
+                htmlMeta.style.overflow = 'visible'
+              })
+            })
+            
+            // Ajuster les horaires de la vue horizontale
+            const hourHeaders = doc.querySelectorAll('.hour-header')
+            hourHeaders.forEach((header: Element) => {
+              const htmlHeader = header as HTMLElement
+              htmlHeader.style.fontSize = '9px'
+              htmlHeader.style.fontWeight = '700'
+              htmlHeader.style.color = '#000'
+              htmlHeader.style.visibility = 'visible'
+              htmlHeader.style.display = 'flex'
+            })
+            
+            // Ajuster les horaires de la vue verticale
+            const timeCells = doc.querySelectorAll('.cell.time')
+            timeCells.forEach((cell: Element) => {
+              const htmlCell = cell as HTMLElement
+              htmlCell.style.fontSize = '11px'
+              htmlCell.style.fontWeight = '600'
+              htmlCell.style.color = '#374151'
+              htmlCell.style.visibility = 'visible'
+              htmlCell.style.display = 'block'
+            })
+            
+            // S'assurer que le header row est visible (vue horizontale)
+            const headerRow = doc.querySelector('.header-row') as HTMLElement
+            if (headerRow) {
+              headerRow.style.position = 'relative'
+              headerRow.style.display = 'flex'
+              headerRow.style.visibility = 'visible'
+            }
+            
+            // S'assurer que le calendar-header est visible (vue verticale)
+            const calendarHeader = doc.querySelector('.calendar-header') as HTMLElement
+            if (calendarHeader) {
+              calendarHeader.style.position = 'relative'
+              calendarHeader.style.display = 'grid'
+              calendarHeader.style.visibility = 'visible'
+            }
           }
         }).then((canvas: HTMLCanvasElement) => {
           try {
-            const pdf = new jsPDF('l', 'mm', 'a4')  // 'l' = landscape
+            // Utiliser A3 paysage pour les grandes vues horizontales, A4 pour les vues verticales
+            const format = isHorizontalView ? 'a3' : 'a4'
+            const pdf = new jsPDF('l', 'mm', format)
             
-            // Dimensions totales A4 paysage
-            const pageWidth = 297
-            const pageHeight = 210
-            const sideMargin = 2  // marges latérales
-            const topTitleSpace = 12 // espace réservé au titre en haut
-            const bottomMargin = 2
+            // Dimensions selon le format
+            const pageWidth = isHorizontalView ? 420 : 297   // A3: 420mm, A4: 297mm
+            const pageHeight = isHorizontalView ? 297 : 210   // A3: 297mm, A4: 210mm
+            const sideMargin = 3
+            const topTitleSpace = 15
+            const bottomMargin = 3
             const maxWidth = pageWidth - (2 * sideMargin)
             const maxHeight = pageHeight - topTitleSpace - bottomMargin
             
-            // Redimensionner l'image pour qu'elle rentre dans le PDF - MAXIMUM
+            // Calculer les dimensions pour l'image
             const canvasRatio = canvas.width / canvas.height
             let imgWidth = maxWidth
             let imgHeight = imgWidth / canvasRatio
             
+            // Si l'image est trop haute, ajuster
             if (imgHeight > maxHeight) {
               imgHeight = maxHeight
               imgWidth = imgHeight * canvasRatio
@@ -594,17 +739,17 @@ function generatePDF() {
             const x = (pageWidth - imgWidth) / 2
             const y = topTitleSpace
             
-            // Convertir en image JPEG avec bonne qualité
-            const imgData = canvas.toDataURL('image/jpeg', 0.90)
-            pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight)
+            // Convertir en image PNG pour préserver la qualité
+            const imgData = canvas.toDataURL('image/png', 1.0)
+            pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight)
             
             const title = 'EDT Semaine ' + currentWeek.value
             const promo = selectedPromotion.value ? (promotions.value.find(p => p.id === selectedPromotion.value)?.name || '') : ''
-            const grp = selectedGroup.value ? (groups.value.find(g => g.id === selectedGroup.value)?.name || '') : ''
-            const subgrp = selectedSubgroup.value ? ' - ' + selectedSubgroup.value : ''
+            const grp = selectedGroup.value && selectedGroup.value !== 0 ? (groups.value.find(g => g.id === selectedGroup.value)?.name || '') : ''
+            const subgrp = (selectedGroup.value && selectedGroup.value !== 0 && selectedSubgroup.value) ? ' - ' + selectedSubgroup.value : ''
             const fullTitle = title + (promo ? ' - ' + promo : '') + (grp ? ' - ' + grp : '') + subgrp
             
-            pdf.setFontSize(13)
+            pdf.setFontSize(14)
             pdf.text(fullTitle, pageWidth / 2, 8, { align: 'center' })
             
             pdf.save(fullTitle + '.pdf')
