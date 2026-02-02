@@ -72,6 +72,28 @@ services:
         networks:
             - laravel
 
+    generator:
+        build:
+            context: ./generator
+            dockerfile: Dockerfile
+        container_name: laravel-generator
+        restart: always
+        ports:
+            - "5000:5000"
+        volumes:
+            - ./generator:/app:cached
+        environment:
+            - FLASK_ENV=development
+            - DB_HOST=mariadb
+            - DB_DATABASE=${DB_DATABASE:-laravel}
+            - DB_USERNAME=${DB_USERNAME:-laravel}
+            - DB_PASSWORD=${DB_PASSWORD:-secret}
+            - DB_PORT=3306
+        depends_on:
+            - mariadb
+        networks:
+            - laravel
+
 networks:
     laravel:
         driver: bridge

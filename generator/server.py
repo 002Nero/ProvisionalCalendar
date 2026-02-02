@@ -6,15 +6,19 @@ from flask_cors import CORS
 import pandas as pd
 from sqlalchemy import create_engine
 from main import main as generation_main
+import os
 
-WHITELISTED_SERVER_TOKENS = dotenv.get_key('.env', 'WHITELISTED_SERVER_TOKENS').split(',')
-BASE_URL = dotenv.get_key('.env', 'BASE_URL')
-PORT = dotenv.get_key('.env', 'PORT')
-ADDRESS = dotenv.get_key('.env', 'ADDRESS')
+WHITELISTED_SERVER_TOKENS = dotenv.get_key('.env', 'WHITELISTED_SERVER_TOKENS').split(',') if dotenv.get_key('.env', 'WHITELISTED_SERVER_TOKENS') else os.getenv('WHITELISTED_SERVER_TOKENS', '').split(',')
+BASE_URL = dotenv.get_key('.env', 'BASE_URL') or os.getenv('BASE_URL', '/api')
+PORT = dotenv.get_key('.env', 'PORT') or os.getenv('PORT', '5000')
+ADDRESS = dotenv.get_key('.env', 'ADDRESS') or os.getenv('ADDRESS', '0.0.0.0')
 
 DB_CONFIG = {
-        'host': '127.0.0.1', 'database': 'provisional_calendar',
-        'user': 'root', 'password': 'secret', 'port': 3306
+        'host': os.getenv('DB_HOST', '127.0.0.1'),
+        'database': os.getenv('DB_DATABASE', 'provisional_calendar'),
+        'user': os.getenv('DB_USERNAME', 'root'),
+        'password': os.getenv('DB_PASSWORD', 'secret'),
+        'port': int(os.getenv('DB_PORT', '3306'))
     }
 
 DB = create_engine(
