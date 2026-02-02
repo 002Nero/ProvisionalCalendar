@@ -38,20 +38,30 @@ const getId = () => {
 
 const handleDrop = (e: DragEvent) => {
     e.preventDefault();
+    isDragOver.value = false;
+    
     const data = (e.dataTransfer?.getData("text/plain") || '{}');
     const teacherData = JSON.parse(data); // reconvertit en objet
 
-    //const teacherData = JSON.parse(e.dataTransfer?.getData('teacher') || '{}');
-    //console.log('test', JSON.parse(e.dataTransfer?.getData('teacher')));
-    //console.log('Drop event dataTransfer:', e.dataTransfer.getData('id'));
     console.log('Teacher data:', teacherData);
     const groupInfo = getId();
     console.log('Group info:', groupInfo);
-    //teacherData.id=1; // A enlever
 
-    console.log(teacherData.id, groupInfo);
+    if (!teacherData.id) {
+        alert('Erreur: donnée enseignant invalide');
+        return;
+    }
+
+    // Vérifier si on est au niveau d'un groupe TD (pas TP/sous-groupe)
+    // Au niveau TD, il ne devrait pas y avoir de contenu TD/TP directement dropable
+    // Car les TPs se créent au niveau des sous-groupes
+    if (groupInfo && groupInfo.type === SlotType.TD) {
+        alert('Pour ajouter un TP, veuillez le faire directement sur un sous-groupe (A, B, etc.), pas sur le groupe entier.');
+        return;
+    }
+
     if (teacherData.id && groupInfo) {
-        console.log("ça passe ?")
+        console.log("Création du popup avec données valides")
         const popupData = {
             teacherId: teacherData.id,
             type: groupInfo.type,
@@ -61,8 +71,6 @@ const handleDrop = (e: DragEvent) => {
         console.log('Showing popup with data:', popupData);
         calendarStore.showAddCalendarPopup(popupData);
     }
-    
-    isDragOver.value = false;
 };
 
 const cellWidth = computed(() => {

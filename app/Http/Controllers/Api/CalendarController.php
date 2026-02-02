@@ -401,20 +401,40 @@ class CalendarController extends Controller
                               });
                         } else {
                             // Fallback: ancienne logique si les paramètres sont partiels
-                            if ($promotionId) {
+                            // NOTE: Le fallback ne devrait pas s'utiliser en conditions normales.
+                            // Ce code doit être restrictif pour éviter les fuites de données.
+                            if ($promotionId && $groupId && $subgroupId) {
+                                // Cas complet: tous les cours pertinents pour ce sous-groupe
+                                $q->where(function($q2) use ($promotionId, $groupId, $subgroupId) {
+                                    $q2->where('promotion_id', $promotionId)
+                                      ->where(function($q3) use ($groupId, $subgroupId) {
+                                          // CM de la promotion
+                                          $q3->whereNull('group_id')
+                                             // OU TD du groupe
+                                             ->orWhere(function($q4) use ($groupId) {
+                                                 $q4->where('group_id', $groupId)
+                                                    ->whereNull('subgroup_id');
+                                             })
+                                             // OU TP du sous-groupe UNIQUEMENT
+                                             ->orWhere(function($q4) use ($groupId, $subgroupId) {
+                                                 $q4->where('group_id', $groupId)
+                                                    ->where('subgroup_id', $subgroupId);
+                                             });
+                                      });
+                                });
+                            } elseif ($promotionId && $groupId) {
+                                // Promotion + Groupe (sans sous-groupe)
+                                $q->where('promotion_id', $promotionId)
+                                  ->where(function($q2) use ($groupId) {
+                                      $q2->whereNull('group_id')
+                                         ->orWhere('group_id', $groupId);
+                                  });
+                            } elseif ($promotionId) {
+                                // Seulement promotion
                                 $q->where('promotion_id', $promotionId);
-                            }
-                            if ($groupId) {
-                                $q->where(function($q2) use ($groupId) {
-                                    $q2->where('group_id', $groupId)
-                                       ->orWhereNull('group_id');
-                                });
-                            }
-                            if ($subgroupId) {
-                                $q->where(function($q2) use ($subgroupId) {
-                                    $q2->where('subgroup_id', $subgroupId)
-                                       ->orWhereNull('subgroup_id');
-                                });
+                            } else {
+                                // Aucun filtre spécifique ne correspond - retourner vide pour la sécurité
+                                $q->whereRaw('1 = 0');
                             }
                         }
                     });
@@ -685,11 +705,24 @@ class CalendarController extends Controller
                 'room_id' => 'required|exists:rooms,id',
                 'teacher_id' => 'nullable|exists:teachers,id',
                 'teacher_ids' => 'nullable|array',
-                'teacher_ids.*' => 'exists:teachers,id'
+                'teacher_ids.*' => 'exists:teachers,id',
+                'promotion_id' => 'nullable|exists:promotions,id',
+                'group_id' => 'nullable|exists:groups,id',
+                'subgroup_id' => 'nullable|exists:subgroups,id'
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['error' => 'Données invalides', 'messages' => $validator->errors()], 422);
+            }
+
+            // Validation supplémentaire : Pour un TP, group_id et subgroup_id sont obligatoires
+            $type = strtoupper(trim($request->type ?? ''));
+            if ($type === 'TP') {
+                if (empty($request->group_id) || empty($request->subgroup_id)) {
+                    return response()->json([
+                        'error' => 'Un TP doit être associé à un groupe et un sous-groupe. Veuillez le créer sur la cellule d\'un sous-groupe spécifique (A, B, etc.), pas sur le groupe entier.'
+                    ], 422);
+                }
             }
 
             $week = Week::where('year_id', $request->year_id)->where('week_number', $request->week_number)->first();
