@@ -341,9 +341,10 @@ class CalendarController extends Controller
                 ->leftJoin('slots', 'edt_slot.slot_id', '=', 'slots.id')
                 ->leftJoin('weeks', 'slots.week_id', '=', 'weeks.id')
                 ->leftJoin('rooms', 'edt_slot.room_id', '=', 'rooms.id')
+                ->leftJoin('subgroups', 'slots.subgroup_id', '=', 'subgroups.id')
                 ->where('weeks.year_id', $year_id)
                 ->where('weeks.week_number', $week_number)
-                ->select('edt_slot.*', 'rooms.name as room_name');
+                ->select('edt_slot.*', 'rooms.name as room_name', 'subgroups.name as subgroup_name');
 
             // apply ordering only when we have valid expressions
             if (!empty($dayOrderExpr)) {
@@ -372,7 +373,19 @@ class CalendarController extends Controller
                         
                         if ($promotionId && !$groupId && !$subgroup) {
                             // Cas 1: Seulement promotion - afficher tous les slots de la promotion
-                            $q->where('promotion_id', $promotionId);
+                            // ET les TPs des groupes qui appartiennent à la promotion
+                            // Créer une sous-requête pour récupérer les IDs des groupes de la promotion
+                            $groupIds = DB::table('groups')
+                                ->where('promotion_id', $promotionId)
+                                ->pluck('id')
+                                ->toArray();
+                            
+                            $q->where('promotion_id', $promotionId)
+                              ->orWhere(function($q2) use ($groupIds) {
+                                  // Inclure aussi les TPs (qui ont group_id + subgroup_id)
+                                  $q2->whereIn('group_id', $groupIds)
+                                     ->whereNotNull('subgroup_id');
+                              });
                         } elseif ($promotionId && $groupId && !$subgroup) {
                             // Cas 2: Promotion + Groupe - afficher CM de la promo ET TD du groupe
                             $q->where('promotion_id', $promotionId)
@@ -524,6 +537,7 @@ class CalendarController extends Controller
                         'promotion_id' => $slot->promotion_id ?? null,
                         'group_id' => $slot->group_id ?? null,
                         'subgroup_id' => $slot->subgroup_id ?? null,
+                        'subgroup' => property_exists($r, 'subgroup_name') ? $r->subgroup_name : null,
                         'type_id' => $slot->type_id ?? null,
                         'type_acronym' => $slot->type_id && isset($slotTypesAcronyms[$slot->type_id]) ? $slotTypesAcronyms[$slot->type_id] : null,
                         'type_color' => $finalColor,

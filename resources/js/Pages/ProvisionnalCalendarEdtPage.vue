@@ -378,7 +378,7 @@ function shouldDisplayLessonInCell(lesson: Lesson, groupIdx: number, subIdx: num
     return group && lesson.groupId === group.id && subIdx === 0
   } else if (lesson.type === 'TP') {
     const group = currentGroupsWithSubgroups[groupIdx]
-    return group && lesson.subgroup === group.subgroups[subIdx]
+    return group && lesson.groupId === group.id && lesson.subgroup === group.subgroups[subIdx]
   }
   return groupIdx === 0 && subIdx === 0
 }
