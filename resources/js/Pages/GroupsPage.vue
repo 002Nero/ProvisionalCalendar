@@ -12,6 +12,8 @@ const yearId = computed<number | null>(() => {
 })
 const selectedPromotionId = ref<number | undefined>();
 const selectedGroupId = ref<number | undefined>();
+const groupListRefreshKey = ref(0);
+const promotionListRefreshKey = ref(0);
 
 const unselectPromotion = () => {
     selectedPromotionId.value = undefined;
@@ -51,12 +53,18 @@ const handleGroupDeleted = (id: number) => {
         unselectGroup();
     }
 };
+
+const refreshGroupAndPromotionTotals = () => {
+    groupListRefreshKey.value += 1;
+    promotionListRefreshKey.value += 1;
+};
 </script>
 
 <template>
     <AdminLayout>
         <div class="flex gap-10 w-full h-full">
             <PromotionListManager
+                :key="promotionListRefreshKey"
                 v-if="yearId !== null"
                 class="w-full h-full"
                 :yearId="yearId"
@@ -65,6 +73,7 @@ const handleGroupDeleted = (id: number) => {
                 @successfullyDeleted="handlePromotionDeleted"
             />
             <GroupListManager
+                :key="groupListRefreshKey"
                 class="w-full h-full"
                 :promotionId="selectedPromotionId"
                 :selectedGroupId="selectedGroupId"
@@ -74,6 +83,9 @@ const handleGroupDeleted = (id: number) => {
             <SubgroupListManager
                 :groupId="selectedGroupId"
                 class="w-full h-full"
+                @successfullyAdded="refreshGroupAndPromotionTotals"
+                @successfullyEdited="refreshGroupAndPromotionTotals"
+                @successfullyDeleted="refreshGroupAndPromotionTotals"
             />
         </div>
     </AdminLayout>

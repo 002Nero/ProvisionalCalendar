@@ -9,6 +9,7 @@ class Subgroup extends Model
     protected $fillable = [
         'name',
         'group_id',
+        'student_amount',
     ];
 
     protected $with = ['Group.Promotion'];
@@ -17,4 +18,8 @@ class Subgroup extends Model
     {
         return $this->belongsTo(Group::class, 'group_id');
     }
+
+    protected $casts = [
+        'student_amount' => 'integer',
+    ];
 }

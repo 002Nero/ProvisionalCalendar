@@ -47,6 +47,15 @@ const hideAddGroupPopup = () => (isAddGroupPopupVisible.value = false);
 const showEditGroupPopup = (groupId: number) => (groupToEditId.value = groupId);
 const hideEditGroupPopup = () => (groupToEditId.value = undefined);
 
+const withStudentCountLabel = (items: Group[]) =>
+    items.map((item) => ({
+        ...item,
+        name:
+            item.student_amount != null
+                ? `${item.name} (${item.student_amount})`
+                : item.name,
+    }));
+
 const fetchGroups = () => {
     console.debug('GroupListManager.fetchGroups called with promotionId=', props.promotionId)
     if (!props.promotionId) {
@@ -57,7 +66,7 @@ const fetchGroups = () => {
         .getGroups(props.promotionId)
         .then((returnedGroups) => {
             console.debug('GroupListManager: received groups count=', returnedGroups?.length)
-            groups.value = returnedGroups
+            groups.value = withStudentCountLabel(returnedGroups)
         })
         .catch((error) => {
             console.debug('GroupListManager.fetchGroups error', error)

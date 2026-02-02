@@ -16,11 +16,14 @@ class GroupController extends Controller
     {
         try {
             $groups = Group::where('promotion_id', $promotion_id)
+                ->with('subgroups')
                 ->get()
                 ->map(function ($group) {
+                    $studentCount = $group->subgroups->sum('student_amount');
                     return [
                         'id' => $group->id,
                         'name' => $group->name,
+                        'student_amount' => $studentCount,
                     ];
                 });
 
@@ -47,7 +50,8 @@ class GroupController extends Controller
 
             return response()->json([
                 'id' => $group->id,
-                'name' => $group->name
+                'name' => $group->name,
+                'student_amount' => $group->subgroups->sum('student_amount'),
             ]);
 
         } catch (\Exception $e) {

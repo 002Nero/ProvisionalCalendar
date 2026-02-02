@@ -10,6 +10,7 @@ class Promotion extends Model
     protected $fillable = [
         'name',
         'year_id',
+        'student_amount',
     ];
 
     public function groups()
@@ -21,4 +22,8 @@ class Promotion extends Model
     {
         return $this->belongsTo(Year::class);
     }
+
+    protected $casts = [
+        'student_amount' => 'integer',
+    ];
 }

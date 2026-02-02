@@ -55,6 +55,15 @@ const hideEditPromotionPopup = () => (promotionToEditId.value = undefined);
 
 const showError = (error: string) => (errorMessage.value = error);
 
+const withStudentCountLabel = (items: Promotion[]) =>
+    items.map((item) => ({
+        ...item,
+        name:
+            item.student_amount != null
+                ? `${item.name} (${item.student_amount})`
+                : item.name,
+    }));
+
 const fetchPromotions = () => {
     console.debug('PromotionListManager.fetchPromotions called with yearId=', props.yearId)
     promotionService
@@ -62,7 +71,7 @@ const fetchPromotions = () => {
         .then(
             (returnedPromotions: Promotion[]) => {
                 console.debug('PromotionListManager: received promotions count=', returnedPromotions?.length)
-                promotions.value = returnedPromotions
+                promotions.value = withStudentCountLabel(returnedPromotions)
             }
         )
         .catch((err) => {

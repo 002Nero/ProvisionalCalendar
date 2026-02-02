@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Groups;
 use App\Http\Controllers\Controller;
 use App\Models\Groups\Group;
 use App\Models\Groups\Subgroup;
+use App\Models\Groups\Promotion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,6 +20,7 @@ class SubgroupController extends Controller
                     return [
                         'id' => $subgroup->id,
                         'name' => $subgroup->name,
+                        'student_amount' => $subgroup->student_amount ?? 0,
                     ];
                 });
 
@@ -29,6 +31,7 @@ class SubgroupController extends Controller
                         return [
                             'id' => $subgroup->id,
                             'name' => $subgroup->name,
+                            'student_amount' => $subgroup->student_amount ?? 0,
                         ];
                     });
 
@@ -58,7 +61,8 @@ class SubgroupController extends Controller
 
             return response()->json([
                 'id' => $subgroup->id,
-                'name' => $subgroup->name
+                'name' => $subgroup->name,
+                'student_amount' => $subgroup->student_amount ?? 0,
             ]);
 
         } catch (\Exception $e) {
@@ -74,6 +78,7 @@ class SubgroupController extends Controller
         try {
             $request->validate([
                 'name' => 'required|string|max:255',
+                'student_amount' => 'nullable|integer|min:0',
             ]);
 
             $groupExists = Group::find($group);
@@ -95,12 +100,16 @@ class SubgroupController extends Controller
 
             $subgroup = Subgroup::create([
                 'name' => $request->name,
-                'group_id' => $group
+                'group_id' => $group,
+                'student_amount' => $request->input('student_amount', 0),
             ]);
+
+            $this->recalculateGroupAndPromotionTotals($group);
 
             return response()->json([
                 'id' => $subgroup->id,
-                'name' => $subgroup->name
+                'name' => $subgroup->name,
+                'student_amount' => $subgroup->student_amount ?? 0,
             ], 201);
 
         } catch (\Exception $e) {
@@ -116,6 +125,7 @@ class SubgroupController extends Controller
         try {
             $request->validate([
                 'name' => 'required|string|max:255',
+                'student_amount' => 'nullable|integer|min:0',
             ]);
 
             // Vérifie si le sous-groupe existe
@@ -139,15 +149,19 @@ class SubgroupController extends Controller
             }
 
             $subgroupToUpdate->update([
-                'name' => $request->name
+                'name' => $request->name,
+                'student_amount' => $request->input('student_amount', $subgroupToUpdate->student_amount ?? 0),
             ]);
+
+            $this->recalculateGroupAndPromotionTotals($subgroupToUpdate->group_id);
 
             return response()->json([
                 'message' => 'Sous-groupe modifié avec succès',
                 'subgroup' => [
                     'id' => $subgroupToUpdate->id,
                     'name' => $subgroupToUpdate->name,
-                    'group_id' => $subgroupToUpdate->group_id
+                    'group_id' => $subgroupToUpdate->group_id,
+                    'student_amount' => $subgroupToUpdate->student_amount ?? 0,
                 ]
             ]);
 
@@ -173,6 +187,8 @@ class SubgroupController extends Controller
 
             $subgroupToDelete->delete();
 
+            $this->recalculateGroupAndPromotionTotals($subgroupToDelete->group_id);
+
             return response()->json([]);
 
         } catch (\Exception $e) {
@@ -180,6 +196,32 @@ class SubgroupController extends Controller
                 'error' => 'Une erreur est survenue',
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    protected function recalculateGroupAndPromotionTotals(?int $groupId): void
+    {
+        if (!$groupId) {
+            return;
+        }
+
+        $group = Group::with(['subgroups', 'promotion.groups.subgroups'])->find($groupId);
+        if (!$group) {
+            return;
+        }
+
+        $groupStudentAmount = $group->subgroups->sum('student_amount');
+        $group->update([
+            'student_amount' => $groupStudentAmount,
+        ]);
+
+        if ($group->promotion) {
+            $promotionStudentAmount = $group->promotion->groups->sum(function ($grp) {
+                return $grp->subgroups->sum('student_amount');
+            });
+            $group->promotion->update([
+                'student_amount' => $promotionStudentAmount,
+            ]);
         }
     }
 }

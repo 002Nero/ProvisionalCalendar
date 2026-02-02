@@ -14,20 +14,33 @@ import { MESSAGES } from "@/constants";
 import { ref } from "vue";
 import ErrorPopup from "@/Features/Popups/ErrorPopup.vue";
 import { useSubgroupService } from "@/services/groups/subgroupService";
+import { FormInputType } from "@/types/models/utils";
 
 const props = defineProps<{ groupId: number }>();
 
 const emit = defineEmits(["successfullyAdded", "edited"]);
 
 const subgroupService = useSubgroupService();
-const subgroup = ref<Subgroup>({ id: 0, name: "" });
+const subgroup = ref<Subgroup>({ id: 0, name: "", student_amount: 0 });
 const nameError = ref<string | undefined>();
+const studentCountError = ref<string | undefined>();
 
 const errorMessage = ref<string | undefined>();
 
 const updateName = (value: string) => {
     nameError.value = undefined;
     subgroup.value.name = value;
+    emit("edited");
+};
+
+const updateStudentCount = (value: string) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed) || parsed < 0) {
+        studentCountError.value = "Le nombre d'élèves doit être un entier positif.";
+        return;
+    }
+    studentCountError.value = undefined;
+    subgroup.value.student_amount = Math.floor(parsed);
     emit("edited");
 };
 
@@ -38,6 +51,14 @@ const resetErrorMessage = () => (errorMessage.value = undefined);
 const handleAdd = () => {
     if (subgroup.value.name.trim() === "") {
         nameError.value = MESSAGES.EMPTY_SUBGROUP_NAME_ERROR_MESSAGE;
+        return;
+    }
+    if (
+        subgroup.value.student_amount == null ||
+        Number.isNaN(subgroup.value.student_amount) ||
+        subgroup.value.student_amount < 0
+    ) {
+        studentCountError.value = "Le nombre d'élèves doit être un entier positif.";
         return;
     }
     subgroupService
@@ -54,6 +75,13 @@ const handleAdd = () => {
             :value="subgroup.name"
             :error="nameError"
             @input="updateName($event.target.value)"
+        />
+        <FormInput
+            label="Nombre d'élèves"
+            :value="subgroup.student_amount"
+            :error="studentCountError"
+            :type="FormInputType.NUMBER"
+            @input="updateStudentCount($event.target.value)"
         />
         <FormButton class="bg-green-500 text-white" @click="handleAdd"
             >Ajouter</FormButton

@@ -20,6 +20,7 @@ import { ref } from "vue";
 import ErrorPopup from "@/Features/Popups/ErrorPopup.vue";
 import DeleteConfirmationPopup from "@/Features/Popups/DeleteConfirmationPopup.vue";
 import { useSubgroupService } from "@/services/groups/subgroupService";
+import { FormInputType } from "@/types/models/utils";
 
 const props = defineProps<{ subgroup: Subgroup }>();
 
@@ -32,6 +33,11 @@ const emit = defineEmits([
 const subgroupService = useSubgroupService();
 const editedSubgroup = ref<Subgroup>(props.subgroup);
 const nameError = ref<string | undefined>();
+const studentCountError = ref<string | undefined>();
+
+if (editedSubgroup.value.student_amount == null) {
+    editedSubgroup.value.student_amount = 0;
+}
 
 const errorMessage = ref<string | undefined>();
 
@@ -48,6 +54,17 @@ const updateName = (value: string) => {
     emit("edited");
 };
 
+const updateStudentCount = (value: string) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed) || parsed < 0) {
+        studentCountError.value = "Le nombre d'élèves doit être un entier positif.";
+        return;
+    }
+    studentCountError.value = undefined;
+    editedSubgroup.value.student_amount = Math.floor(parsed);
+    emit("edited");
+};
+
 const showErrorPopup = (error: string) => (errorMessage.value = error);
 
 const resetErrorMessage = () => {
@@ -57,6 +74,14 @@ const resetErrorMessage = () => {
 const handleEdit = () => {
     if (editedSubgroup.value.name.trim() === "") {
         nameError.value = MESSAGES.EMPTY_SUBGROUP_NAME_ERROR_MESSAGE;
+        return;
+    }
+    if (
+        editedSubgroup.value.student_amount == null ||
+        Number.isNaN(editedSubgroup.value.student_amount) ||
+        editedSubgroup.value.student_amount < 0
+    ) {
+        studentCountError.value = "Le nombre d'élèves doit être un entier positif.";
         return;
     }
     subgroupService
@@ -82,6 +107,13 @@ const handleDelete = () => {
             :value="editedSubgroup.name"
             :error="nameError"
             @input="updateName($event.target.value)"
+        />
+        <FormInput
+            label="Nombre d'élèves"
+            :value="editedSubgroup.student_amount"
+            :error="studentCountError"
+            :type="FormInputType.NUMBER"
+            @input="updateStudentCount($event.target.value)"
         />
         <div class="flex gap-4 w-full">
             <FormButton

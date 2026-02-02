@@ -10,6 +10,7 @@ class Group extends Model
     protected $fillable = [
         'name',
         'promotion_id',
+        'student_amount',
     ];
 
     public function promotion()
@@ -21,6 +22,10 @@ class Group extends Model
     {
         return $this->hasMany(Subgroup::class);
     }
+
+    protected $casts = [
+        'student_amount' => 'integer',
+    ];
 
     public function slots()
     {

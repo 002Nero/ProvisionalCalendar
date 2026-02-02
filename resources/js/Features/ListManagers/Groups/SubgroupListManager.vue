@@ -50,6 +50,15 @@ const hideEditSubgroupPopup = () => (subgroupToEditId.value = undefined);
 const showErrorPopup = (error: string) => (errorMessage.value = error);
 const resetErrorMessage = () => (errorMessage.value = undefined);
 
+const withStudentCountLabel = (items: Subgroup[]) =>
+    items.map((item) => ({
+        ...item,
+        name:
+            item.student_amount != null
+                ? `${item.name} (${item.student_amount})`
+                : item.name,
+    }));
+
 const fetchSubgroups = () =>
     ((): void => {
         console.debug('SubgroupListManager.fetchSubgroups called with groupId=', props.groupId)
@@ -69,7 +78,7 @@ const fetchSubgroups = () =>
                             { id: -2, name: 'B' },
                         ] as any;
                     } else {
-                        subgroups.value = returnedSubgroups
+                        subgroups.value = withStudentCountLabel(returnedSubgroups)
                     }
                 }
             )

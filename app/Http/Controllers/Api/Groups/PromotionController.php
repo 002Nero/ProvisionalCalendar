@@ -21,11 +21,16 @@ class PromotionController extends Controller
             }
 
             $promotions = Promotion::where('year_id', $year_id)
+                ->with('groups.subgroups')
                 ->get()
                 ->map(function ($promotion) {
+                    $studentCount = $promotion->groups->sum(function ($group) {
+                        return $group->subgroups->sum('student_amount');
+                    });
                     return [
                         'id' => $promotion->id,
                         'name' => $promotion->name,
+                        'student_amount' => $studentCount,
                     ];
                 });
 
@@ -52,7 +57,10 @@ class PromotionController extends Controller
 
             return response()->json([
                 'id' => $promotion->id,
-                'name' => $promotion->name
+                'name' => $promotion->name,
+                'student_amount' => $promotion->groups->sum(function ($group) {
+                    return $group->subgroups->sum('student_amount');
+                }),
             ]);
 
         } catch (\Exception $e) {
