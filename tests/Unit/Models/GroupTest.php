@@ -15,7 +15,7 @@ class GroupTest extends WithoutDatabaseTestCase
     {
         $group = new Group();
 
-        $this->assertSame(['name', 'promotion_id'], $group->getFillable());
+        $this->assertSame(['name', 'promotion_id', 'student_amount'], $group->getFillable());
     }
 
     public function test_relations_types()

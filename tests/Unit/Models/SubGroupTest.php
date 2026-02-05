@@ -12,7 +12,7 @@ class SubgroupTest extends WithoutDatabaseTestCase
     {
         $subgroup = new Subgroup();
 
-        $this->assertSame(['name', 'group_id'], $subgroup->getFillable());
+        $this->assertSame(['name', 'group_id', 'student_amount'], $subgroup->getFillable());
     }
 
     public function test_relation_type_and_with_property()

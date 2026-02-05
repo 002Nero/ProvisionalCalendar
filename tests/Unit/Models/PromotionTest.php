@@ -13,7 +13,7 @@ class PromotionTest extends WithoutDatabaseTestCase
     {
         $promotion = new Promotion();
 
-        $this->assertSame(['name', 'year_id'], $promotion->getFillable());
+        $this->assertSame(['name', 'year_id', 'student_amount'], $promotion->getFillable());
     }
 
     public function test_relations_types()
