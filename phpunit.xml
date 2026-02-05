@@ -18,6 +18,7 @@
             <directory>app/Services</directory>
             <directory>app/Mail</directory>
             <directory>app/Providers</directory>
+            <directory>app/Http/Controllers</directory>
         </include>
     </source>
     <php>
