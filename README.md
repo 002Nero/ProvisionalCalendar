@@ -14,13 +14,14 @@ Application de gestion de calendrier provisoire développée avec Laravel et Vue
 - Git
 
 ### Cloner le projet
+
 ```bash
-git clone https://github.com/0wme/ProvisionalCalendar.git
+git clone https://github.com/002Nero/ProvisionalCalendar.git
 cd provisionnal-calendar
 ```
 
-
 ### Lancer le projet
+
 ```bash
 docker compose up -d --build
 ```
@@ -39,26 +40,31 @@ L'application utilise plusieurs services Docker :
 ## Commandes utiles
 
 - **Arrêter l'environnement**
+
 ```bash
 docker compose down
 ```
 
 - **Voir les logs**
+
 ```bash
 docker compose logs -f
 ```
 
 - **Voir les logs d'un service spécifique**
+
 ```bash
 docker compose logs -f generator
 ```
 
 - **Lancer un shell dans le conteneur de l'application php**
+
 ```bash
 docker compose exec app bash
 ```
 
 - **Lancer un shell dans le conteneur du générateur Python**
+
 ```bash
 docker compose exec generator bash
 ```
@@ -66,15 +72,17 @@ docker compose exec generator bash
 ## Résolution des problèmes courants
 
 ### Les modifications Vue.js ou composer ne sont pas prises en compte
+
 # TODO: Permettre au cache de se rafraîchir automatiquement
+
 Supprimer les dossiers vendor et node_modules ainsi que les volumes `provisionalcalendar_node_modules` et `provisionalcalendar_vendor`
+
 ```bash
 docker compose down
 docker volume rm provisionalcalendar_node_modules provisionalcalendar_vendor
 rm -rf vendor node_modules
 docker compose up -d --build
 ```
-
 
 ## Générateur d'emplois du temps
 
@@ -88,6 +96,7 @@ Le serveur Python de génération d'emplois du temps est disponible sur le port 
 ### Configuration
 
 Le générateur utilise les variables d'environnement suivantes :
+
 - `DB_HOST` : Hôte de la base de données (mariadb)
 - `DB_DATABASE` : Nom de la base de données
 - `DB_USERNAME` : Utilisateur de la base de données
